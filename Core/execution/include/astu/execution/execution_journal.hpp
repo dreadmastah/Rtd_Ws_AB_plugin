@@ -16,10 +16,10 @@
 #include "astu/ipc/simulation_protocol.hpp"
 
 #ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
+#include <fcntl.h>
+#include <io.h>
+#include <share.h>
+#include <sys/stat.h>
 #endif
 
 namespace astu::execution {
@@ -159,37 +159,36 @@ private:
 
     void append_durable(const std::string& line) {
 #ifdef _WIN32
+        int fd = -1;
         const std::wstring wide = path_.wstring();
-        HANDLE handle = CreateFileW(
+        const errno_t open_error = _wsopen_s(
+            &fd,
             wide.c_str(),
-            FILE_APPEND_DATA,
-            FILE_SHARE_READ,
-            nullptr,
-            OPEN_ALWAYS,
-            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH,
-            nullptr);
-        if (handle == INVALID_HANDLE_VALUE) {
-            throw std::runtime_error("CreateFileW execution journal failed");
+            _O_WRONLY | _O_CREAT | _O_APPEND | _O_BINARY,
+            _SH_DENYWR,
+            _S_IREAD | _S_IWRITE);
+        if (open_error != 0 || fd < 0) {
+            throw std::runtime_error("open execution journal failed");
         }
 
         const char* ptr = line.data();
         std::size_t remaining = line.size();
         bool ok = true;
         while (remaining > 0) {
-            const DWORD chunk = static_cast<DWORD>(
+            const unsigned int chunk = static_cast<unsigned int>(
                 remaining > 0x7fffffffU ? 0x7fffffffU : remaining);
-            DWORD written = 0;
-            if (!WriteFile(handle, ptr, chunk, &written, nullptr) || written == 0) {
+            const int written = _write(fd, ptr, chunk);
+            if (written <= 0) {
                 ok = false;
                 break;
             }
             ptr += written;
-            remaining -= written;
+            remaining -= static_cast<std::size_t>(written);
         }
         if (ok) {
-            ok = FlushFileBuffers(handle) != 0;
+            ok = _commit(fd) == 0;
         }
-        CloseHandle(handle);
+        _close(fd);
         if (!ok) {
             throw std::runtime_error("durable execution journal append failed");
         }
