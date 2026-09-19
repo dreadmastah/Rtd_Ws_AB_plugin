@@ -31,6 +31,27 @@ If the manifest fails verification, a symbol has no completed-1m watermark, or t
 
 This is a compatibility identity for the current R2 data path, not a claim that the existing DLL internally implements the later Architecture R3.1 publication-generation mechanism.
 
+## Live WSRTD -> execution simulation path
+
+The stack now publishes two local runtime layers:
+
+- `runtime/market_status.v1.json` from the Binance/WSRTD server, containing socket/data freshness, receiver presence and whether the current process has completed the bounded 1500-M1 + 300-EOD full receiver hydration for each symbol.
+- `runtime/autotrader_status/<SYMBOL>.json` from `identity_bridge.py`, combining market readiness with the verified universe identity and completed-1m data generation.
+
+`LiveStatusProvider` reads the per-symbol flat status file. The execution pipe host uses this provider by default and fails closed when the file is missing, stale, malformed, not live/fresh, not hydrated, or has unavailable identity.
+
+The runtime `cacheReady` flag is a compatibility readiness signal derived from an observed successful full bounded receiver hydration in the current WSRTD server process. It is not a direct DLL-memory cache inspection.
+
+The account/risk provider remains synthetic in this phase, and order routing remains disabled.
+
+Windows live integration smoke:
+
+```cmd
+Core\tools\run_pipe_live_smoke.cmd
+```
+
+This launches the execution host in live-WSRTD-status mode, builds the signal identity from the same runtime DataStatus, sends it over the Named Pipe, and expects `ORDER_ROUTING_DISABLED`.
+
 ## Build and test
 
 From an x64 Visual Studio Developer Command Prompt or another CMake C++20 environment:
@@ -51,4 +72,4 @@ The expected terminal message contains `SIMULATION_ONLY` and `order routing ... 
 
 ## Current next implementation step
 
-The identity compatibility boundary is now defined. The next useful increment is the local Trade.dll/Execution.exe IPC simulation path: canonical serialization, bounded framing, request/response IDs, CRC/integrity validation, and duplicate/idempotency rejection while keeping order routing disabled.
+The public-data identity/readiness path and local Trade-to-Execution simulation transport are now connected. The next major increment is the execution journal plus durable idempotency/replay state, followed by a private-account gateway abstraction kept disconnected from order submission until its reconciliation and risk gates are implemented.
