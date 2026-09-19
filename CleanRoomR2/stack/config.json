@@ -38,5 +38,11 @@
     "eod_target_bars": 300,
     "preflight_retry_initial_seconds": 2,
     "preflight_retry_max_seconds": 60
+  },
+  "identity_bridge": {
+    "enabled": true,
+    "manifest_file": "universe_identity.v1.json",
+    "output_file": "runtime/data_identity.v1.json",
+    "poll_seconds": 1.0
   }
 }
