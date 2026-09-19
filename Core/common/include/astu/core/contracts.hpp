@@ -77,6 +77,20 @@ struct AccountRiskSnapshot {
     std::uint32_t max_open_positions{0};
 };
 
+struct InstrumentConstraints {
+    std::uint32_t schema_version{1};
+    bool ready{false};
+    std::string source;
+    std::string symbol;
+    double price_tick{0.0};
+    double quantity_step{0.0};
+    double min_quantity{0.0};
+    double max_quantity{0.0};
+    double min_notional{0.0};
+    double max_notional{0.0};
+    std::string detail;
+};
+
 enum class DecisionCode : int {
     SimulatedAccepted = 0,
     InvalidIntent = 10,
@@ -88,6 +102,9 @@ enum class DecisionCode : int {
     Expired = 25,
     AccountNotReconciled = 30,
     RiskBlocked = 31,
+    InstrumentUnavailable = 32,
+    FilterRejected = 33,
+    SizingRejected = 34,
     OrderRoutingDisabled = 100,
     DuplicateRequest = 110,
     FrameInvalid = 120,
@@ -98,6 +115,7 @@ struct SimulationDecision {
     bool accepted_for_simulation{false};
     bool would_increase_exposure{false};
     double simulated_quantity{0.0};
+    double simulated_notional{0.0};
     std::string reason;
 };
 
