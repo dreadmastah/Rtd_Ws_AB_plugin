@@ -1,0 +1,84 @@
+name: Core Simulation CI
+
+on:
+  push:
+    branches:
+      - chatgpt/core-autotrader-scaffold-sim-only
+  pull_request:
+    paths:
+      - "Core/**"
+      - "CleanRoomR2/stack/identity_bridge.py"
+      - "CleanRoomR2/stack/universe_identity.v1.json"
+      - "CleanRoomR2/stack/config.json"
+      - ".github/workflows/core-sim.yml"
+
+jobs:
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S Core -B build/core
+
+      - name: Build
+        run: cmake --build build/core --config Release
+
+      - name: Test core
+        run: ctest --test-dir build/core -C Release --output-on-failure
+
+      - name: Compile identity bridge
+        run: python -m py_compile CleanRoomR2/stack/identity_bridge.py
+
+      - name: Identity bridge one-shot
+        shell: bash
+        run: |
+          mkdir -p CleanRoomR2/stack/runtime
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          base = Path("CleanRoomR2/stack")
+          symbols = [
+              line.strip().upper()
+              for line in (base / "bootstrap_symbols.tls").read_text(encoding="utf-8-sig").splitlines()
+              if line.strip() and not line.lstrip().startswith("#")
+          ]
+          state = {
+              "version": 1,
+              "saved_utc": "2026-09-19T00:00:00+00:00",
+              "symbols": {
+                  symbol: {
+                      "last_completed_1m_open_ms": 1789824780000,
+                      "last_completed_eod_date": 20260918,
+                      "updated_utc": "2026-09-19T00:00:00+00:00",
+                  }
+                  for symbol in symbols
+              },
+          }
+          (base / "runtime" / "recovery_state.json").write_text(
+              json.dumps(state, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
+          python CleanRoomR2/stack/identity_bridge.py --once
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("CleanRoomR2/stack/runtime/data_identity.v1.json")
+          obj = json.loads(p.read_text(encoding="utf-8"))
+          assert obj["identityReady"] is True
+          assert obj["universeVersion"] == 1
+          assert obj["generationKind"] == "WSRTD_R2_COMPLETED_M1_OPEN_MS"
+          assert len(obj["symbols"]) == 12
+          assert all(x["identityReady"] for x in obj["symbols"].values())
+          print("IDENTITY_BRIDGE_TEST=PASS")
+          PY
+
+      - name: Windows Named Pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_pipe_smoke.cmd
