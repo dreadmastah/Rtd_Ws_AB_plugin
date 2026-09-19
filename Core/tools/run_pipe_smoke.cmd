@@ -18,7 +18,7 @@ if not exist "%CLIENT%" (
   exit /b 2
 )
 
-start "ASTU Execution Simulation Host" /b "%HOST%"
+start "ASTU Execution Simulation Host" /b "%HOST%" --synthetic
 timeout /t 1 /nobreak >nul
 "%CLIENT%"
 set RC=%ERRORLEVEL%
