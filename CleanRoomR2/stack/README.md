@@ -111,6 +111,10 @@ Remove:
 uninstall_recovery_autostart.cmd
 ```
 
+### Intentional maintenance stop
+
+`stop_wsrtd_stack.cmd` writes `runtime\\maintenance_pause` before stopping the supervisor. The logon/watchdog path respects that marker and will not restart the stack during intentional maintenance. Running `launch_wsrtd_stack.cmd WSRTD` clears the marker and resumes automatic recovery.
+
 ## Recovery evidence
 
 Look in `logs\server_supervisor.log` for:
