@@ -30,9 +30,35 @@ if(WIN32)
         trade_plugin/src/live_execution_pipe_client_smoke.cpp
     )
     target_link_libraries(astu_trade_pipe_live_smoke PRIVATE astu_core)
+
+    add_library(
+        astu_trade_amibroker
+        SHARED
+        trade_plugin/src/astu_trade_plugin.cpp
+    )
+    target_link_libraries(astu_trade_amibroker PRIVATE astu_core)
+    set_target_properties(
+        astu_trade_amibroker
+        PROPERTIES
+        OUTPUT_NAME "AstuTrade"
+        PREFIX ""
+    )
+
+    add_executable(
+        astu_trade_amibroker_exports_smoke
+        trade_plugin/src/amibroker_plugin_exports_smoke.cpp
+    )
+    target_link_libraries(astu_trade_amibroker_exports_smoke PRIVATE astu_core)
 endif()
 
 enable_testing()
 add_executable(astu_core_tests tests/core_sim_tests.cpp)
 target_link_libraries(astu_core_tests PRIVATE astu_core)
 add_test(NAME astu_core_tests COMMAND astu_core_tests)
+
+if(WIN32)
+    add_test(
+        NAME astu_trade_amibroker_exports
+        COMMAND astu_trade_amibroker_exports_smoke $<TARGET_FILE:astu_trade_amibroker>
+    )
+endif()
