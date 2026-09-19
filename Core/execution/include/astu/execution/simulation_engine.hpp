@@ -18,7 +18,9 @@ public:
         using astu::core::SimulationDecision;
 
         if (intent.schema_version != 1 || intent.signal_id.empty() ||
-            intent.symbol.empty() || intent.trigger_price <= 0.0) {
+            intent.symbol.empty() || intent.universe_id.empty() ||
+            intent.universe_version == 0 || intent.data_generation == 0 ||
+            intent.trigger_price <= 0.0) {
             return {DecisionCode::InvalidIntent, false,
                     astu::core::increases_exposure(intent.action), 0.0,
                     "invalid SignalIntent"};
@@ -38,16 +40,17 @@ public:
                     astu::core::increases_exposure(intent.action), 0.0,
                     "WSRTD data is not live/fresh/cache-ready for symbol"};
         }
-        if (!data.identity_ready || !data.universe_version.has_value() ||
-            !data.data_generation.has_value()) {
+        if (!data.identity_ready || !data.universe_id.has_value() ||
+            !data.universe_version.has_value() || !data.data_generation.has_value()) {
             return {DecisionCode::IdentityUnavailable, false,
                     astu::core::increases_exposure(intent.action), 0.0,
                     "universe/data identity unavailable; fail closed"};
         }
-        if (*data.universe_version != intent.universe_version) {
+        if (*data.universe_id != intent.universe_id ||
+            *data.universe_version != intent.universe_version) {
             return {DecisionCode::UniverseMismatch, false,
                     astu::core::increases_exposure(intent.action), 0.0,
-                    "universeVersion mismatch"};
+                    "universe identity/version mismatch"};
         }
         if (*data.data_generation != intent.data_generation) {
             return {DecisionCode::DataGenerationMismatch, false,
@@ -95,16 +98,13 @@ public:
 
 class PositionSizer {
 public:
-    // Deliberately conservative placeholder. Exact quantityModel semantics are
-    // an open implementation decision in the authority documents; the scaffold
-    // does not invent a production sizing policy.
     static double simulate_quantity(
         const astu::core::SignalIntent& intent,
         const astu::core::AccountRiskSnapshot& risk) {
         if (intent.trigger_price <= 0.0 || risk.risk_capital <= 0.0) {
             return 0.0;
         }
-        constexpr double kSyntheticRiskFraction = 0.001;  // test-only sentinel
+        constexpr double kSyntheticRiskFraction = 0.001;
         return (risk.risk_capital * kSyntheticRiskFraction) / intent.trigger_price;
     }
 };
