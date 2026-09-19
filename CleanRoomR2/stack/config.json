@@ -1,0 +1,28 @@
+{
+  "relay": {
+    "host": "127.0.0.1",
+    "port": 10101,
+    "auth_code": "",
+    "max_message_bytes": 8388608,
+    "send_timeout_seconds": 5
+  },
+  "binance": {
+    "rest_base": "https://fapi.binance.com",
+    "market_ws": "wss://fstream.binance.com/market/ws",
+    "public_ws": "wss://fstream.binance.com/public/ws",
+    "kline_interval": "1m",
+    "publish_interval_ms": 250,
+    "open_interest_poll_seconds": 30,
+    "request_timeout_seconds": 15,
+    "full_backfill_days": 2,
+    "max_backfill_days": 2,
+    "rest_page_limit": 1500,
+    "fail_closed_bootstrap": true,
+    "eod_backfill_days": 301
+  },
+  "launcher": {
+    "restart_delay_seconds": 3,
+    "start_amibroker": false,
+    "amibroker_exe": "C:\\Program Files\\AmiBroker\\Broker.exe"
+  }
+}
