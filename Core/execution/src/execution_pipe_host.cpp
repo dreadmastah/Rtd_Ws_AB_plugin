@@ -131,8 +131,8 @@ int main(int argc, char** argv) {
         });
 
     astu::execution::ExecutionPipeServer server(std::move(dispatcher));
-    std::cout << "Execution simulation pipe host listening on "
-              << "\\.\pipe\AstuExecutionSim.v1" << "\n";
+    std::wcout << L"Execution simulation pipe host listening on "
+               << astu::ipc::kExecutionPipeName << L"\n";
     std::cout << "ORDER_ROUTING_ENABLED=false\n";
     std::cout << "DATA_PROVIDER=" << (synthetic ? "SYNTHETIC" : "WSRTD_LIVE_STATUS")
               << "\n";
