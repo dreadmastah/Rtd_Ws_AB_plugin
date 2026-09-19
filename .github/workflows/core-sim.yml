@@ -38,6 +38,7 @@ jobs:
           python -m py_compile CleanRoomR2/stack/identity_bridge.py
           python -m py_compile Core/account/binance_usdm_readonly_gateway.py
           python -m py_compile Core/stack/autotrader_sim_launcher.py
+          python -m py_compile Core/instrument/binance_usdm_instrument_rules.py
 
       - name: Identity bridge one-shot
         shell: bash
@@ -134,6 +135,26 @@ jobs:
           print("READONLY_ACCOUNT_FIXTURE=PASS")
           PY
 
+      - name: Public instrument rules fixture
+        shell: bash
+        run: |
+          python Core/instrument/binance_usdm_instrument_rules.py --once \
+            --fixture Core/instrument/tests/fixtures/binance_usdm_exchange_info_btc.json \
+            --output-dir Core/runtime/instrument_constraints \
+            --symbols BTCUSDT
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("Core/runtime/instrument_constraints/BTCUSDT.json")
+          obj = json.loads(p.read_text(encoding="utf-8"))
+          assert obj["ready"] is True
+          assert obj["source"] == "BINANCE_USDM_EXCHANGE_INFO"
+          assert abs(obj["priceTick"] - 0.1) < 1e-12
+          assert abs(obj["quantityStep"] - 0.001) < 1e-12
+          assert abs(obj["minNotional"] - 5.0) < 1e-12
+          print("INSTRUMENT_RULES_FIXTURE=PASS")
+          PY
+
       - name: Windows Named Pipe smoke
         if: runner.os == 'Windows'
         shell: cmd
@@ -143,6 +164,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_pipe_live_smoke.cmd
+
+      - name: Windows strict instrument filter pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_instrument_filter_pipe_smoke.cmd
 
       - name: Windows restart reconciliation smoke
         if: runner.os == 'Windows'
