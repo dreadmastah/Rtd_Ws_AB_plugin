@@ -88,6 +88,20 @@ AmiVar astu_simulate(int num_args, AmiVar* args) {
             static_cast<int>(DecisionCode::InvalidIntent)));
     }
 
+    for (int i = 0; i < 6; ++i) {
+        if (args[i].type != astu::trade::amibroker::VarString) {
+            gLastDecision.store(static_cast<int>(DecisionCode::InvalidIntent));
+            return float_result(static_cast<float>(
+                static_cast<int>(DecisionCode::InvalidIntent)));
+        }
+    }
+    if (args[6].type != astu::trade::amibroker::VarFloat ||
+        args[7].type != astu::trade::amibroker::VarFloat) {
+        gLastDecision.store(static_cast<int>(DecisionCode::InvalidIntent));
+        return float_result(static_cast<float>(
+            static_cast<int>(DecisionCode::InvalidIntent)));
+    }
+
     try {
         const std::string symbol = bounded_string(args[0].string, 32);
         const std::string action_text = bounded_string(args[1].string, 16);
