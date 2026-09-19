@@ -417,7 +417,11 @@ class App:
         uri = MARKET_WS if kind == "market" else PUBLIC_WS
         lock = self.market_send_lock if kind == "market" else self.public_send_lock
         backoff = 1.0
+        connection_seq = 0
         while not self.stop.is_set():
+            connected_monotonic: float | None = None
+            message_count = 0
+            connection_seq += 1
             try:
                 async with connect(
                     uri,
@@ -427,6 +431,7 @@ class App:
                     max_size=4 * 1024 * 1024,
                     compression=None,
                 ) as ws:
+                    connected_monotonic = time.monotonic()
                     if kind == "market":
                         self.market_ws = ws
                         self.market_up = True
@@ -436,11 +441,15 @@ class App:
                         self.public_up = True
                         params = [x for s in sorted(self.active) for x in self.public_streams(s)]
                     await self.send_sub(ws, lock, "SUBSCRIBE", params)
-                    LOG.info("Binance %s websocket connected streams=%d", kind, len(params))
+                    LOG.info(
+                        "Binance %s websocket connected connection=%d streams=%d uri=%s",
+                        kind, connection_seq, len(params), uri,
+                    )
                     if kind == "market":
                         self.request_recovery("market-websocket-connected", full=False)
                     backoff = 1.0
                     async for raw in ws:
+                        message_count += 1
                         if not isinstance(raw, str):
                             continue
                         try:
@@ -450,10 +459,30 @@ class App:
                         if isinstance(obj, dict) and "data" in obj and "stream" in obj:
                             obj = obj["data"]
                         await self.handle_binance_event(obj)
+                    duration = max(0.0, time.monotonic() - connected_monotonic)
+                    LOG.warning(
+                        "Binance %s websocket closed cleanly connection=%d duration_seconds=%.3f messages=%d uri=%s",
+                        kind, connection_seq, duration, message_count, uri,
+                    )
             except (OSError, ConnectionClosed, asyncio.TimeoutError) as exc:
-                LOG.warning("Binance %s websocket disconnected: %s", kind, exc)
+                duration = 0.0 if connected_monotonic is None else max(0.0, time.monotonic() - connected_monotonic)
+                close_code = getattr(exc, "code", None)
+                close_reason = getattr(exc, "reason", None)
+                if close_code is None:
+                    rcvd = getattr(exc, "rcvd", None)
+                    close_code = getattr(rcvd, "code", None)
+                    close_reason = getattr(rcvd, "reason", close_reason)
+                LOG.warning(
+                    "Binance %s websocket disconnected connection=%d exception=%s duration_seconds=%.3f messages=%d close_code=%s close_reason=%r uri=%s detail=%s",
+                    kind, connection_seq, type(exc).__name__, duration, message_count,
+                    close_code, close_reason, uri, exc,
+                )
             except Exception:
-                LOG.exception("Binance %s websocket loop failure", kind)
+                duration = 0.0 if connected_monotonic is None else max(0.0, time.monotonic() - connected_monotonic)
+                LOG.exception(
+                    "Binance %s websocket loop failure connection=%d duration_seconds=%.3f messages=%d uri=%s",
+                    kind, connection_seq, duration, message_count, uri,
+                )
             finally:
                 if kind == "market":
                     self.market_ws = None
