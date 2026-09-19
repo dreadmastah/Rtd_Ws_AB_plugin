@@ -16,6 +16,7 @@ int main(int argc, char** argv) {
     std::string symbol = "BTCUSDT";
     std::string case_id = "1";
     auto expected = astu::core::DecisionCode::OrderRoutingDisabled;
+    double trigger_price = 100'000.0;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -27,6 +28,8 @@ int main(int argc, char** argv) {
             case_id = argv[++i];
         } else if (arg == "--expect" && i + 1 < argc) {
             expected = astu::ipc::decision_from_string(argv[++i]);
+        } else if (arg == "--trigger-price" && i + 1 < argc) {
+            trigger_price = std::stod(argv[++i]);
         } else {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
@@ -47,7 +50,7 @@ int main(int argc, char** argv) {
     seed.source_periodicity = "M1";
     seed.source_bar_time_utc_ms = now - 60'000;
     seed.signal_time_utc_ms = now;
-    seed.trigger_price = 100'000.0;
+    seed.trigger_price = trigger_price;
     seed.valid_from_utc_ms = now - 1'000;
     seed.expires_utc_ms = now + 30'000;
     seed.quantity_model = "SYNTHETIC_TEST_ONLY";
@@ -77,6 +80,8 @@ int main(int argc, char** argv) {
                   << (response.accepted_for_simulation ? "true" : "false") << "\n";
         std::cout << "orderRoutingEnabled="
                   << (response.order_routing_enabled ? "true" : "false") << "\n";
+        std::cout << "simulatedQuantity=" << response.simulated_quantity << "\n";
+        std::cout << "simulatedNotional=" << response.simulated_notional << "\n";
         std::cout << "reason=" << response.reason << "\n";
         return response.decision_code == expected ? 0 : 1;
     } catch (const std::exception& exc) {
