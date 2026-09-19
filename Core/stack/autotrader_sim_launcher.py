@@ -31,6 +31,9 @@ DEFAULT_STATUS_DIR = REPO / "CleanRoomR2" / "stack" / "runtime" / "autotrader_st
 DEFAULT_HOST = REPO / "build" / "core" / "Release" / "astu_execution_pipe_host.exe"
 GATEWAY = ROOT / "account" / "binance_usdm_readonly_gateway.py"
 FIXTURE = ROOT / "account" / "tests" / "fixtures" / "binance_usdm_account_v3.json"
+INSTRUMENT_PUBLISHER = ROOT / "instrument" / "binance_usdm_instrument_rules.py"
+INSTRUMENT_FIXTURE = ROOT / "instrument" / "tests" / "fixtures" / "binance_usdm_exchange_info_btc.json"
+INSTRUMENT_DIR = RUNTIME / "instrument_constraints"
 
 RUNTIME.mkdir(parents=True, exist_ok=True)
 LOGS.mkdir(parents=True, exist_ok=True)
@@ -122,6 +125,7 @@ def run(args: argparse.Namespace) -> int:
     risk_file = Path(args.risk_file).resolve()
     journal = Path(args.journal).resolve()
     execution_status_file = Path(args.execution_status_file).resolve()
+    instrument_dir = Path(args.instrument_dir).resolve()
 
     if not host.exists():
         print(f"ASTU_SIM_STACK_FATAL=missing execution host {host}")
@@ -192,9 +196,38 @@ def run(args: argparse.Namespace) -> int:
             str(args.risk_poll_seconds),
         ]
 
+    instrument_command: list[str] | None = None
+    if args.instrument_mode == "fixture":
+        instrument_command = [
+            sys.executable,
+            "-u",
+            str(INSTRUMENT_PUBLISHER),
+            "--fixture",
+            str(INSTRUMENT_FIXTURE),
+            "--output-dir",
+            str(instrument_dir),
+            "--symbols",
+            "BTCUSDT",
+            "--poll-seconds",
+            str(args.instrument_poll_seconds),
+        ]
+    elif args.instrument_mode == "public":
+        instrument_command = [
+            sys.executable,
+            "-u",
+            str(INSTRUMENT_PUBLISHER),
+            "--output-dir",
+            str(instrument_dir),
+            "--poll-seconds",
+            str(args.instrument_poll_seconds),
+        ]
+
     try:
         if risk_command is not None:
             children["risk"] = start_child("risk", risk_command)
+            time.sleep(0.5)
+        if instrument_command is not None:
+            children["instrument"] = start_child("instrument", instrument_command)
             time.sleep(0.5)
 
         host_command = [
@@ -212,6 +245,13 @@ def run(args: argparse.Namespace) -> int:
             "--execution-status-file",
             str(execution_status_file),
         ]
+        if instrument_command is not None:
+            host_command.extend([
+                "--instrument-status-dir",
+                str(instrument_dir),
+                "--max-instrument-status-age-ms",
+                str(args.max_instrument_status_age_ms),
+            ])
         children["execution"] = start_child("execution", host_command)
         save_pids(children)
 
@@ -221,6 +261,9 @@ def run(args: argparse.Namespace) -> int:
         print(f"RISK_STATUS_FILE={risk_file}")
         print(f"EXECUTION_JOURNAL={journal}")
         print(f"EXECUTION_STATUS_FILE={execution_status_file}")
+        print(f"INSTRUMENT_MODE={args.instrument_mode}")
+        if instrument_command is not None:
+            print(f"INSTRUMENT_STATUS_DIR={instrument_dir}")
         print("ORDER_ROUTING_ENABLED=false")
 
         while not stop_requested:
@@ -239,7 +282,12 @@ def run(args: argparse.Namespace) -> int:
                     logs[name].close()
                 except Exception:
                     pass
-                command = risk_command if name == "risk" else host_command
+                if name == "risk":
+                    command = risk_command
+                elif name == "instrument":
+                    command = instrument_command
+                else:
+                    command = host_command
                 if command is None:
                     continue
                 children[name] = start_child(name, command)
@@ -289,6 +337,14 @@ def parse_args() -> argparse.Namespace:
         default="disabled",
     )
     ap.add_argument("--risk-poll-seconds", type=float, default=5.0)
+    ap.add_argument(
+        "--instrument-mode",
+        choices=("disabled", "fixture", "public"),
+        default="disabled",
+    )
+    ap.add_argument("--instrument-dir", default=str(INSTRUMENT_DIR))
+    ap.add_argument("--instrument-poll-seconds", type=float, default=3600.0)
+    ap.add_argument("--max-instrument-status-age-ms", type=int, default=86400000)
     ap.add_argument("--max-status-age-ms", type=int, default=5000)
     ap.add_argument("--max-risk-status-age-ms", type=int, default=7000)
     ap.add_argument("--restart-delay-seconds", type=float, default=2.0)
