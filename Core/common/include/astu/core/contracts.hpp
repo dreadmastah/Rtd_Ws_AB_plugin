@@ -89,6 +89,8 @@ enum class DecisionCode {
     AccountNotReconciled,
     RiskBlocked,
     OrderRoutingDisabled,
+    DuplicateRequest,
+    FrameInvalid,
 };
 
 struct SimulationDecision {
