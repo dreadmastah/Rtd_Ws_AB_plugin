@@ -58,7 +58,25 @@ and run `astu_execution_pipe_host.exe` with live WSRTD status and reconciled acc
 
 ## Decision code values
 
-The numeric values are the current `DecisionCode` enum ordinals in `astu/core/contracts.hpp`. AFL should treat `ORDER_ROUTING_DISABLED` as the successful simulation terminal state, not as a live order confirmation.
+The numeric values are explicit stable codes in `astu/core/contracts.hpp`:
+
+| Code | Meaning |
+|---:|---|
+| 0 | SIMULATED_ACCEPTED |
+| 10 | INVALID_INTENT |
+| 20 | DATA_NOT_READY |
+| 21 | IDENTITY_UNAVAILABLE |
+| 22 | UNIVERSE_MISMATCH |
+| 23 | DATA_GENERATION_MISMATCH |
+| 24 | NOT_YET_VALID |
+| 25 | EXPIRED |
+| 30 | ACCOUNT_NOT_RECONCILED |
+| 31 | RISK_BLOCKED |
+| 100 | ORDER_ROUTING_DISABLED |
+| 110 | DUPLICATE_REQUEST |
+| 120 | FRAME_INVALID |
+
+AFL should treat code `100` / `ORDER_ROUTING_DISABLED` as the successful simulation terminal state, not as a live order confirmation.
 
 ## AmiBroker ABI
 
