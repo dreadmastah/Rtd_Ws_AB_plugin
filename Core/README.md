@@ -44,6 +44,20 @@ The runtime `cacheReady` flag is a compatibility readiness signal derived from a
 
 The account/risk provider remains synthetic in this phase, and order routing remains disabled.
 
+## Durable execution journal and replay guard
+
+The execution host now writes an append-only `ExecutionJournalEvent.v1` JSONL journal. Before a new idempotency key is accepted, an `IDEMPOTENCY_RESERVATION` record is flushed durably. The eventual simulation result is appended as a `SIMULATION_DECISION`.
+
+On host startup the journal is replayed to rebuild the in-memory duplicate guard. A previously reserved key is rejected after restart as `DUPLICATE_REQUEST`. Malformed journal replay is a startup failure rather than silently discarding ambiguous state.
+
+Windows uses `FILE_FLAG_WRITE_THROUGH` plus `FlushFileBuffers` for journal appends. The journal path defaults to:
+
+```text
+Core/runtime/execution_journal.v1.jsonl
+```
+
+and can be changed with `--journal` or `ASTU_EXECUTION_JOURNAL`.
+
 Windows live integration smoke:
 
 ```cmd
@@ -72,4 +86,4 @@ The expected terminal message contains `SIMULATION_ONLY` and `order routing ... 
 
 ## Current next implementation step
 
-The public-data identity/readiness path and local Trade-to-Execution simulation transport are now connected. The next major increment is the execution journal plus durable idempotency/replay state, followed by a private-account gateway abstraction kept disconnected from order submission until its reconciliation and risk gates are implemented.
+The public-data identity/readiness path, local Trade-to-Execution simulation transport, and durable replay guard are now connected. The next major increment is a read-only/private-account gateway abstraction plus reconciliation state feeding the risk engine, while keeping exchange order submission absent.
