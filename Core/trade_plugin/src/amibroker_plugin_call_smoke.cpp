@@ -5,6 +5,7 @@
 #include <windows.h>
 #endif
 
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -20,8 +21,9 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    if (!SetEnvironmentVariableA("ASTU_STATUS_DIR", argv[2])) {
-        std::cerr << "SetEnvironmentVariableA failed\n";
+    if (_putenv_s("ASTU_STATUS_DIR", argv[2]) != 0 ||
+        !SetEnvironmentVariableA("ASTU_STATUS_DIR", argv[2])) {
+        std::cerr << "setting ASTU_STATUS_DIR failed\n";
         return 3;
     }
 
