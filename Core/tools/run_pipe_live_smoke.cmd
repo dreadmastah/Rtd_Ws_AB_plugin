@@ -5,6 +5,7 @@ set BUILD=%ROOT%\..\build\core
 set HOST=%BUILD%\Release\astu_execution_pipe_host.exe
 set CLIENT=%BUILD%\Release\astu_trade_pipe_live_smoke.exe
 set STATUS=%ROOT%\..\CleanRoomR2\stack\runtime\autotrader_status
+set JOURNAL=%BUILD%\pipe_live_smoke_execution_journal.jsonl
 
 if not "%~1"=="" set STATUS=%~1
 
@@ -23,7 +24,8 @@ if not exist "%STATUS%\BTCUSDT.json" (
   exit /b 3
 )
 
-start "ASTU Execution Live Status Host" /b "%HOST%" --status-dir "%STATUS%"
+del /q "%JOURNAL%" >nul 2>nul
+start "ASTU Execution Live Status Host" /b "%HOST%" --status-dir "%STATUS%" --journal "%JOURNAL%"
 timeout /t 1 /nobreak >nul
 "%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT
 set RC=%ERRORLEVEL%
