@@ -29,10 +29,14 @@ public:
         std::filesystem::path path,
         std::string data_provider,
         std::string risk_provider,
+        std::string instrument_provider,
+        bool instrument_rules_required,
         std::string journal_path)
         : path_(std::move(path)),
           data_provider_(std::move(data_provider)),
           risk_provider_(std::move(risk_provider)),
+          instrument_provider_(std::move(instrument_provider)),
+          instrument_rules_required_(instrument_rules_required),
           journal_path_(std::move(journal_path)) {}
 
     void set_ready(bool journal_ready, bool pipe_ready) {
@@ -83,6 +87,8 @@ public:
             << ",\"lifecycleState\":\"" << astu::ipc::json_escape(lifecycle) << "\""
             << ",\"dataProvider\":\"" << astu::ipc::json_escape(data_provider_) << "\""
             << ",\"riskProvider\":\"" << astu::ipc::json_escape(risk_provider_) << "\""
+            << ",\"instrumentProvider\":\"" << astu::ipc::json_escape(instrument_provider_) << "\""
+            << ",\"instrumentRulesRequired\":" << (instrument_rules_required_ ? "true" : "false")
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -154,6 +160,8 @@ private:
     std::filesystem::path path_;
     std::string data_provider_;
     std::string risk_provider_;
+    std::string instrument_provider_;
+    bool instrument_rules_required_{false};
     std::string journal_path_;
     mutable std::mutex mu_;
     std::string lifecycle_state_{"STARTING"};
