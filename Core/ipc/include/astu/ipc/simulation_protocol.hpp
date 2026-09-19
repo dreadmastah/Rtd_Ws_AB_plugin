@@ -30,6 +30,7 @@ struct SimulationResponse {
     bool accepted_for_simulation{false};
     bool would_increase_exposure{false};
     double simulated_quantity{0.0};
+    double simulated_notional{0.0};
     bool order_routing_enabled{false};
     std::string reason;
 };
@@ -79,6 +80,9 @@ inline std::string decision_to_string(astu::core::DecisionCode code) {
     case DecisionCode::Expired: return "EXPIRED";
     case DecisionCode::AccountNotReconciled: return "ACCOUNT_NOT_RECONCILED";
     case DecisionCode::RiskBlocked: return "RISK_BLOCKED";
+    case DecisionCode::InstrumentUnavailable: return "INSTRUMENT_UNAVAILABLE";
+    case DecisionCode::FilterRejected: return "FILTER_REJECTED";
+    case DecisionCode::SizingRejected: return "SIZING_REJECTED";
     case DecisionCode::OrderRoutingDisabled: return "ORDER_ROUTING_DISABLED";
     case DecisionCode::DuplicateRequest: return "DUPLICATE_REQUEST";
     case DecisionCode::FrameInvalid: return "FRAME_INVALID";
@@ -98,6 +102,9 @@ inline astu::core::DecisionCode decision_from_string(const std::string& value) {
     if (value == "EXPIRED") return DecisionCode::Expired;
     if (value == "ACCOUNT_NOT_RECONCILED") return DecisionCode::AccountNotReconciled;
     if (value == "RISK_BLOCKED") return DecisionCode::RiskBlocked;
+    if (value == "INSTRUMENT_UNAVAILABLE") return DecisionCode::InstrumentUnavailable;
+    if (value == "FILTER_REJECTED") return DecisionCode::FilterRejected;
+    if (value == "SIZING_REJECTED") return DecisionCode::SizingRejected;
     if (value == "ORDER_ROUTING_DISABLED") return DecisionCode::OrderRoutingDisabled;
     if (value == "DUPLICATE_REQUEST") return DecisionCode::DuplicateRequest;
     if (value == "FRAME_INVALID") return DecisionCode::FrameInvalid;
@@ -183,6 +190,7 @@ inline std::string encode_response_json(const SimulationResponse& response) {
         << ",\"acceptedForSimulation\":" << (response.accepted_for_simulation ? "true" : "false")
         << ",\"wouldIncreaseExposure\":" << (response.would_increase_exposure ? "true" : "false")
         << ",\"simulatedQuantity\":" << response.simulated_quantity
+        << ",\"simulatedNotional\":" << response.simulated_notional
         << ",\"orderRoutingEnabled\":false"
         << ",\"reason\":\"" << json_escape(response.reason) << "\""
         << "}";
@@ -202,6 +210,7 @@ inline SimulationResponse decode_response_json(const std::string& json) {
     response.accepted_for_simulation = require_bool(obj, "acceptedForSimulation");
     response.would_increase_exposure = require_bool(obj, "wouldIncreaseExposure");
     response.simulated_quantity = require_double(obj, "simulatedQuantity");
+    response.simulated_notional = require_double(obj, "simulatedNotional");
     response.order_routing_enabled = require_bool(obj, "orderRoutingEnabled");
     response.reason = require_string(obj, "reason");
     if (response.order_routing_enabled) {
@@ -214,6 +223,7 @@ class SimulationDispatcher {
 public:
     using DataProvider = std::function<astu::core::DataStatus(const astu::core::SignalIntent&)>;
     using RiskProvider = std::function<astu::core::AccountRiskSnapshot(const astu::core::SignalIntent&)>;
+    using InstrumentProvider = std::function<astu::core::InstrumentConstraints(const astu::core::SignalIntent&)>;
     using IdempotencyAcceptor = std::function<bool(const std::string&)>;
     using ResponseObserver = std::function<void(
         const SimulationRequest&,
@@ -225,9 +235,11 @@ public:
         RiskProvider risk_provider,
         std::size_t idempotency_capacity = 4096,
         IdempotencyAcceptor idempotency_acceptor = {},
-        ResponseObserver response_observer = {})
+        ResponseObserver response_observer = {},
+        InstrumentProvider instrument_provider = {})
         : data_provider_(std::move(data_provider)),
           risk_provider_(std::move(risk_provider)),
+          instrument_provider_(std::move(instrument_provider)),
           idempotency_(idempotency_capacity),
           idempotency_acceptor_(std::move(idempotency_acceptor)),
           response_observer_(std::move(response_observer)) {}
@@ -251,8 +263,15 @@ public:
 
         const auto data = data_provider_(request.intent);
         const auto risk = risk_provider_(request.intent);
-        const auto decision = astu::execution::SimulationEngine::run(
-            request.intent, data, risk, now_utc_ms);
+        const auto decision = instrument_provider_
+            ? astu::execution::SimulationEngine::run_with_instrument(
+                  request.intent,
+                  data,
+                  risk,
+                  instrument_provider_(request.intent),
+                  now_utc_ms)
+            : astu::execution::SimulationEngine::run(
+                  request.intent, data, risk, now_utc_ms);
 
         SimulationResponse response;
         response.request_id = request.request_id;
@@ -261,6 +280,7 @@ public:
         response.accepted_for_simulation = decision.accepted_for_simulation;
         response.would_increase_exposure = decision.would_increase_exposure;
         response.simulated_quantity = decision.simulated_quantity;
+        response.simulated_notional = decision.simulated_notional;
         response.order_routing_enabled = false;
         response.reason = decision.reason;
         observe(request, response, now_utc_ms);
@@ -290,6 +310,7 @@ private:
         response.accepted_for_simulation = false;
         response.would_increase_exposure = astu::core::increases_exposure(request.intent.action);
         response.simulated_quantity = 0.0;
+        response.simulated_notional = 0.0;
         response.order_routing_enabled = false;
         response.reason = std::move(reason);
         return response;
@@ -306,6 +327,7 @@ private:
 
     DataProvider data_provider_;
     RiskProvider risk_provider_;
+    InstrumentProvider instrument_provider_;
     IdempotencyCache idempotency_;
     IdempotencyAcceptor idempotency_acceptor_;
     ResponseObserver response_observer_;
