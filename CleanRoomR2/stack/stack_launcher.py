@@ -246,7 +246,15 @@ def run_supervisor() -> int:
             return
         if amibroker_delay:
             time.sleep(amibroker_delay)
-        p = subprocess.Popen([str(amibroker_exe)], cwd=amibroker_exe.parent)
+        amibroker_env = {
+            **os.environ,
+            "ASTU_STATUS_DIR": str((BASE / "runtime" / "autotrader_status").resolve()),
+        }
+        p = subprocess.Popen(
+            [str(amibroker_exe)],
+            cwd=amibroker_exe.parent,
+            env=amibroker_env,
+        )
         children["amibroker"] = p
         save_pids(children)
         print(f"STARTED_AMIBROKER_PID={p.pid}")
