@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:AccountRiskSnapshot.v1",
+  "title": "AccountRiskSnapshot.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "generatedUnixMs",
+    "source",
+    "reconciled",
+    "riskState",
+    "riskCapital",
+    "availableBalance",
+    "grossNotional",
+    "maxGrossNotional",
+    "openPositions",
+    "maxOpenPositions",
+    "detail"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "messageType": {"const": "AccountRiskSnapshot.v1"},
+    "generatedUnixMs": {"type": "integer", "minimum": 1},
+    "source": {"type": "string", "minLength": 1, "maxLength": 64},
+    "reconciled": {"type": "boolean"},
+    "riskState": {
+      "enum": [
+        "NORMAL",
+        "WARNING",
+        "RESTRICTED",
+        "BLOCK_NEW_ENTRIES",
+        "EMERGENCY"
+      ]
+    },
+    "riskCapital": {"type": "number", "minimum": 0},
+    "availableBalance": {"type": "number", "minimum": 0},
+    "grossNotional": {"type": "number", "minimum": 0},
+    "maxGrossNotional": {"type": "number", "minimum": 0},
+    "openPositions": {"type": "integer", "minimum": 0},
+    "maxOpenPositions": {"type": "integer", "minimum": 0},
+    "detail": {"type": "string", "maxLength": 512}
+  }
+}
