@@ -1,0 +1,39 @@
+/*
+AstuTrade simulation-only smoke example.
+
+Prerequisites:
+1. AstuTrade.dll is loaded as an AFL plug-in.
+2. ASTU_STATUS_DIR points to the WSRTD runtime/autotrader_status directory.
+3. astu_execution_pipe_host.exe is running.
+4. AccountRiskSnapshot.v1 is current/reconciled.
+
+No exchange order is submitted by this formula or the current execution host.
+*/
+
+SetChartOptions( 0, chartShowArrows | chartShowDates );
+Plot( C, "Close", colorDefault, styleCandle );
+
+SendSimulation = ParamTrigger( "AstuTrade", "SEND SIMULATION" );
+
+if( SendSimulation )
+{
+    Decision = AstuSimulate(
+        Name(),
+        "BUY",
+        "LONG",
+        "manual-smoke",
+        "1",
+        "M1",
+        LastValue( C ),
+        30
+    );
+
+    Trace( "AstuTrade decision code = " + NumToStr( Decision, 1.0 ) );
+}
+
+LastDecision = AstuLastDecision();
+
+Title = Name() +
+    " | AstuTrade SIMULATION ONLY" +
+    " | Last decision code: " + NumToStr( LastDecision, 1.0 ) +
+    " | Successful simulation terminal code: 100 (ORDER_ROUTING_DISABLED)";
