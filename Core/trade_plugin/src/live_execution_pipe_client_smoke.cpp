@@ -14,6 +14,8 @@ int main(int argc, char** argv) {
     std::filesystem::path status_dir =
         "CleanRoomR2/stack/runtime/autotrader_status";
     std::string symbol = "BTCUSDT";
+    std::string case_id = "1";
+    auto expected = astu::core::DecisionCode::OrderRoutingDisabled;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -21,6 +23,10 @@ int main(int argc, char** argv) {
             status_dir = argv[++i];
         } else if (arg == "--symbol" && i + 1 < argc) {
             symbol = argv[++i];
+        } else if (arg == "--case-id" && i + 1 < argc) {
+            case_id = argv[++i];
+        } else if (arg == "--expect" && i + 1 < argc) {
+            expected = astu::ipc::decision_from_string(argv[++i]);
         } else {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
@@ -31,8 +37,8 @@ int main(int argc, char** argv) {
         std::chrono::system_clock::now().time_since_epoch()).count();
 
     astu::core::SignalIntent seed;
-    seed.signal_id = "LIVE-PIPE-SMOKE-SIGNAL-1";
-    seed.analysis_run_id = "LIVE-PIPE-SMOKE-AA-1";
+    seed.signal_id = "LIVE-PIPE-SMOKE-SIGNAL-" + case_id;
+    seed.analysis_run_id = "LIVE-PIPE-SMOKE-AA-" + case_id;
     seed.strategy_id = "live-pipe-smoke";
     seed.strategy_version = "1";
     seed.symbol = symbol;
@@ -55,8 +61,8 @@ int main(int argc, char** argv) {
     }
 
     astu::ipc::SimulationRequest request;
-    request.request_id = "LIVE-PIPE-SMOKE-REQ-1";
-    request.idempotency_key = "LIVE-PIPE-SMOKE-IDEMPOTENCY-1";
+    request.request_id = "LIVE-PIPE-SMOKE-REQ-" + case_id;
+    request.idempotency_key = "LIVE-PIPE-SMOKE-IDEMPOTENCY-" + case_id;
     request.intent = astu::trade::SignalIntentBuilder(seed)
                          .bind_data_identity(data)
                          .build();
@@ -72,7 +78,7 @@ int main(int argc, char** argv) {
         std::cout << "orderRoutingEnabled="
                   << (response.order_routing_enabled ? "true" : "false") << "\n";
         std::cout << "reason=" << response.reason << "\n";
-        return response.decision_code == astu::core::DecisionCode::OrderRoutingDisabled ? 0 : 1;
+        return response.decision_code == expected ? 0 : 1;
     } catch (const std::exception& exc) {
         std::cerr << "live pipe smoke failed: " << exc.what() << "\n";
         return 4;
