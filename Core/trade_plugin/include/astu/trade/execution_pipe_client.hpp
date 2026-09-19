@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <span>
 #include <string>
+#include <utility>
 
 #include "astu/ipc/frame.hpp"
 #include "astu/ipc/named_pipe.hpp"
