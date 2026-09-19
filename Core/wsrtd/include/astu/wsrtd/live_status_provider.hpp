@@ -42,8 +42,11 @@ public:
             }
 
             const auto now_ms = utc_now_ms();
-            if (generated_ms > now_ms + 5'000 ||
-                now_ms - generated_ms > max_snapshot_age_ms_) {
+            const bool too_far_future =
+                generated_ms > now_ms && generated_ms - now_ms > 5'000;
+            const bool too_old =
+                generated_ms <= now_ms && now_ms - generated_ms > max_snapshot_age_ms_;
+            if (too_far_future || too_old) {
                 out.detail = "runtime DataStatus snapshot stale";
                 return out;
             }
