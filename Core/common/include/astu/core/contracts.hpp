@@ -56,8 +56,11 @@ struct DataStatus {
     bool fresh{false};
     bool cache_ready{false};
     bool identity_ready{false};
+    std::optional<std::string> universe_id;
     std::optional<std::uint64_t> universe_version;
+    std::optional<std::string> universe_hash;
     std::optional<std::uint64_t> data_generation;
+    std::optional<std::string> generation_kind;
     std::optional<std::uint32_t> cache_eod;
     std::optional<std::uint32_t> cache_intraday;
     std::string detail;
