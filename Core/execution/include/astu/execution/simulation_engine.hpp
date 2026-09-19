@@ -74,7 +74,7 @@ public:
         const bool exposure = astu::core::increases_exposure(intent.action);
         if (!risk.reconciled) {
             return {DecisionCode::AccountNotReconciled, false, exposure, 0.0,
-                    "synthetic account snapshot is not reconciled"};
+                    "account snapshot is not reconciled"};
         }
         if (exposure && (risk.risk_state == RiskState::BlockNewEntries ||
                          risk.risk_state == RiskState::Emergency)) {
