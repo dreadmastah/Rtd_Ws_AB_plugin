@@ -103,25 +103,42 @@ def write_atomic(path: Path, obj: dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+def invalidate_outputs(output_dir: Path, symbols: list[str]) -> None:
+    for symbol in symbols:
+        path = output_dir / f"{symbol}.json"
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+
+
 def publish_once(
     output_dir: Path,
     symbols: list[str],
     rest_base: str,
     fixture: Path | None,
 ) -> int:
-    info = fetch_exchange_info(rest_base, fixture)
-    by_symbol = {
-        str(item.get("symbol", "")).upper(): item
-        for item in info.get("symbols", [])
-        if isinstance(item, dict)
-    }
-    missing = [symbol for symbol in symbols if symbol not in by_symbol]
-    if missing:
-        raise RuntimeError("exchangeInfo missing symbols: " + ",".join(missing))
+    try:
+        info = fetch_exchange_info(rest_base, fixture)
+        by_symbol = {
+            str(item.get("symbol", "")).upper(): item
+            for item in info.get("symbols", [])
+            if isinstance(item, dict)
+        }
+        missing = [symbol for symbol in symbols if symbol not in by_symbol]
+        if missing:
+            raise RuntimeError("exchangeInfo missing symbols: " + ",".join(missing))
 
-    now_ms = int(time.time() * 1000)
-    for symbol in symbols:
-        constraint = build_constraint(by_symbol[symbol], now_ms)
+        now_ms = int(time.time() * 1000)
+        constraints = {
+            symbol: build_constraint(by_symbol[symbol], now_ms)
+            for symbol in symbols
+        }
+    except Exception:
+        invalidate_outputs(output_dir, symbols)
+        raise
+
+    for symbol, constraint in constraints.items():
         write_atomic(output_dir / f"{symbol}.json", constraint)
     print(
         f"INSTRUMENT_RULES_PUBLISHED={len(symbols)} "
@@ -156,9 +173,19 @@ def main() -> int:
         raise RuntimeError("no instrument symbols selected")
 
     while True:
-        publish_once(args.output_dir, symbols, args.rest_base, args.fixture)
-        if args.once:
-            return 0
+        try:
+            publish_once(args.output_dir, symbols, args.rest_base, args.fixture)
+        except Exception as exc:
+            print(
+                f"INSTRUMENT_RULES_REFRESH=FAIL "
+                f"INVALIDATED={len(symbols)} ERROR={exc}",
+                flush=True,
+            )
+            if args.once:
+                raise
+        else:
+            if args.once:
+                return 0
         time.sleep(max(60.0, args.poll_seconds))
 
 
