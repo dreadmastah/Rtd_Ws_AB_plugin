@@ -144,6 +144,9 @@ private:
     }
 
     void remember_unlocked(const std::string& key) {
+        if (replay_capacity_ == 0) {
+            return;
+        }
         if (order_.size() >= replay_capacity_) {
             seen_.erase(order_.front());
             order_.pop_front();
