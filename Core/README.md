@@ -17,9 +17,19 @@ This code cannot submit an exchange order. It contains no Binance private API cl
 
 ## WSRTD R2 integration status
 
-The current CleanRoomR2 plugin exposes cache counters such as `CacheEOD` and `CacheIntraday`, but it does not expose the Architecture R3.1 `universeVersion` and `dataGeneration` identity fields. The adapter therefore reports cache/freshness observations but intentionally sets identity unavailable. The simulation engine rejects that state with `IdentityUnavailable` rather than guessing values.
+The R2 DLL ABI is left unchanged. A compatibility bridge now runs beside the existing WSRTD stack:
 
-No current WSRTD files are modified by this scaffold.
+- `CleanRoomR2/stack/universe_identity.v1.json` is the tracked bootstrap-universe identity.
+- `identity_bridge.py` verifies that manifest against the exact ordered `bootstrap_symbols.tls` SHA-256.
+- It reads the already-persisted completed-1m recovery watermark for each symbol.
+- It publishes `runtime/data_identity.v1.json` atomically.
+- For this compatibility layer, `dataGeneration` is exactly the completed 1-minute open timestamp in milliseconds and is explicitly labelled `WSRTD_R2_COMPLETED_M1_OPEN_MS`.
+- `SignalIntentBuilder.bind_data_identity()` copies the verified `universeId`, `universeVersion`, and `dataGeneration` into the intent.
+- `IntentValidator` rejects universe-ID/version and generation mismatches.
+
+If the manifest fails verification, a symbol has no completed-1m watermark, or the identity snapshot is unavailable, the adapter remains fail-closed with `IdentityUnavailable`.
+
+This is a compatibility identity for the current R2 data path, not a claim that the existing DLL internally implements the later Architecture R3.1 publication-generation mechanism.
 
 ## Build and test
 
@@ -39,6 +49,6 @@ build/core/Release/astu_execution_sim.exe
 
 The expected terminal message contains `SIMULATION_ONLY` and `order routing ... disabled`.
 
-## Next separately authorized interface step
+## Current next implementation step
 
-Before any live signal can pass the identity gate, an authoritative versioned interface must provide the committed `universeVersion` and current `dataGeneration` from the data/universe authority. Do not synthesize, infer, or default those values.
+The identity compatibility boundary is now defined. The next useful increment is the local Trade.dll/Execution.exe IPC simulation path: canonical serialization, bounded framing, request/response IDs, CRC/integrity validation, and duplicate/idempotency rejection while keeping order routing disabled.
