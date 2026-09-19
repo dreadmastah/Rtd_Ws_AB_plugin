@@ -32,7 +32,7 @@ if errorlevel 1 (
 )
 
 start "ASTU Reconciliation Case 1" /b "%HOST%" --status-dir "%STATUS%" --risk-status-file "%RISK%" --journal "%JOURNAL%"
-timeout /t 1 /nobreak >nul
+ping -n 2 127.0.0.1 >nul
 "%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT --case-id 1 --expect ORDER_ROUTING_DISABLED
 set CASE1=%ERRORLEVEL%
 taskkill /IM astu_execution_pipe_host.exe /F >nul 2>nul
@@ -42,9 +42,9 @@ if not %CASE1% EQU 0 (
 )
 
 del /q "%RISK%" >nul 2>nul
-timeout /t 1 /nobreak >nul
+ping -n 2 127.0.0.1 >nul
 start "ASTU Reconciliation Case 2" /b "%HOST%" --status-dir "%STATUS%" --risk-status-file "%RISK%" --journal "%JOURNAL%"
-timeout /t 1 /nobreak >nul
+ping -n 2 127.0.0.1 >nul
 "%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT --case-id 2 --expect ACCOUNT_NOT_RECONCILED
 set CASE2=%ERRORLEVEL%
 taskkill /IM astu_execution_pipe_host.exe /F >nul 2>nul
@@ -59,9 +59,9 @@ if errorlevel 1 (
   exit /b 5
 )
 
-timeout /t 1 /nobreak >nul
+ping -n 2 127.0.0.1 >nul
 start "ASTU Reconciliation Case 3" /b "%HOST%" --status-dir "%STATUS%" --risk-status-file "%RISK%" --journal "%JOURNAL%"
-timeout /t 1 /nobreak >nul
+ping -n 2 127.0.0.1 >nul
 "%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT --case-id 3 --expect ORDER_ROUTING_DISABLED
 set CASE3=%ERRORLEVEL%
 taskkill /IM astu_execution_pipe_host.exe /F >nul 2>nul
