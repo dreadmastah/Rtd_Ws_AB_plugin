@@ -135,25 +135,43 @@ jobs:
           print("READONLY_ACCOUNT_FIXTURE=PASS")
           PY
 
-      - name: Public instrument rules fixture
+      - name: Public instrument rules bootstrap universe fixture
         shell: bash
         run: |
+          rm -rf Core/runtime/instrument_constraints
           python Core/instrument/binance_usdm_instrument_rules.py --once \
-            --fixture Core/instrument/tests/fixtures/binance_usdm_exchange_info_btc.json \
+            --fixture Core/instrument/tests/fixtures/binance_usdm_exchange_info_bootstrap12.json \
             --output-dir Core/runtime/instrument_constraints \
-            --symbols BTCUSDT
+            --symbols-file CleanRoomR2/stack/bootstrap_symbols.tls
           python - <<'PY'
           import json
           from pathlib import Path
-          p = Path("Core/runtime/instrument_constraints/BTCUSDT.json")
-          obj = json.loads(p.read_text(encoding="utf-8"))
-          assert obj["ready"] is True
-          assert obj["source"] == "BINANCE_USDM_EXCHANGE_INFO"
-          assert abs(obj["priceTick"] - 0.1) < 1e-12
-          assert abs(obj["quantityStep"] - 0.001) < 1e-12
-          assert abs(obj["minNotional"] - 5.0) < 1e-12
-          print("INSTRUMENT_RULES_FIXTURE=PASS")
+          symbols = [
+              line.strip()
+              for line in Path("CleanRoomR2/stack/bootstrap_symbols.tls")
+              .read_text(encoding="utf-8-sig").splitlines()
+              if line.strip()
+          ]
+          out = Path("Core/runtime/instrument_constraints")
+          files = sorted(p.stem for p in out.glob("*.json"))
+          assert len(symbols) == 12
+          assert set(files) == set(symbols)
+          for symbol in symbols:
+              obj = json.loads((out / f"{symbol}.json").read_text(encoding="utf-8"))
+              assert obj["ready"] is True
+              assert obj["source"] == "BINANCE_USDM_EXCHANGE_INFO"
+              assert obj["symbol"] == symbol
+              assert obj["priceTick"] > 0
+              assert obj["quantityStep"] > 0
+              assert obj["maxQuantity"] > 0
+          btc = json.loads((out / "BTCUSDT.json").read_text(encoding="utf-8"))
+          assert abs(btc["quantityStep"] - 0.001) < 1e-12
+          assert abs(btc["minNotional"] - 5.0) < 1e-12
+          print("INSTRUMENT_RULES_BOOTSTRAP12_FIXTURE=PASS")
           PY
+
+      - name: Instrument rules refresh recovery
+        run: python Core/instrument/tests/test_rules_publisher.py
 
       - name: Windows Named Pipe smoke
         if: runner.os == 'Windows'
