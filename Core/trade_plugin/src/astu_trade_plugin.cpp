@@ -63,10 +63,32 @@ std::string bounded_string(const char* text, std::size_t max_len) {
     return out;
 }
 
+std::string environment_value(const char* name) {
+#ifdef _WIN32
+    const DWORD required = GetEnvironmentVariableA(name, nullptr, 0);
+    if (required == 0) {
+        return {};
+    }
+    std::string value(static_cast<std::size_t>(required), '\0');
+    const DWORD written = GetEnvironmentVariableA(
+        name,
+        value.data(),
+        required);
+    if (written == 0 || written >= required) {
+        return {};
+    }
+    value.resize(written);
+    return value;
+#else
+    const char* raw = std::getenv(name);
+    return raw ? std::string(raw) : std::string{};
+#endif
+}
+
 void write_diagnostic(const std::string& text) noexcept {
     try {
-        const char* raw = std::getenv("ASTU_TRADE_DIAGNOSTIC_FILE");
-        if (!raw || !*raw) {
+        const std::string raw = environment_value("ASTU_TRADE_DIAGNOSTIC_FILE");
+        if (raw.empty()) {
             return;
         }
         const std::filesystem::path path(raw);
@@ -82,8 +104,8 @@ void write_diagnostic(const std::string& text) noexcept {
 }
 
 std::filesystem::path status_dir_from_environment() {
-    const char* raw = std::getenv("ASTU_STATUS_DIR");
-    if (!raw || !*raw) {
+    const std::string raw = environment_value("ASTU_STATUS_DIR");
+    if (raw.empty()) {
         throw std::runtime_error(
             "ASTU_STATUS_DIR is required for AstuTrade live DataStatus binding");
     }
