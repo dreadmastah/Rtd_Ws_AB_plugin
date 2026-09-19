@@ -3,6 +3,7 @@
 
 #include "astu/core/contracts.hpp"
 #include "astu/execution/simulation_engine.hpp"
+#include "astu/trade/signal_intent_builder.hpp"
 #include "astu/wsrtd/data_status_adapter.hpp"
 
 namespace {
@@ -13,8 +14,6 @@ astu::core::SignalIntent base_intent() {
     x.analysis_run_id = "AA-1";
     x.strategy_id = "S";
     x.strategy_version = "1";
-    x.universe_id = "U";
-    x.universe_version = 3;
     x.symbol = "BTCUSDT";
     x.action = astu::core::SignalAction::Buy;
     x.side = astu::core::PositionSide::Long;
@@ -25,7 +24,6 @@ astu::core::SignalIntent base_intent() {
     x.valid_from_utc_ms = 1'000;
     x.expires_utc_ms = 5'000;
     x.quantity_model = "TEST";
-    x.data_generation = 9;
     return x;
 }
 
@@ -36,8 +34,11 @@ astu::core::DataStatus ready_data() {
     d.fresh = true;
     d.cache_ready = true;
     d.identity_ready = true;
+    d.universe_id = "U";
     d.universe_version = 3;
+    d.universe_hash = "abc";
     d.data_generation = 9;
+    d.generation_kind = "TEST";
     return d;
 }
 
@@ -57,8 +58,12 @@ int main() {
     using astu::core::DecisionCode;
 
     {
+        auto data = ready_data();
+        auto intent = astu::trade::SignalIntentBuilder(base_intent())
+                          .bind_data_identity(data)
+                          .build();
         auto result = astu::execution::SimulationEngine::run(
-            base_intent(), ready_data(), ready_risk(), 2'000);
+            intent, data, ready_risk(), 2'000);
         assert(result.accepted_for_simulation);
         assert(result.code == DecisionCode::OrderRoutingDisabled);
         assert(result.simulated_quantity > 0.0);
@@ -71,17 +76,72 @@ int main() {
         snapshot.cache_intraday = 1500;
         snapshot.quote_age_ms = 100;
         auto data = astu::wsrtd::DataStatusAdapter::from_r2(snapshot);
+        auto intent = base_intent();
+        intent.universe_id = "U";
+        intent.universe_version = 3;
+        intent.data_generation = 9;
         auto result = astu::execution::SimulationEngine::run(
-            base_intent(), data, ready_risk(), 2'000);
+            intent, data, ready_risk(), 2'000);
         assert(!result.accepted_for_simulation);
         assert(result.code == DecisionCode::IdentityUnavailable);
     }
 
     {
+        astu::wsrtd::WsrtdR2Snapshot snapshot;
+        snapshot.symbol = "BTCUSDT";
+        snapshot.cache_eod = 300;
+        snapshot.cache_intraday = 1500;
+        snapshot.quote_age_ms = 100;
+        astu::wsrtd::WsrtdR2IdentitySnapshot identity;
+        identity.verified = true;
+        identity.symbol = "BTCUSDT";
+        identity.universe_id = "wsrtd-r2-bootstrap";
+        identity.universe_version = 1;
+        identity.universe_hash = "d31527c87e0aa41edc0fe81c7c16aafcdadaec976bf0455ad886cf4b81c502e0";
+        identity.data_generation = 1'789'824'780'000ULL;
+        auto data = astu::wsrtd::DataStatusAdapter::from_r2(snapshot, identity);
+        auto intent = astu::trade::SignalIntentBuilder(base_intent())
+                          .bind_data_identity(data)
+                          .build();
+        auto result = astu::execution::SimulationEngine::run(
+            intent, data, ready_risk(), 2'000);
+        assert(result.accepted_for_simulation);
+        assert(result.code == DecisionCode::OrderRoutingDisabled);
+    }
+
+    {
+        auto data = ready_data();
+        auto intent = astu::trade::SignalIntentBuilder(base_intent())
+                          .bind_data_identity(data)
+                          .build();
+        intent.universe_id = "OTHER";
+        auto result = astu::execution::SimulationEngine::run(
+            intent, data, ready_risk(), 2'000);
+        assert(!result.accepted_for_simulation);
+        assert(result.code == DecisionCode::UniverseMismatch);
+    }
+
+    {
+        auto data = ready_data();
+        auto intent = astu::trade::SignalIntentBuilder(base_intent())
+                          .bind_data_identity(data)
+                          .build();
+        intent.data_generation += 1;
+        auto result = astu::execution::SimulationEngine::run(
+            intent, data, ready_risk(), 2'000);
+        assert(!result.accepted_for_simulation);
+        assert(result.code == DecisionCode::DataGenerationMismatch);
+    }
+
+    {
         auto risk = ready_risk();
         risk.risk_state = astu::core::RiskState::BlockNewEntries;
+        auto data = ready_data();
+        auto intent = astu::trade::SignalIntentBuilder(base_intent())
+                          .bind_data_identity(data)
+                          .build();
         auto result = astu::execution::SimulationEngine::run(
-            base_intent(), ready_data(), risk, 2'000);
+            intent, data, risk, 2'000);
         assert(!result.accepted_for_simulation);
         assert(result.code == DecisionCode::RiskBlocked);
     }
