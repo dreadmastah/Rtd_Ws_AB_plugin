@@ -44,6 +44,18 @@ The R2 DLL remains `WsRTD_Compat_3.06.26_R2_x64.dll`; R2.1 changes the runtime s
    - the latest 300 completed Binance Futures daily bars are refreshed automatically;
    - today's developing daily candle continues to come from AmiBroker compression of live 1-minute data.
 
+## Auto-trader identity compatibility bridge
+
+The stack also runs `identity_bridge.py` when `identity_bridge.enabled=true`.
+
+It verifies `universe_identity.v1.json` against the exact ordered bootstrap symbol file and atomically publishes:
+
+`runtime/data_identity.v1.json`
+
+The snapshot contains the explicit `universeId`, `universeVersion`, universe SHA-256, and per-symbol `dataGeneration`. For the current R2 compatibility layer, `dataGeneration` is the persisted completed 1-minute open timestamp in milliseconds from the recovery state and is labelled `WSRTD_R2_COMPLETED_M1_OPEN_MS`.
+
+This does not change the DLL ABI and does not add account access or order routing. Missing or mismatched identity data remains fail-closed for the auto-trader core.
+
 ## Persistent recovery state
 
 Default:
