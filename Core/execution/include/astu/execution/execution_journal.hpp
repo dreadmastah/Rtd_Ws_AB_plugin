@@ -50,9 +50,9 @@ public:
         const astu::ipc::SimulationResponse& response,
         std::int64_t utc_ms) {
         std::lock_guard<std::mutex> lock(mu_);
-        path_.parent_path().empty()
-            ? void()
-            : static_cast<void>(std::filesystem::create_directories(path_.parent_path()));
+        if (!path_.parent_path().empty()) {
+            std::filesystem::create_directories(path_.parent_path());
+        }
 
         std::ostringstream out;
         out
