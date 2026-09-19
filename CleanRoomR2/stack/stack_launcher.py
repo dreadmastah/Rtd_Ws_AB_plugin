@@ -17,6 +17,7 @@ CFG = json.loads((BASE / "config.json").read_text(encoding="utf-8"))
 RUNTIME = BASE / "runtime"
 LOGS = BASE / "logs"
 PIDFILE = RUNTIME / "stack_pids.json"
+PAUSEFILE = RUNTIME / "maintenance_pause"
 RUNTIME.mkdir(exist_ok=True)
 LOGS.mkdir(exist_ok=True)
 
@@ -102,6 +103,8 @@ def critical_stack_alive() -> tuple[bool, dict[str, int]]:
 
 
 def status_from_pidfile() -> int:
+    if PAUSEFILE.exists():
+        print("WSRTD_MAINTENANCE_PAUSED=YES")
     alive, data = critical_stack_alive()
     if not data:
         print("WSRTD_STACK_STATUS=STOPPED")
@@ -113,6 +116,7 @@ def status_from_pidfile() -> int:
 
 
 def stop_from_pidfile() -> int:
+    PAUSEFILE.write_text("manual-stop\n", encoding="utf-8")
     data = load_pidfile()
     if not data:
         print("WSRTD_STACK_STATUS=NOT_RUNNING")
@@ -142,6 +146,9 @@ def configure_registry(dbname: str) -> bool:
 
 
 def ensure_running(dbname: str) -> int:
+    if PAUSEFILE.exists():
+        print("WSRTD_ENSURE_RUNNING=MAINTENANCE_PAUSED")
+        return 0
     alive, _data = critical_stack_alive()
     if alive:
         print("WSRTD_ENSURE_RUNNING=ALREADY_RUNNING")
@@ -308,12 +315,20 @@ def main() -> int:
     ap.add_argument("--stop", action="store_true")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--ensure-running", action="store_true")
+    ap.add_argument("--resume", action="store_true")
     ap.add_argument("--dbname", default="WSRTD")
     args = ap.parse_args()
     if args.stop:
         return stop_from_pidfile()
     if args.status:
         return status_from_pidfile()
+    if args.resume:
+        try:
+            PAUSEFILE.unlink()
+        except OSError:
+            pass
+        print("WSRTD_MAINTENANCE_PAUSED=NO")
+        return 0
     if args.ensure_running:
         return ensure_running(args.dbname)
     return run_supervisor()
