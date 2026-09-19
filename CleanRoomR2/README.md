@@ -63,3 +63,11 @@ The repository stores the reviewable source/runtime files. Binary build artifact
 ## Runtime status
 
 The clean-room DLL has passed static PE/export/retention validation and has been exercised on AmiBroker with live Binance USD-M data, including 300-bar EOD delivery and 1-minute backfill/live updates.
+
+## R2.1 automatic recovery
+
+The companion stack under `CleanRoomR2/stack/` now includes the R2.1 automatic-recovery layer while retaining the same R2 DLL ABI and 300-EOD/1500-intraday cache partition.
+
+R2.1 adds persistent per-symbol completed-1m watermarks, live-gap detection that refuses to jump over missing minutes, bounded exact-range REST repair, receiver-presence signaling, automatic 1500-1m + 300-EOD rehydration when AmiBroker reconnects, periodic EOD refresh, network/preflight retry, Windows logon autostart, a five-minute watchdog, AmiBroker keep-running behavior, and an intentional-maintenance pause marker.
+
+See `CleanRoomR2/stack/README.md` and `CleanRoomR2/stack/R2_1_RECOVERY_VALIDATION.txt`.
