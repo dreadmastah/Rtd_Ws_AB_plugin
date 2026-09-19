@@ -103,23 +103,49 @@ public:
     std::vector<std::byte> request(
         std::span<const std::byte> frame,
         DWORD timeout_ms = 5000) const {
-        if (!WaitNamedPipeW(pipe_name_.c_str(), timeout_ms)) {
-            throw std::runtime_error("Execution Named Pipe unavailable");
-        }
-        WinHandle handle(CreateFileW(
-            pipe_name_.c_str(),
-            GENERIC_READ | GENERIC_WRITE,
-            0,
-            nullptr,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            nullptr));
-        if (!handle.valid()) {
-            throw std::runtime_error("CreateFileW for Execution Named Pipe failed");
+        const ULONGLONG deadline = GetTickCount64() + timeout_ms;
+        WinHandle handle;
+
+        for (;;) {
+            HANDLE raw = CreateFileW(
+                pipe_name_.c_str(),
+                GENERIC_READ | GENERIC_WRITE,
+                0,
+                nullptr,
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL,
+                nullptr);
+            if (raw != INVALID_HANDLE_VALUE) {
+                handle = WinHandle(raw);
+                break;
+            }
+
+            const DWORD error = GetLastError();
+            if (error != ERROR_PIPE_BUSY && error != ERROR_FILE_NOT_FOUND) {
+                throw std::runtime_error(
+                    "CreateFileW for Execution Named Pipe failed error=" +
+                    std::to_string(error));
+            }
+
+            const ULONGLONG now = GetTickCount64();
+            if (now >= deadline) {
+                throw std::runtime_error(
+                    "Execution Named Pipe unavailable before timeout");
+            }
+
+            const DWORD remaining = static_cast<DWORD>(
+                (deadline - now) > 250ULL ? 250ULL : (deadline - now));
+            if (error == ERROR_PIPE_BUSY) {
+                (void)WaitNamedPipeW(pipe_name_.c_str(), remaining);
+            } else {
+                Sleep(remaining > 25U ? 25U : remaining);
+            }
         }
         DWORD mode = PIPE_READMODE_BYTE;
         if (!SetNamedPipeHandleState(handle.get(), &mode, nullptr, nullptr)) {
-            throw std::runtime_error("SetNamedPipeHandleState failed");
+            throw std::runtime_error(
+                "SetNamedPipeHandleState failed error=" +
+                std::to_string(GetLastError()));
         }
         write_all(handle.get(), frame);
         return read_one_frame(handle.get());
