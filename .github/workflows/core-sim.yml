@@ -11,6 +11,7 @@ on:
       - "CleanRoomR2/stack/universe_identity.v1.json"
       - "CleanRoomR2/stack/config.json"
       - "CleanRoomR2/stack/binance_usdm_server.py"
+      - "Core/account/**"
       - ".github/workflows/core-sim.yml"
 
 jobs:
@@ -32,8 +33,10 @@ jobs:
       - name: Test core
         run: ctest --test-dir build/core -C Release --output-on-failure
 
-      - name: Compile identity bridge
-        run: python -m py_compile CleanRoomR2/stack/identity_bridge.py
+      - name: Compile Python bridges
+        run: |
+          python -m py_compile CleanRoomR2/stack/identity_bridge.py
+          python -m py_compile Core/account/binance_usdm_readonly_gateway.py
 
       - name: Identity bridge one-shot
         shell: bash
@@ -79,31 +82,11 @@ jobs:
                   for symbol in symbols
               },
           }
-          risk = {
-              "schemaVersion": 1,
-              "messageType": "AccountRiskSnapshot.v1",
-              "generatedUnixMs": int(time.time() * 1000),
-              "source": "CI_RECONCILER",
-              "reconciled": True,
-              "riskState": "NORMAL",
-              "riskCapital": 10000.0,
-              "availableBalance": 10000.0,
-              "grossNotional": 0.0,
-              "maxGrossNotional": 100000.0,
-              "openPositions": 0,
-              "maxOpenPositions": 10,
-              "detail": "CI reconciled simulation snapshot",
-          }
           (base / "runtime" / "recovery_state.json").write_text(
               json.dumps(state, indent=2) + "\n", encoding="utf-8"
           )
           (base / "runtime" / "market_status.v1.json").write_text(
               json.dumps(market, indent=2) + "\n", encoding="utf-8"
-          )
-          core_runtime = Path("Core/runtime")
-          core_runtime.mkdir(parents=True, exist_ok=True)
-          (core_runtime / "account_risk_status.v1.json").write_text(
-              json.dumps(risk, indent=2) + "\n", encoding="utf-8"
           )
           PY
           python CleanRoomR2/stack/identity_bridge.py --once
@@ -128,6 +111,26 @@ jobs:
           assert status["universeVersion"] == 1
           assert status["dataGeneration"] == 1789824780000
           print("IDENTITY_BRIDGE_TEST=PASS")
+          PY
+
+      - name: Read-only account reconciliation fixture
+        shell: bash
+        run: |
+          mkdir -p Core/runtime
+          python Core/account/binance_usdm_readonly_gateway.py --once \
+            --fixture Core/account/tests/fixtures/binance_usdm_account_v3.json \
+            --output Core/runtime/account_risk_status.v1.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("Core/runtime/account_risk_status.v1.json")
+          obj = json.loads(p.read_text(encoding="utf-8"))
+          assert obj["reconciled"] is True
+          assert obj["riskState"] == "NORMAL"
+          assert obj["openPositions"] == 1
+          assert abs(obj["grossNotional"] - 1000.0) < 1e-9
+          assert abs(obj["riskCapital"] - 10250.0) < 1e-9
+          print("READONLY_ACCOUNT_FIXTURE=PASS")
           PY
 
       - name: Windows Named Pipe smoke
