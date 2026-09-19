@@ -22,7 +22,21 @@
   },
   "launcher": {
     "restart_delay_seconds": 3,
-    "start_amibroker": false,
-    "amibroker_exe": "C:\\Program Files\\AmiBroker\\Broker.exe"
+    "start_amibroker": true,
+    "amibroker_exe": "C:\\Program Files\\AmiBroker\\Broker.exe",
+    "amibroker_start_delay_seconds": 2,
+    "watchdog_minutes": 5,
+    "keep_amibroker_running": true
+  },
+  "recovery": {
+    "enabled": true,
+    "state_file": "runtime/recovery_state.json",
+    "audit_seconds": 60,
+    "state_flush_seconds": 5,
+    "receiver_full_refresh": true,
+    "intraday_target_records": 1500,
+    "eod_target_bars": 300,
+    "preflight_retry_initial_seconds": 2,
+    "preflight_retry_max_seconds": 60
   }
 }
