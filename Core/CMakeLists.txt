@@ -23,6 +23,12 @@ if(WIN32)
 
     add_executable(astu_trade_pipe_smoke trade_plugin/src/execution_pipe_client_smoke.cpp)
     target_link_libraries(astu_trade_pipe_smoke PRIVATE astu_core)
+
+    add_executable(
+        astu_trade_pipe_live_smoke
+        trade_plugin/src/live_execution_pipe_client_smoke.cpp
+    )
+    target_link_libraries(astu_trade_pipe_live_smoke PRIVATE astu_core)
 endif()
 
 enable_testing()
