@@ -37,6 +37,7 @@
         "acceptedForSimulation",
         "wouldIncreaseExposure",
         "simulatedQuantity",
+        "simulatedNotional",
         "orderRoutingEnabled",
         "reason"
       ],
@@ -55,6 +56,7 @@
         "acceptedForSimulation": {"type": "boolean"},
         "wouldIncreaseExposure": {"type": "boolean"},
         "simulatedQuantity": {"type": "number", "minimum": 0},
+        "simulatedNotional": {"type": "number", "minimum": 0},
         "orderRoutingEnabled": {"const": false},
         "reason": {"type": "string", "maxLength": 512}
       }
