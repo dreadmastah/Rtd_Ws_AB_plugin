@@ -85,6 +85,12 @@ build/core/Release/astu_execution_sim.exe
 
 The expected terminal message contains `SIMULATION_ONLY` and `order routing ... disabled`.
 
+## Supervised simulation runtime
+
+`Core/stack/autotrader_sim_launcher.py` now supervises the simulation execution host and optional read-only account reconciler. The default risk mode is `disabled`, which remains fail-closed. Fixture mode is available for CI/development, while `readonly` requires the explicit read-only environment gate and credentials.
+
+This keeps the runtime operational shape separate from WSRTD while preserving the component boundary: WSRTD publishes market/data identity, AstuTrade emits SignalIntent, and the execution host owns validation/risk/simulation/journal state.
+
 ## Current next implementation step
 
-The public-data identity/readiness path, local Trade-to-Execution simulation transport, durable replay guard, and read-only reconciled account-risk input are now connected. The next major increment is a disabled-by-default Binance private read-only gateway that can populate the account snapshot, followed by restart reconciliation tests. Exchange order submission remains absent.
+The simulation runtime is now wired end-to-end and supervised. The next increment should tighten recovery/lifecycle behavior around the execution service itself: durable startup reconciliation of runtime inputs, health/status publication, and crash/restart acceptance around the Named Pipe host. Exchange order submission remains absent.
