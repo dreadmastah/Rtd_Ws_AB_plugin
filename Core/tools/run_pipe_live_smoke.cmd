@@ -6,8 +6,10 @@ set HOST=%BUILD%\Release\astu_execution_pipe_host.exe
 set CLIENT=%BUILD%\Release\astu_trade_pipe_live_smoke.exe
 set STATUS=%ROOT%\..\CleanRoomR2\stack\runtime\autotrader_status
 set JOURNAL=%BUILD%\pipe_live_smoke_execution_journal.jsonl
+set RISK=%ROOT%\runtime\account_risk_status.v1.json
 
 if not "%~1"=="" set STATUS=%~1
+if not "%~2"=="" set RISK=%~2
 
 if not exist "%HOST%" (
   echo ERROR: missing %HOST%
@@ -24,8 +26,13 @@ if not exist "%STATUS%\BTCUSDT.json" (
   exit /b 3
 )
 
+if not exist "%RISK%" (
+  echo ERROR: missing risk status %RISK%
+  exit /b 4
+)
+
 del /q "%JOURNAL%" >nul 2>nul
-start "ASTU Execution Live Status Host" /b "%HOST%" --status-dir "%STATUS%" --journal "%JOURNAL%"
+start "ASTU Execution Live Status Host" /b "%HOST%" --status-dir "%STATUS%" --risk-status-file "%RISK%" --journal "%JOURNAL%"
 timeout /t 1 /nobreak >nul
 "%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT
 set RC=%ERRORLEVEL%
