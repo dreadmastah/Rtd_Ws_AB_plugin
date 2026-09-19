@@ -11,8 +11,9 @@ This code cannot submit an exchange order. It contains no Binance private API cl
 - `common/` - bounded contracts shared by signal, data and execution simulation.
 - `trade_plugin/` - `SignalIntentBuilder` scaffold for the future Trade.dll boundary.
 - `wsrtd/` - adapter from observable R2 cache/freshness state to `DataStatus`.
-- `execution/` - fail-closed intent validation, account risk gate, synthetic sizing, durable journal, and disabled order manager.
+- `execution/` - fail-closed intent validation, account risk gate, deterministic simulation sizing, instrument filters, durable journal, and disabled order manager.
 - `account/` - read-only private-account boundary plus stale/missing fail-closed risk snapshot provider.
+- `instrument/` - versioned symbol constraints provider for quantity step, min/max quantity and notional filters.
 - `schemas/` - JSON Schema Draft 2020-12 contracts for `SignalIntent.v1` and `DataStatus.v1`.
 - `tests/` - deterministic simulation-only checks.
 
@@ -91,6 +92,26 @@ The expected terminal message contains `SIMULATION_ONLY` and `order routing ... 
 
 This keeps the runtime operational shape separate from WSRTD while preserving the component boundary: WSRTD publishes market/data identity, AstuTrade emits SignalIntent, and the execution host owns validation/risk/simulation/journal state.
 
+## Deterministic instrument filters and sizing
+
+The strict simulation path now accepts `InstrumentConstraints.v1` and applies deterministic pre-order validation without creating an order.
+
+The sizing rule for this simulation increment is explicit and reproducible:
+
+1. start with 0.1% of reconciled `riskCapital` as the synthetic notional budget;
+2. cap new-exposure budget by remaining `maxGrossNotional - grossNotional` headroom;
+3. cap by an instrument `maxNotional` when one is supplied;
+4. convert budget to raw quantity using the SignalIntent trigger price;
+5. floor quantity to the instrument `quantityStep`;
+6. reject zero quantity or violations of min/max quantity or min/max notional;
+7. return both `simulatedQuantity` and `simulatedNotional`.
+
+The price tick is carried and validated as instrument metadata but is not applied to `triggerPrice`, because `triggerPrice` is signal/reference data rather than a submitted limit-order price.
+
+Missing, stale, malformed or symbol-mismatched instrument constraints fail closed as `INSTRUMENT_UNAVAILABLE`. Filter violations return `FILTER_REJECTED`, and non-executable sizing returns `SIZING_REJECTED`.
+
+The existing execution transport can opt into an instrument provider; legacy transport tests remain on the prior synthetic sizing path until a public exchange-info publisher is wired to the runtime.
+
 ## Current next implementation step
 
-The simulation runtime is now wired end-to-end and supervised. The next increment should tighten recovery/lifecycle behavior around the execution service itself: durable startup reconciliation of runtime inputs, health/status publication, and crash/restart acceptance around the Named Pipe host. Exchange order submission remains absent.
+After this deterministic sizing/filter contract is green in CI, the next increment is to publish current Binance USD-M public instrument filters into local `InstrumentConstraints.v1` snapshots and wire the live execution host to require them. Exchange order submission remains absent.
