@@ -77,20 +77,20 @@ struct AccountRiskSnapshot {
     std::uint32_t max_open_positions{0};
 };
 
-enum class DecisionCode {
-    SimulatedAccepted,
-    InvalidIntent,
-    DataNotReady,
-    IdentityUnavailable,
-    UniverseMismatch,
-    DataGenerationMismatch,
-    NotYetValid,
-    Expired,
-    AccountNotReconciled,
-    RiskBlocked,
-    OrderRoutingDisabled,
-    DuplicateRequest,
-    FrameInvalid,
+enum class DecisionCode : int {
+    SimulatedAccepted = 0,
+    InvalidIntent = 10,
+    DataNotReady = 20,
+    IdentityUnavailable = 21,
+    UniverseMismatch = 22,
+    DataGenerationMismatch = 23,
+    NotYetValid = 24,
+    Expired = 25,
+    AccountNotReconciled = 30,
+    RiskBlocked = 31,
+    OrderRoutingDisabled = 100,
+    DuplicateRequest = 110,
+    FrameInvalid = 120,
 };
 
 struct SimulationDecision {
