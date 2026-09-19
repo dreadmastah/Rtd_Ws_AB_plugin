@@ -31,6 +31,9 @@ public:
         std::size_t replay_capacity = 100'000)
         : path_(std::move(path)),
           replay_capacity_(replay_capacity) {
+        if (!path_.parent_path().empty()) {
+            std::filesystem::create_directories(path_.parent_path());
+        }
         load_existing();
     }
 
@@ -130,10 +133,9 @@ private:
                 if (!key.empty() && !seen_.contains(key)) {
                     remember_unlocked(key);
                 }
-            } catch (const std::exception&) {
-                // Fail closed on replay ambiguity: a malformed tail is ignored as an
-                // incomplete append, while prior complete lines remain authoritative.
-                continue;
+            } catch (const std::exception& exc) {
+                throw std::runtime_error(
+                    "execution journal replay parse failure: " + std::string(exc.what()));
             }
         }
     }
