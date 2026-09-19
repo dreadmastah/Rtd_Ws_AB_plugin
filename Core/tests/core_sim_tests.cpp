@@ -1,5 +1,4 @@
 #include <array>
-#include <cassert>
 #include <cstddef>
 #include <chrono>
 #include <filesystem>
@@ -19,6 +18,15 @@
 #include "astu/trade/signal_intent_builder.hpp"
 #include "astu/wsrtd/data_status_adapter.hpp"
 #include "astu/wsrtd/live_status_provider.hpp"
+
+#define REQUIRE(...) do { \
+    if (!(__VA_ARGS__)) { \
+        std::cerr << "REQUIRE_FAILED line=" << __LINE__ << " expr=" << #__VA_ARGS__ << "\n"; \
+        return 99; \
+    } \
+} while (0)
+
+#define TRACE(name) do { std::cout << "TEST_TRACE=" << name << "\n" << std::flush; } while (0)
 
 namespace {
 
@@ -78,9 +86,9 @@ int main() {
                           .build();
         auto result = astu::execution::SimulationEngine::run(
             intent, data, ready_risk(), 2'000);
-        assert(result.accepted_for_simulation);
-        assert(result.code == DecisionCode::OrderRoutingDisabled);
-        assert(result.simulated_quantity > 0.0);
+        REQUIRE(result.accepted_for_simulation);
+        REQUIRE(result.code == DecisionCode::OrderRoutingDisabled);
+        REQUIRE(result.simulated_quantity > 0.0);
     }
 
     {
@@ -96,8 +104,8 @@ int main() {
         intent.data_generation = 9;
         auto result = astu::execution::SimulationEngine::run(
             intent, data, ready_risk(), 2'000);
-        assert(!result.accepted_for_simulation);
-        assert(result.code == DecisionCode::IdentityUnavailable);
+        REQUIRE(!result.accepted_for_simulation);
+        REQUIRE(result.code == DecisionCode::IdentityUnavailable);
     }
 
     {
@@ -119,8 +127,8 @@ int main() {
                           .build();
         auto result = astu::execution::SimulationEngine::run(
             intent, data, ready_risk(), 2'000);
-        assert(result.accepted_for_simulation);
-        assert(result.code == DecisionCode::OrderRoutingDisabled);
+        REQUIRE(result.accepted_for_simulation);
+        REQUIRE(result.code == DecisionCode::OrderRoutingDisabled);
     }
 
     {
@@ -131,8 +139,8 @@ int main() {
         intent.universe_id = "OTHER";
         auto result = astu::execution::SimulationEngine::run(
             intent, data, ready_risk(), 2'000);
-        assert(!result.accepted_for_simulation);
-        assert(result.code == DecisionCode::UniverseMismatch);
+        REQUIRE(!result.accepted_for_simulation);
+        REQUIRE(result.code == DecisionCode::UniverseMismatch);
     }
 
     {
@@ -143,8 +151,8 @@ int main() {
         intent.data_generation += 1;
         auto result = astu::execution::SimulationEngine::run(
             intent, data, ready_risk(), 2'000);
-        assert(!result.accepted_for_simulation);
-        assert(result.code == DecisionCode::DataGenerationMismatch);
+        REQUIRE(!result.accepted_for_simulation);
+        REQUIRE(result.code == DecisionCode::DataGenerationMismatch);
     }
 
     {
@@ -156,8 +164,8 @@ int main() {
                           .build();
         auto result = astu::execution::SimulationEngine::run(
             intent, data, risk, 2'000);
-        assert(!result.accepted_for_simulation);
-        assert(result.code == DecisionCode::RiskBlocked);
+        REQUIRE(!result.accepted_for_simulation);
+        REQUIRE(result.code == DecisionCode::RiskBlocked);
     }
 
     {
@@ -168,7 +176,7 @@ int main() {
         auto decoded = astu::ipc::decode_frame(encoded);
         const std::string roundtrip(
             reinterpret_cast<const char*>(decoded.data()), decoded.size());
-        assert(roundtrip == text);
+        REQUIRE(roundtrip == text);
 
         encoded.back() ^= std::byte{0x01};
         bool rejected = false;
@@ -177,17 +185,17 @@ int main() {
         } catch (const std::invalid_argument&) {
             rejected = true;
         }
-        assert(rejected);
+        REQUIRE(rejected);
     }
 
     {
         astu::ipc::IdempotencyCache cache(2);
-        assert(cache.accept_once("REQ-1"));
-        assert(!cache.accept_once("REQ-1"));
-        assert(cache.accept_once("REQ-2"));
-        assert(cache.accept_once("REQ-3"));
-        assert(cache.size() == 2);
-        assert(cache.accept_once("REQ-1"));
+        REQUIRE(cache.accept_once("REQ-1"));
+        REQUIRE(!cache.accept_once("REQ-1"));
+        REQUIRE(cache.accept_once("REQ-2"));
+        REQUIRE(cache.accept_once("REQ-3"));
+        REQUIRE(cache.size() == 2);
+        REQUIRE(cache.accept_once("REQ-1"));
     }
 
     {
@@ -203,12 +211,12 @@ int main() {
 
         const std::string encoded = astu::ipc::encode_request_json(request);
         const auto decoded = astu::ipc::decode_request_json(encoded);
-        assert(decoded.request_id == request.request_id);
-        assert(decoded.idempotency_key == request.idempotency_key);
-        assert(decoded.intent.signal_id == request.intent.signal_id);
-        assert(decoded.intent.universe_id == request.intent.universe_id);
-        assert(decoded.intent.universe_version == request.intent.universe_version);
-        assert(decoded.intent.data_generation == request.intent.data_generation);
+        REQUIRE(decoded.request_id == request.request_id);
+        REQUIRE(decoded.idempotency_key == request.idempotency_key);
+        REQUIRE(decoded.intent.signal_id == request.intent.signal_id);
+        REQUIRE(decoded.intent.universe_id == request.intent.universe_id);
+        REQUIRE(decoded.intent.universe_version == request.intent.universe_version);
+        REQUIRE(decoded.intent.data_generation == request.intent.data_generation);
 
         astu::ipc::SimulationDispatcher dispatcher(
             [data](const astu::core::SignalIntent&) { return data; },
@@ -216,20 +224,20 @@ int main() {
             4);
 
         const auto response1 = dispatcher.dispatch(request, 2'000);
-        assert(response1.decision_code == DecisionCode::OrderRoutingDisabled);
-        assert(response1.accepted_for_simulation);
-        assert(!response1.order_routing_enabled);
+        REQUIRE(response1.decision_code == DecisionCode::OrderRoutingDisabled);
+        REQUIRE(response1.accepted_for_simulation);
+        REQUIRE(!response1.order_routing_enabled);
 
         const std::string response_json = astu::ipc::encode_response_json(response1);
         const auto response_roundtrip = astu::ipc::decode_response_json(response_json);
-        assert(response_roundtrip.request_id == request.request_id);
-        assert(response_roundtrip.signal_id == request.intent.signal_id);
-        assert(response_roundtrip.decision_code == DecisionCode::OrderRoutingDisabled);
-        assert(!response_roundtrip.order_routing_enabled);
+        REQUIRE(response_roundtrip.request_id == request.request_id);
+        REQUIRE(response_roundtrip.signal_id == request.intent.signal_id);
+        REQUIRE(response_roundtrip.decision_code == DecisionCode::OrderRoutingDisabled);
+        REQUIRE(!response_roundtrip.order_routing_enabled);
 
         const auto response2 = dispatcher.dispatch(request, 2'000);
-        assert(response2.decision_code == DecisionCode::DuplicateRequest);
-        assert(!response2.accepted_for_simulation);
+        REQUIRE(response2.decision_code == DecisionCode::DuplicateRequest);
+        REQUIRE(!response2.accepted_for_simulation);
     }
 
     {
@@ -237,11 +245,12 @@ int main() {
             [](const astu::core::SignalIntent&) { return ready_data(); },
             [](const astu::core::SignalIntent&) { return ready_risk(); });
         const auto response = dispatcher.dispatch_json("not-json", 2'000);
-        assert(response.decision_code == DecisionCode::FrameInvalid);
-        assert(!response.order_routing_enabled);
+        REQUIRE(response.decision_code == DecisionCode::FrameInvalid);
+        REQUIRE(!response.order_routing_enabled);
     }
 
     {
+        TRACE("live_status_provider");
         const auto now_ms = static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count());
@@ -275,14 +284,14 @@ int main() {
         astu::wsrtd::LiveStatusProvider provider(dir, 5'000);
         auto seed = base_intent();
         auto data = provider(seed);
-        assert(data.live);
-        assert(data.fresh);
-        assert(data.cache_ready);
-        assert(data.identity_ready);
-        assert(data.universe_id.has_value());
-        assert(*data.universe_id == "wsrtd-r2-bootstrap");
-        assert(data.universe_version.has_value() && *data.universe_version == 1);
-        assert(data.data_generation.has_value() &&
+        REQUIRE(data.live);
+        REQUIRE(data.fresh);
+        REQUIRE(data.cache_ready);
+        REQUIRE(data.identity_ready);
+        REQUIRE(data.universe_id.has_value());
+        REQUIRE(*data.universe_id == "wsrtd-r2-bootstrap");
+        REQUIRE(data.universe_version.has_value() && *data.universe_version == 1);
+        REQUIRE(data.data_generation.has_value() &&
                *data.data_generation == 1'789'824'780'000ULL);
 
         auto intent = astu::trade::SignalIntentBuilder(seed)
@@ -290,7 +299,7 @@ int main() {
                           .build();
         auto result = astu::execution::SimulationEngine::run(
             intent, data, ready_risk(), 2'000);
-        assert(result.code == DecisionCode::OrderRoutingDisabled);
+        REQUIRE(result.code == DecisionCode::OrderRoutingDisabled);
 
         std::filesystem::remove_all(dir);
     }
@@ -301,13 +310,14 @@ int main() {
         std::filesystem::remove_all(dir);
         astu::wsrtd::LiveStatusProvider provider(dir, 5'000);
         auto data = provider(base_intent());
-        assert(!data.live);
-        assert(!data.fresh);
-        assert(!data.cache_ready);
-        assert(!data.identity_ready);
+        REQUIRE(!data.live);
+        REQUIRE(!data.fresh);
+        REQUIRE(!data.cache_ready);
+        REQUIRE(!data.identity_ready);
     }
 
     {
+        TRACE("live_risk_provider");
         const auto now_ms = static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count());
@@ -338,14 +348,14 @@ int main() {
 
         astu::account::LiveRiskProvider provider(path, 5'000);
         const auto risk = provider(base_intent());
-        assert(risk.reconciled);
-        assert(risk.risk_state == astu::core::RiskState::Normal);
-        assert(risk.risk_capital == 10'000.0);
-        assert(risk.available_balance == 9'000.0);
-        assert(risk.gross_notional == 1'000.0);
-        assert(risk.max_gross_notional == 50'000.0);
-        assert(risk.open_positions == 1);
-        assert(risk.max_open_positions == 10);
+        REQUIRE(risk.reconciled);
+        REQUIRE(risk.risk_state == astu::core::RiskState::Normal);
+        REQUIRE(risk.risk_capital == 10'000.0);
+        REQUIRE(risk.available_balance == 9'000.0);
+        REQUIRE(risk.gross_notional == 1'000.0);
+        REQUIRE(risk.max_gross_notional == 50'000.0);
+        REQUIRE(risk.open_positions == 1);
+        REQUIRE(risk.max_open_positions == 10);
 
         std::filesystem::remove_all(dir);
     }
@@ -356,8 +366,8 @@ int main() {
         std::filesystem::remove(path);
         astu::account::LiveRiskProvider provider(path, 5'000);
         const auto risk = provider(base_intent());
-        assert(!risk.reconciled);
-        assert(risk.risk_state == astu::core::RiskState::Emergency);
+        REQUIRE(!risk.reconciled);
+        REQUIRE(risk.risk_state == astu::core::RiskState::Emergency);
 
         auto data = ready_data();
         auto intent = astu::trade::SignalIntentBuilder(base_intent())
@@ -365,11 +375,12 @@ int main() {
                           .build();
         const auto result = astu::execution::SimulationEngine::run(
             intent, data, risk, 2'000);
-        assert(result.code == DecisionCode::AccountNotReconciled);
-        assert(!result.accepted_for_simulation);
+        REQUIRE(result.code == DecisionCode::AccountNotReconciled);
+        REQUIRE(!result.accepted_for_simulation);
     }
 
     {
+        TRACE("execution_journal");
         const auto dir = std::filesystem::temp_directory_path() /
             "astu_execution_journal_test";
         std::filesystem::remove_all(dir);
@@ -404,14 +415,14 @@ int main() {
                 });
 
             const auto response = dispatcher.dispatch(request, 2'000);
-            assert(response.decision_code == DecisionCode::OrderRoutingDisabled);
-            assert(journal->replay_size() == 1);
+            REQUIRE(response.decision_code == DecisionCode::OrderRoutingDisabled);
+            REQUIRE(journal->replay_size() == 1);
         }
 
         {
             auto journal = std::make_shared<astu::execution::ExecutionJournal>(
                 journal_path, 100);
-            assert(journal->replay_size() == 1);
+            REQUIRE(journal->replay_size() == 1);
 
             astu::ipc::SimulationDispatcher dispatcher(
                 [data](const astu::core::SignalIntent&) { return data; },
@@ -428,22 +439,23 @@ int main() {
                 });
 
             const auto replay = dispatcher.dispatch(request, 2'100);
-            assert(replay.decision_code == DecisionCode::DuplicateRequest);
-            assert(!replay.accepted_for_simulation);
+            REQUIRE(replay.decision_code == DecisionCode::DuplicateRequest);
+            REQUIRE(!replay.accepted_for_simulation);
         }
 
         std::ifstream journal_in(journal_path, std::ios::binary);
         const std::string journal_text(
             (std::istreambuf_iterator<char>(journal_in)),
             std::istreambuf_iterator<char>());
-        assert(journal_text.find("IDEMPOTENCY_RESERVATION") != std::string::npos);
-        assert(journal_text.find("SIMULATION_DECISION") != std::string::npos);
-        assert(journal_text.find("ORDER_ROUTING_DISABLED") != std::string::npos);
-        assert(journal_text.find("DUPLICATE_REQUEST") != std::string::npos);
+        REQUIRE(journal_text.find("IDEMPOTENCY_RESERVATION") != std::string::npos);
+        REQUIRE(journal_text.find("SIMULATION_DECISION") != std::string::npos);
+        REQUIRE(journal_text.find("ORDER_ROUTING_DISABLED") != std::string::npos);
+        REQUIRE(journal_text.find("DUPLICATE_REQUEST") != std::string::npos);
 
         std::filesystem::remove_all(dir);
     }
 
+    TRACE("complete");
     std::cout << "astu_core_tests PASS\n";
     return 0;
 }
