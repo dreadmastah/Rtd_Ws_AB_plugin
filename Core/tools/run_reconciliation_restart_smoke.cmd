@@ -9,6 +9,7 @@ set RISK=%ROOT%\runtime\account_risk_status.v1.json
 set JOURNAL=%BUILD%\reconciliation_restart_journal.jsonl
 set GATEWAY=%ROOT%\account\binance_usdm_readonly_gateway.py
 set FIXTURE=%ROOT%\account\tests\fixtures\binance_usdm_account_v3.json
+set BRIDGE=%ROOT%\..\CleanRoomR2\stack\identity_bridge.py
 
 if not exist "%HOST%" (
   echo ERROR: missing %HOST%
@@ -24,6 +25,12 @@ if not exist "%STATUS%\BTCUSDT.json" (
 )
 
 del /q "%JOURNAL%" >nul 2>nul
+
+python "%BRIDGE%" --once
+if errorlevel 1 (
+  echo RECONCILIATION_RESTART_SMOKE=FAIL STATUS_REFRESH_CASE1
+  exit /b 3
+)
 
 python "%GATEWAY%" --once --fixture "%FIXTURE%" --output "%RISK%"
 if errorlevel 1 (
@@ -42,6 +49,11 @@ if not %CASE1% EQU 0 (
 )
 
 del /q "%RISK%" >nul 2>nul
+python "%BRIDGE%" --once
+if errorlevel 1 (
+  echo RECONCILIATION_RESTART_SMOKE=FAIL STATUS_REFRESH_CASE2
+  exit /b 3
+)
 ping -n 2 127.0.0.1 >nul
 start "ASTU Reconciliation Case 2" /b "%HOST%" --status-dir "%STATUS%" --risk-status-file "%RISK%" --journal "%JOURNAL%"
 ping -n 2 127.0.0.1 >nul
@@ -57,6 +69,11 @@ python "%GATEWAY%" --once --fixture "%FIXTURE%" --output "%RISK%"
 if errorlevel 1 (
   echo RECONCILIATION_RESTART_SMOKE=FAIL RESTORE_RISK
   exit /b 5
+)
+python "%BRIDGE%" --once
+if errorlevel 1 (
+  echo RECONCILIATION_RESTART_SMOKE=FAIL STATUS_REFRESH_CASE3
+  exit /b 3
 )
 
 ping -n 2 127.0.0.1 >nul
