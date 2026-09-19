@@ -26,6 +26,7 @@ RUNTIME = ROOT / "runtime"
 LOGS = RUNTIME / "logs"
 PID_FILE = RUNTIME / "autotrader_sim_pids.json"
 RISK_FILE = RUNTIME / "account_risk_status.v1.json"
+EXECUTION_STATUS_FILE = RUNTIME / "execution_status.v1.json"
 DEFAULT_STATUS_DIR = REPO / "CleanRoomR2" / "stack" / "runtime" / "autotrader_status"
 DEFAULT_HOST = REPO / "build" / "core" / "Release" / "astu_execution_pipe_host.exe"
 GATEWAY = ROOT / "account" / "binance_usdm_readonly_gateway.py"
@@ -120,6 +121,7 @@ def run(args: argparse.Namespace) -> int:
     status_dir = Path(args.status_dir).resolve()
     risk_file = Path(args.risk_file).resolve()
     journal = Path(args.journal).resolve()
+    execution_status_file = Path(args.execution_status_file).resolve()
 
     if not host.exists():
         print(f"ASTU_SIM_STACK_FATAL=missing execution host {host}")
@@ -207,6 +209,8 @@ def run(args: argparse.Namespace) -> int:
             str(args.max_status_age_ms),
             "--max-risk-status-age-ms",
             str(args.max_risk_status_age_ms),
+            "--execution-status-file",
+            str(execution_status_file),
         ]
         children["execution"] = start_child("execution", host_command)
         save_pids(children)
@@ -216,6 +220,7 @@ def run(args: argparse.Namespace) -> int:
         print(f"STATUS_DIR={status_dir}")
         print(f"RISK_STATUS_FILE={risk_file}")
         print(f"EXECUTION_JOURNAL={journal}")
+        print(f"EXECUTION_STATUS_FILE={execution_status_file}")
         print("ORDER_ROUTING_ENABLED=false")
 
         while not stop_requested:
@@ -273,6 +278,10 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--journal",
         default=str(RUNTIME / "execution_journal.v1.jsonl"),
+    )
+    ap.add_argument(
+        "--execution-status-file",
+        default=str(EXECUTION_STATUS_FILE),
     )
     ap.add_argument(
         "--risk-mode",
