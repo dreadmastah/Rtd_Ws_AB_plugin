@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 
+#include "astu/account/live_risk_provider.hpp"
 #include "astu/core/contracts.hpp"
 #include "astu/execution/execution_journal.hpp"
 #include "astu/execution/execution_pipe_server.hpp"
@@ -55,12 +56,18 @@ int main(int argc, char** argv) {
     std::uint64_t max_status_age_ms = 5'000;
     std::filesystem::path journal_path =
         "Core/runtime/execution_journal.v1.jsonl";
+    std::filesystem::path risk_status_file =
+        "Core/runtime/account_risk_status.v1.json";
+    std::uint64_t max_risk_status_age_ms = 5'000;
 
     if (const char* env = std::getenv("ASTU_STATUS_DIR"); env && *env) {
         status_dir = env;
     }
     if (const char* env = std::getenv("ASTU_EXECUTION_JOURNAL"); env && *env) {
         journal_path = env;
+    }
+    if (const char* env = std::getenv("ASTU_RISK_STATUS_FILE"); env && *env) {
+        risk_status_file = env;
     }
 
     for (int i = 1; i < argc; ++i) {
@@ -73,6 +80,10 @@ int main(int argc, char** argv) {
             max_status_age_ms = std::stoull(argv[++i]);
         } else if (arg == "--journal" && i + 1 < argc) {
             journal_path = argv[++i];
+        } else if (arg == "--risk-status-file" && i + 1 < argc) {
+            risk_status_file = argv[++i];
+        } else if (arg == "--max-risk-status-age-ms" && i + 1 < argc) {
+            max_risk_status_age_ms = std::stoull(argv[++i]);
         } else {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
@@ -89,13 +100,25 @@ int main(int argc, char** argv) {
         };
     }
 
+    astu::ipc::SimulationDispatcher::RiskProvider risk_provider;
+    if (synthetic) {
+        risk_provider = synthetic_risk;
+    } else {
+        astu::account::LiveRiskProvider provider(
+            risk_status_file,
+            max_risk_status_age_ms);
+        risk_provider = [provider](const astu::core::SignalIntent& intent) {
+            return provider(intent);
+        };
+    }
+
     auto journal = std::make_shared<astu::execution::ExecutionJournal>(
         journal_path,
         100'000);
 
     astu::ipc::SimulationDispatcher dispatcher(
         std::move(data_provider),
-        synthetic_risk,
+        std::move(risk_provider),
         4096,
         [journal](const std::string& key) {
             return journal->accept_idempotency_key(key);
@@ -117,7 +140,13 @@ int main(int argc, char** argv) {
         std::cout << "STATUS_DIR=" << status_dir.string() << "\n";
         std::cout << "MAX_STATUS_AGE_MS=" << max_status_age_ms << "\n";
     }
-    std::cout << "RISK_PROVIDER=SYNTHETIC_ONLY\n";
+    std::cout << "RISK_PROVIDER="
+              << (synthetic ? "SYNTHETIC" : "FILE_BACKED_RECONCILED_STATUS")
+              << "\n";
+    if (!synthetic) {
+        std::cout << "RISK_STATUS_FILE=" << risk_status_file.string() << "\n";
+        std::cout << "MAX_RISK_STATUS_AGE_MS=" << max_risk_status_age_ms << "\n";
+    }
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "REPLAY_KEYS_LOADED=" << journal->replay_size() << "\n";
 
