@@ -11,7 +11,8 @@ This code cannot submit an exchange order. It contains no Binance private API cl
 - `common/` - bounded contracts shared by signal, data and execution simulation.
 - `trade_plugin/` - `SignalIntentBuilder` scaffold for the future Trade.dll boundary.
 - `wsrtd/` - adapter from observable R2 cache/freshness state to `DataStatus`.
-- `execution/` - fail-closed intent validation, synthetic risk gate, synthetic sizing, and disabled order manager.
+- `execution/` - fail-closed intent validation, account risk gate, synthetic sizing, durable journal, and disabled order manager.
+- `account/` - read-only private-account boundary plus stale/missing fail-closed risk snapshot provider.
 - `schemas/` - JSON Schema Draft 2020-12 contracts for `SignalIntent.v1` and `DataStatus.v1`.
 - `tests/` - deterministic simulation-only checks.
 
@@ -42,7 +43,7 @@ The stack now publishes two local runtime layers:
 
 The runtime `cacheReady` flag is a compatibility readiness signal derived from an observed successful full bounded receiver hydration in the current WSRTD server process. It is not a direct DLL-memory cache inspection.
 
-The account/risk provider remains synthetic in this phase, and order routing remains disabled.
+The live host now consumes a separate reconciled `AccountRiskSnapshot.v1` file. Missing, stale, malformed, or unreconciled account state fails closed before sizing. The `--synthetic` mode still uses a deterministic risk snapshot strictly for transport tests. Order routing remains disabled.
 
 ## Durable execution journal and replay guard
 
@@ -86,4 +87,4 @@ The expected terminal message contains `SIMULATION_ONLY` and `order routing ... 
 
 ## Current next implementation step
 
-The public-data identity/readiness path, local Trade-to-Execution simulation transport, and durable replay guard are now connected. The next major increment is a read-only/private-account gateway abstraction plus reconciliation state feeding the risk engine, while keeping exchange order submission absent.
+The public-data identity/readiness path, local Trade-to-Execution simulation transport, durable replay guard, and read-only reconciled account-risk input are now connected. The next major increment is a disabled-by-default Binance private read-only gateway that can populate the account snapshot, followed by restart reconciliation tests. Exchange order submission remains absent.
