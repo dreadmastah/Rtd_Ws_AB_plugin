@@ -30,8 +30,11 @@ int main() {
     data.fresh = true;
     data.cache_ready = true;
     data.identity_ready = true;
+    data.universe_id = "U-SIM";
     data.universe_version = 1;
+    data.universe_hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     data.data_generation = 7;
+    data.generation_kind = "SYNTHETIC_TEST_GENERATION";
 
     astu::core::AccountRiskSnapshot risk;
     risk.reconciled = true;
