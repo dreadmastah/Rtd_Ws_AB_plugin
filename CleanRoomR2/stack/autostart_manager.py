@@ -26,6 +26,11 @@ def install(dbname: str) -> int:
         print("WSRTD_AUTOSTART=FAIL_WINDOWS_ONLY")
         return 2
     py = BASE / ".venv" / "Scripts" / "python.exe"
+    pause = BASE / "runtime" / "maintenance_pause"
+    try:
+        pause.unlink()
+    except OSError:
+        pass
     if not py.exists():
         print("WSRTD_AUTOSTART=FAIL_VENV_MISSING")
         return 2
