@@ -37,6 +37,7 @@ jobs:
         run: |
           python -m py_compile CleanRoomR2/stack/identity_bridge.py
           python -m py_compile Core/account/binance_usdm_readonly_gateway.py
+          python -m py_compile Core/stack/autotrader_sim_launcher.py
 
       - name: Identity bridge one-shot
         shell: bash
@@ -152,3 +153,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_amibroker_trade_e2e_smoke.cmd
+
+      - name: Windows supervised simulation stack smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_sim_stack_fixture_smoke.cmd
