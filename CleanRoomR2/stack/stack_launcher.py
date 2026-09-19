@@ -98,7 +98,9 @@ def critical_stack_alive() -> tuple[bool, dict[str, int]]:
     data = load_pidfile()
     if not data:
         return False, data
-    required = ("launcher", "relay", "server")
+    required = ["launcher", "relay", "server"]
+    if bool(CFG.get("identity_bridge", {}).get("enabled", False)):
+        required.append("identity")
     return all(pid_alive(int(data.get(k, 0))) for k in required), data
 
 
@@ -216,6 +218,8 @@ def run_supervisor() -> int:
         "relay": [sys.executable, "-u", str(BASE / "wsrtd_relay.py")],
         "server": [sys.executable, "-u", str(BASE / "binance_usdm_server.py")],
     }
+    if bool(CFG.get("identity_bridge", {}).get("enabled", False)):
+        specs["identity"] = [sys.executable, "-u", str(BASE / "identity_bridge.py")]
 
     def start_one(name: str) -> subprocess.Popen:
         path = LOGS / f"{name}_supervisor.log"
@@ -255,13 +259,16 @@ def run_supervisor() -> int:
         print(f"RELAY_READY=YES {host}:{port}")
         children["server"] = start_one("server")
         save_pids(children)
+        if "identity" in specs:
+            children["identity"] = start_one("identity")
+            save_pids(children)
         start_amibroker_if_needed()
 
         print("WSRTD_STACK_STATUS=RUNNING")
         print(f"LOG_DIR={LOGS}")
         while not stop:
             time.sleep(1)
-            for name in ("relay", "server"):
+            for name in tuple(specs):
                 p = children[name]
                 if p.poll() is not None and not stop:
                     print(f"{name.upper()}_EXITED={p.returncode} RESTARTING_IN={restart_delay}s")
