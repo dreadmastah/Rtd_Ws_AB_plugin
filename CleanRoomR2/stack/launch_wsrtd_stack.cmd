@@ -1,6 +1,7 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
+if exist "runtime\maintenance_pause" del /q "runtime\maintenance_pause" >nul 2>nul
 set "DBNAME=%~1"
 if "%DBNAME%"=="" set "DBNAME=Data"
 
