@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "astu/ipc/frame.hpp"
 #include "astu/ipc/named_pipe.hpp"
