@@ -13,6 +13,20 @@ public:
     explicit SignalIntentBuilder(astu::core::SignalIntent intent)
         : intent_(std::move(intent)) {}
 
+    SignalIntentBuilder& bind_data_identity(const astu::core::DataStatus& data) {
+        if (!data.identity_ready || !data.universe_id.has_value() ||
+            !data.universe_version.has_value() || !data.data_generation.has_value()) {
+            throw std::invalid_argument("DataStatus identity is not ready");
+        }
+        if (!intent_.symbol.empty() && !data.symbol.empty() && intent_.symbol != data.symbol) {
+            throw std::invalid_argument("SignalIntent/DataStatus symbol mismatch");
+        }
+        intent_.universe_id = *data.universe_id;
+        intent_.universe_version = *data.universe_version;
+        intent_.data_generation = *data.data_generation;
+        return *this;
+    }
+
     astu::core::SignalIntent build() const {
         if (intent_.schema_version != 1) {
             throw std::invalid_argument("SignalIntent schema_version must be 1");
