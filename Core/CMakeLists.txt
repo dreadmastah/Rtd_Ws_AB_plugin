@@ -11,6 +11,7 @@ target_include_directories(astu_core INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/trade_plugin/include
     ${CMAKE_CURRENT_SOURCE_DIR}/execution/include
     ${CMAKE_CURRENT_SOURCE_DIR}/wsrtd/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/ipc/include
 )
 
 add_executable(astu_execution_sim execution/src/execution_sim_main.cpp)
