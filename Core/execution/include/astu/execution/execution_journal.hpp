@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <filesystem>
@@ -41,6 +42,16 @@ public:
         if (seen_.contains(key)) {
             return false;
         }
+
+        std::ostringstream reservation;
+        reservation
+            << "{"
+            << "\"schemaVersion\":1"
+            << ",\"eventType\":\"IDEMPOTENCY_RESERVATION\""
+            << ",\"utcMs\":" << utc_now_ms()
+            << ",\"idempotencyKey\":\"" << astu::ipc::json_escape(key) << "\""
+            << "}\n";
+        append_durable(reservation.str());
         remember_unlocked(key);
         return true;
     }
@@ -107,8 +118,12 @@ private:
             }
             try {
                 const auto obj = astu::ipc::FlatJsonParser(line).parse();
-                if (astu::ipc::require_u64(obj, "schemaVersion") != 1 ||
-                    astu::ipc::require_string(obj, "eventType") != "SIMULATION_DECISION") {
+                if (astu::ipc::require_u64(obj, "schemaVersion") != 1) {
+                    continue;
+                }
+                const auto event_type = astu::ipc::require_string(obj, "eventType");
+                if (event_type != "IDEMPOTENCY_RESERVATION" &&
+                    event_type != "SIMULATION_DECISION") {
                     continue;
                 }
                 const auto key = astu::ipc::require_string(obj, "idempotencyKey");
@@ -121,6 +136,11 @@ private:
                 continue;
             }
         }
+    }
+
+    static std::int64_t utc_now_ms() {
+        const auto now = std::chrono::system_clock::now().time_since_epoch();
+        return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
     }
 
     void remember_unlocked(const std::string& key) {
