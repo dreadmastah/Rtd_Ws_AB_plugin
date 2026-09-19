@@ -49,6 +49,19 @@ MAX_BF_DAYS = max(FULL_BF_DAYS, int(BCFG.get("max_backfill_days", 2)))
 EOD_BF_DAYS = max(2, int(BCFG.get("eod_backfill_days", 301)))
 REST_LIMIT = min(1500, max(100, int(BCFG.get("rest_page_limit", 1500))))
 FAIL_CLOSED_BOOTSTRAP = bool(BCFG.get("fail_closed_bootstrap", True))
+RECOV_CFG = CFG.get("recovery", {})
+RECOVERY_ENABLED = bool(RECOV_CFG.get("enabled", True))
+RECOVERY_AUDIT_SEC = max(10.0, float(RECOV_CFG.get("audit_seconds", 60)))
+RECOVERY_STATE_FLUSH_SEC = max(1.0, float(RECOV_CFG.get("state_flush_seconds", 5)))
+RECOVERY_RECEIVER_FULL_REFRESH = bool(RECOV_CFG.get("receiver_full_refresh", True))
+RECOVERY_1M_RECORDS = max(60, int(RECOV_CFG.get("intraday_target_records", 1500)))
+RECOVERY_EOD_BARS = max(1, int(RECOV_CFG.get("eod_target_bars", 300)))
+PREFLIGHT_RETRY_INITIAL = max(1.0, float(RECOV_CFG.get("preflight_retry_initial_seconds", 2)))
+PREFLIGHT_RETRY_MAX = max(PREFLIGHT_RETRY_INITIAL, float(RECOV_CFG.get("preflight_retry_max_seconds", 60)))
+STATE_FILE_CFG = Path(str(RECOV_CFG.get("state_file", "runtime/recovery_state.json")))
+RECOVERY_STATE_PATH = STATE_FILE_CFG if STATE_FILE_CFG.is_absolute() else BASE / STATE_FILE_CFG
+MINUTE_MS = 60_000
+DAY_MS = 86_400_000
 RELAY_URI = os.getenv(
     "WSRTD_RELAY_URI",
     f"ws://{RCFG.get('host', '127.0.0.1')}:{RCFG.get('port', 10101)}/sender",
@@ -64,6 +77,10 @@ logging.basicConfig(
     ],
 )
 LOG = logging.getLogger("binance-usdm-wsrtd")
+
+
+class BootstrapValidationError(RuntimeError):
+    """Fail-closed bootstrap universe validation failure."""
 
 
 def load_bootstrap() -> list[str]:
@@ -133,10 +150,128 @@ class App:
         self.public_up = False
         self.req_id = 100
         self.backfill_sem = asyncio.Semaphore(2)
+        self.receiver_count = 0
+        self.recovery_event = asyncio.Event()
+        self.recovery_reasons: set[str] = set()
+        self.recovery_full_requested = False
+        self.recovery_lock = asyncio.Lock()
+        self.recovery_state_dirty = False
+        self.recovery_state = self.load_recovery_state()
 
     def next_id(self) -> int:
         self.req_id += 1
         return self.req_id
+
+    @staticmethod
+    def completed_1m_open_ms(now_ms: int | None = None) -> int:
+        if now_ms is None:
+            now_ms = int(time.time() * 1000)
+        return (now_ms // MINUTE_MS) * MINUTE_MS - MINUTE_MS
+
+    @staticmethod
+    def date_num_from_ms(open_ms: int) -> int:
+        dt = datetime.fromtimestamp(open_ms / 1000.0, tz=timezone.utc)
+        return dt.year * 10000 + dt.month * 100 + dt.day
+
+    @staticmethod
+    def yesterday_date_num(now_ms: int | None = None) -> int:
+        if now_ms is None:
+            now_ms = int(time.time() * 1000)
+        return App.date_num_from_ms(now_ms - DAY_MS)
+
+    def load_recovery_state(self) -> dict[str, Any]:
+        default = {"version": 1, "symbols": {}}
+        if not RECOVERY_ENABLED or not RECOVERY_STATE_PATH.exists():
+            return default
+        try:
+            obj = json.loads(RECOVERY_STATE_PATH.read_text(encoding="utf-8"))
+            if not isinstance(obj, dict) or not isinstance(obj.get("symbols"), dict):
+                raise ValueError("invalid recovery-state structure")
+            obj["version"] = 1
+            LOG.info("recovery state loaded path=%s symbols=%d", RECOVERY_STATE_PATH, len(obj["symbols"]))
+            return obj
+        except Exception as exc:
+            LOG.warning("recovery state unreadable; starting conservatively: %s", exc)
+            return default
+
+    def recovery_symbol_state(self, symbol: str) -> dict[str, Any]:
+        symbols = self.recovery_state.setdefault("symbols", {})
+        item = symbols.setdefault(symbol.upper(), {})
+        return item
+
+    def update_1m_watermark(self, symbol: str, open_ms: int, *, allow_jump: bool = False) -> None:
+        if open_ms <= 0:
+            return
+        item = self.recovery_symbol_state(symbol)
+        old = int(item.get("last_completed_1m_open_ms", 0) or 0)
+        if open_ms <= old:
+            return
+        if old > 0 and open_ms > old + MINUTE_MS and not allow_jump:
+            observed = int(item.get("observed_completed_1m_open_ms", 0) or 0)
+            if open_ms > observed:
+                item["observed_completed_1m_open_ms"] = int(open_ms)
+                self.recovery_state_dirty = True
+            LOG.warning(
+                "live 1m gap detected symbol=%s last=%d observed=%d missing_minutes=%d",
+                symbol, old, open_ms, max(0, (open_ms - old) // MINUTE_MS - 1),
+            )
+            self.request_recovery(f"live-gap:{symbol}", full=False)
+            return
+        item["last_completed_1m_open_ms"] = int(open_ms)
+        item.pop("observed_completed_1m_open_ms", None)
+        item["updated_utc"] = datetime.now(timezone.utc).isoformat()
+        self.recovery_state_dirty = True
+
+    def update_eod_watermark(self, symbol: str, date_num: int) -> None:
+        if date_num <= 0:
+            return
+        item = self.recovery_symbol_state(symbol)
+        old = int(item.get("last_completed_eod_date", 0) or 0)
+        if date_num > old:
+            item["last_completed_eod_date"] = int(date_num)
+            item["updated_utc"] = datetime.now(timezone.utc).isoformat()
+            self.recovery_state_dirty = True
+
+    def save_recovery_state(self) -> None:
+        if not RECOVERY_ENABLED or not self.recovery_state_dirty:
+            return
+        RECOVERY_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = RECOVERY_STATE_PATH.with_suffix(RECOVERY_STATE_PATH.suffix + ".tmp")
+        body = dict(self.recovery_state)
+        body["version"] = 1
+        body["saved_utc"] = datetime.now(timezone.utc).isoformat()
+        tmp.write_text(json.dumps(body, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(tmp, RECOVERY_STATE_PATH)
+        self.recovery_state_dirty = False
+
+    async def recovery_state_writer_loop(self) -> None:
+        while not self.stop.is_set():
+            try:
+                await asyncio.wait_for(self.stop.wait(), timeout=RECOVERY_STATE_FLUSH_SEC)
+            except asyncio.TimeoutError:
+                pass
+            if self.recovery_state_dirty:
+                try:
+                    self.save_recovery_state()
+                except Exception:
+                    LOG.exception("recovery state save failed")
+
+    def request_recovery(self, reason: str, *, full: bool = False) -> None:
+        if not RECOVERY_ENABLED:
+            return
+        self.recovery_reasons.add(reason)
+        if full:
+            self.recovery_full_requested = True
+        self.recovery_event.set()
+
+    async def handle_relay_status(self, obj: dict[str, Any]) -> None:
+        new_count = max(0, int(obj.get("receivers", 0) or 0))
+        old_count = self.receiver_count
+        self.receiver_count = new_count
+        if new_count != old_count:
+            LOG.info("relay receiver count changed old=%d new=%d", old_count, new_count)
+        if new_count > 0 and old_count == 0:
+            self.request_recovery("receiver-attached", full=RECOVERY_RECEIVER_FULL_REFRESH)
 
     async def rest_json(self, path: str, params: dict[str, Any] | None = None) -> Any:
         assert self.session is not None
@@ -176,11 +311,28 @@ class App:
         if bad:
             msg = "Bootstrap validation failed: " + "; ".join(bad)
             if FAIL_CLOSED_BOOTSTRAP:
-                raise RuntimeError(msg)
+                raise BootstrapValidationError(msg)
             LOG.warning(msg)
             for item in bad:
                 self.active.discard(item.split(":", 1)[0])
         LOG.info("bootstrap validation PASS active=%d symbols=%s", len(self.active), ",".join(sorted(self.active)))
+
+    async def wait_for_preflight(self) -> None:
+        delay = PREFLIGHT_RETRY_INITIAL
+        while not self.stop.is_set():
+            try:
+                await self.preflight_exchange()
+                return
+            except BootstrapValidationError:
+                raise
+            except Exception as exc:
+                LOG.warning("Binance preflight unavailable; retrying in %.1fs: %s", delay, exc)
+                try:
+                    await asyncio.wait_for(self.stop.wait(), timeout=delay)
+                except asyncio.TimeoutError:
+                    pass
+                delay = min(PREFLIGHT_RETRY_MAX, delay * 1.8)
+        raise asyncio.CancelledError
 
     def symbol_eligible(self, symbol: str) -> bool:
         x = self.valid.get(symbol.upper())
@@ -228,6 +380,7 @@ class App:
                 LOG.exception("relay loop failure")
             finally:
                 self.relay_ws = None
+                self.receiver_count = 0
             if not self.stop.is_set():
                 await asyncio.sleep(backoff)
                 backoff = min(15.0, backoff * 1.7)
@@ -284,6 +437,8 @@ class App:
                         params = [x for s in sorted(self.active) for x in self.public_streams(s)]
                     await self.send_sub(ws, lock, "SUBSCRIBE", params)
                     LOG.info("Binance %s websocket connected streams=%d", kind, len(params))
+                    if kind == "market":
+                        self.request_recovery("market-websocket-connected", full=False)
                     backoff = 1.0
                     async for raw in ws:
                         if not isinstance(raw, str):
@@ -331,6 +486,8 @@ class App:
             st.quote_volume = float(k.get("q", 0) or 0)
             st.trades = int(k.get("n", 0) or 0)
             st.have_kline = True
+            if bool(k.get("x", False)):
+                self.update_1m_watermark(symbol, st.k_open_ms)
             self.mark_dirty(symbol)
         elif et == "24hrTicker":
             last = float(obj.get("c", 0) or 0)
@@ -440,6 +597,7 @@ class App:
 
     def extra_packet(self, symbol: str) -> dict[str, Any]:
         st = self.state.setdefault(symbol, SymbolState(symbol))
+        rec = self.recovery_symbol_state(symbol)
         return {
             "ed": symbol,
             "MarkPrice": st.mark_price,
@@ -450,6 +608,10 @@ class App:
             "QuoteVolume1m": st.quote_volume,
             "TradeCount1m": float(st.trades),
             "Bootstrap": 1.0 if symbol in self.bootstrap else 0.0,
+            "RecoveryEnabled": 1.0 if RECOVERY_ENABLED else 0.0,
+            "RecoveryReceivers": float(self.receiver_count),
+            "RecoveryLast1mOpenMs": float(rec.get("last_completed_1m_open_ms", 0) or 0),
+            "RecoveryLastEODDate": float(rec.get("last_completed_eod_date", 0) or 0),
         }
 
     async def handle_relay_message(self, raw: str) -> None:
@@ -457,7 +619,12 @@ class App:
             obj = json.loads(raw)
         except json.JSONDecodeError:
             return
-        if not isinstance(obj, dict) or "cmd" not in obj:
+        if not isinstance(obj, dict):
+            return
+        if obj.get("_relay") == "status":
+            await self.handle_relay_status(obj)
+            return
+        if "cmd" not in obj:
             return
         cmd = str(obj.get("cmd", ""))
         arg = str(obj.get("arg", ""))
@@ -594,19 +761,24 @@ class App:
             await asyncio.sleep(0.08)
         return rows
 
-    async def send_intraday_history(self, symbol: str, days: int = FULL_BF_DAYS, start_ms: int | None = None) -> None:
+    async def send_intraday_range(
+        self,
+        symbol: str,
+        start_ms: int,
+        end_open_ms: int,
+        *,
+        log_label: str = "intraday backfill",
+    ) -> int:
         symbol = symbol.upper()
         if not self.symbol_eligible(symbol):
             raise ValueError(f"ineligible symbol {symbol}")
-        now_ms = int(time.time() * 1000)
-        floor_ms = now_ms - MAX_BF_DAYS * 86_400_000
-        if start_ms is None:
-            start_ms = now_ms - min(MAX_BF_DAYS, max(1, days)) * 86_400_000
-        else:
-            start_ms = max(start_ms, floor_ms)
-        rows = await self.fetch_klines(symbol, INTERVAL, start_ms, now_ms)
+        if start_ms > end_open_ms:
+            return 0
+        query_end_ms = end_open_ms + MINUTE_MS - 1
+        rows = await self.fetch_klines(symbol, INTERVAL, start_ms, query_end_ms)
+        rows = [r for r in rows if start_ms <= int(r[0]) <= end_open_ms]
         if not rows:
-            return
+            return 0
         for off in range(0, len(rows), 1200):
             chunk = rows[off: off + 1200]
             bars = []
@@ -619,17 +791,76 @@ class App:
                 ])
             await self.relay_send({"hist": symbol, "format": "gohlcvixy", "bars": bars})
             await asyncio.sleep(0.02)
-        LOG.info("sent intraday backfill symbol=%s bars=%d", symbol, len(rows))
+        self.update_1m_watermark(symbol, int(rows[-1][0]), allow_jump=True)
+        LOG.info("sent %s symbol=%s bars=%d", log_label, symbol, len(rows))
+        return len(rows)
 
-    async def send_eod_history(self, symbol: str, days: int = EOD_BF_DAYS) -> None:
+    async def send_intraday_history(self, symbol: str, days: int = FULL_BF_DAYS, start_ms: int | None = None) -> int:
+        symbol = symbol.upper()
+        now_ms = int(time.time() * 1000)
+        end_open_ms = self.completed_1m_open_ms(now_ms)
+        floor_ms = end_open_ms - (MAX_BF_DAYS * 24 * 60 - 1) * MINUTE_MS
+        if start_ms is None:
+            minutes = min(MAX_BF_DAYS, max(1, days)) * 24 * 60
+            start_ms = end_open_ms - (minutes - 1) * MINUTE_MS
+        else:
+            start_ms = max(int(start_ms), floor_ms)
+        return await self.send_intraday_range(symbol, start_ms, end_open_ms, log_label="intraday backfill")
+
+    async def send_intraday_target(self, symbol: str, records: int = RECOVERY_1M_RECORDS) -> int:
+        end_open_ms = self.completed_1m_open_ms()
+        records = max(1, int(records))
+        start_ms = end_open_ms - (records - 1) * MINUTE_MS
+        return await self.send_intraday_range(
+            symbol,
+            start_ms,
+            end_open_ms,
+            log_label="automatic full intraday recovery",
+        )
+
+    async def repair_intraday_gap(self, symbol: str) -> int:
+        symbol = symbol.upper()
+        end_open_ms = self.completed_1m_open_ms()
+        floor_ms = end_open_ms - (RECOVERY_1M_RECORDS - 1) * MINUTE_MS
+        item = self.recovery_symbol_state(symbol)
+        last_ms = int(item.get("last_completed_1m_open_ms", 0) or 0)
+        if last_ms <= 0:
+            start_ms = floor_ms
+            LOG.info("recovery watermark absent symbol=%s; using bounded %d-bar baseline", symbol, RECOVERY_1M_RECORDS)
+        else:
+            start_ms = last_ms + MINUTE_MS
+            if start_ms < floor_ms:
+                dropped = max(0, (floor_ms - start_ms) // MINUTE_MS)
+                LOG.warning(
+                    "recovery gap exceeds retention symbol=%s dropped_outside_cache=%d; clamping to newest %d bars",
+                    symbol, dropped, RECOVERY_1M_RECORDS,
+                )
+                start_ms = floor_ms
+        if start_ms > end_open_ms:
+            return 0
+        return await self.send_intraday_range(
+            symbol,
+            start_ms,
+            end_open_ms,
+            log_label="automatic gap repair",
+        )
+
+    async def send_eod_history(
+        self,
+        symbol: str,
+        days: int = EOD_BF_DAYS,
+        *,
+        target_bars: int | None = None,
+        log_label: str = "EOD backfill",
+    ) -> int:
         symbol = symbol.upper()
         if not self.symbol_eligible(symbol):
             raise ValueError(f"ineligible symbol {symbol}")
         now_ms = int(time.time() * 1000)
-        start_ms = now_ms - max(1, days) * 86_400_000
+        start_ms = now_ms - max(1, days) * DAY_MS
         rows = await self.fetch_klines(symbol, "1d", start_ms, now_ms)
         if not rows:
-            return
+            return 0
         bars = []
         today = datetime.now(timezone.utc).date()
         for r in rows:
@@ -638,22 +869,104 @@ class App:
                 continue
             dn = dt.year * 10000 + dt.month * 100 + dt.day
             bars.append([dn, float(r[1]), float(r[2]), float(r[3]), float(r[4]), float(r[5])])
+        if target_bars is not None and len(bars) > target_bars:
+            bars = bars[-target_bars:]
         if bars:
             await self.relay_send({"hist": symbol, "format": "dohlcv", "bars": bars})
-            LOG.info("sent EOD backfill symbol=%s bars=%d", symbol, len(bars))
+            self.update_eod_watermark(symbol, int(bars[-1][0]))
+            LOG.info("sent %s symbol=%s bars=%d", log_label, symbol, len(bars))
+        return len(bars)
+
+    async def send_eod_target(self, symbol: str) -> int:
+        return await self.send_eod_history(
+            symbol,
+            days=max(EOD_BF_DAYS, RECOVERY_EOD_BARS + 1),
+            target_bars=RECOVERY_EOD_BARS,
+            log_label="automatic EOD recovery",
+        )
+
+    async def recovery_pass(self, *, full: bool, reasons: list[str]) -> None:
+        if not RECOVERY_ENABLED or self.receiver_count <= 0:
+            return
+        async with self.recovery_lock:
+            async with self.backfill_sem:
+                LOG.info(
+                    "automatic recovery start mode=%s receivers=%d reasons=%s",
+                    "FULL" if full else "GAP",
+                    self.receiver_count,
+                    ",".join(reasons) if reasons else "audit",
+                )
+                total_1m = 0
+                total_eod = 0
+                yesterday = self.yesterday_date_num()
+                for symbol in sorted(self.active):
+                    if self.receiver_count <= 0 or self.stop.is_set():
+                        LOG.warning("automatic recovery interrupted because receiver detached")
+                        break
+                    if full:
+                        total_1m += await self.send_intraday_target(symbol)
+                        total_eod += await self.send_eod_target(symbol)
+                    else:
+                        total_1m += await self.repair_intraday_gap(symbol)
+                        item = self.recovery_symbol_state(symbol)
+                        last_eod = int(item.get("last_completed_eod_date", 0) or 0)
+                        if last_eod < yesterday:
+                            total_eod += await self.send_eod_target(symbol)
+                self.save_recovery_state()
+                LOG.info(
+                    "automatic recovery complete mode=%s intraday_bars=%d eod_bars=%d receivers=%d",
+                    "FULL" if full else "GAP",
+                    total_1m,
+                    total_eod,
+                    self.receiver_count,
+                )
+
+    async def recovery_loop(self) -> None:
+        if not RECOVERY_ENABLED:
+            return
+        while not self.stop.is_set():
+            timed_out = False
+            try:
+                await asyncio.wait_for(self.recovery_event.wait(), timeout=RECOVERY_AUDIT_SEC)
+            except asyncio.TimeoutError:
+                timed_out = True
+            self.recovery_event.clear()
+            if self.receiver_count <= 0:
+                self.recovery_reasons.clear()
+                self.recovery_full_requested = False
+                continue
+            full = self.recovery_full_requested
+            self.recovery_full_requested = False
+            reasons = sorted(self.recovery_reasons)
+            self.recovery_reasons.clear()
+            if timed_out and not reasons:
+                reasons = ["periodic-audit"]
+            try:
+                await self.recovery_pass(full=full, reasons=reasons)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                LOG.exception("automatic recovery pass failed")
+                try:
+                    await asyncio.wait_for(self.stop.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    pass
+                self.request_recovery("retry-after-recovery-failure", full=full)
 
     async def run(self) -> None:
         timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)
         headers = {"User-Agent": "WSRTD-Binance-USDM-Bridge/1.0"}
         async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
             self.session = session
-            await self.preflight_exchange()
+            await self.wait_for_preflight()
             tasks = [
                 asyncio.create_task(self.relay_loop(), name="relay"),
                 asyncio.create_task(self.market_loop(), name="market"),
                 asyncio.create_task(self.public_loop(), name="public"),
                 asyncio.create_task(self.publish_loop(), name="publisher"),
                 asyncio.create_task(self.open_interest_loop(), name="open-interest"),
+                asyncio.create_task(self.recovery_loop(), name="recovery"),
+                asyncio.create_task(self.recovery_state_writer_loop(), name="recovery-state-writer"),
             ]
             try:
                 await self.stop.wait()
@@ -661,6 +974,10 @@ class App:
                 for task in tasks:
                     task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
+                try:
+                    self.save_recovery_state()
+                except Exception:
+                    LOG.exception("final recovery state save failed")
                 self.session = None
 
 
@@ -673,6 +990,10 @@ async def main() -> None:
     LOG.info("bootstrap symbols (%d): %s", len(BOOTSTRAP), ",".join(BOOTSTRAP))
     LOG.info("Binance endpoints market=%s public=%s rest=%s", MARKET_WS, PUBLIC_WS, REST_BASE)
     LOG.info("backfill horizons intraday_full_days=%d intraday_max_days=%d eod_request_days=%d", FULL_BF_DAYS, MAX_BF_DAYS, EOD_BF_DAYS)
+    LOG.info(
+        "automatic recovery enabled=%s intraday_target=%d eod_target=%d audit_seconds=%.1f state=%s",
+        RECOVERY_ENABLED, RECOVERY_1M_RECORDS, RECOVERY_EOD_BARS, RECOVERY_AUDIT_SEC, RECOVERY_STATE_PATH,
+    )
     await app.run()
 
 
