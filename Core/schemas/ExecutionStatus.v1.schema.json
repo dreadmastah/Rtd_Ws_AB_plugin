@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:ExecutionStatus.v1",
+  "title": "ExecutionStatus.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "generatedUnixMs",
+    "processId",
+    "lifecycleState",
+    "dataProvider",
+    "riskProvider",
+    "journalPath",
+    "journalReady",
+    "pipeReady",
+    "orderRoutingEnabled",
+    "requestsSeen",
+    "lastDecisionCode",
+    "detail"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "messageType": {"const": "ExecutionStatus.v1"},
+    "generatedUnixMs": {"type": "integer", "minimum": 1},
+    "processId": {"type": "integer", "minimum": 1},
+    "lifecycleState": {
+      "enum": ["STARTING", "READY", "DEGRADED", "STOPPING"]
+    },
+    "dataProvider": {"type": "string", "minLength": 1, "maxLength": 128},
+    "riskProvider": {"type": "string", "minLength": 1, "maxLength": 128},
+    "journalPath": {"type": "string", "minLength": 1, "maxLength": 1024},
+    "journalReady": {"type": "boolean"},
+    "pipeReady": {"type": "boolean"},
+    "orderRoutingEnabled": {"const": false},
+    "requestsSeen": {"type": "integer", "minimum": 0},
+    "lastDecisionCode": {
+      "type": ["string", "null"],
+      "maxLength": 64
+    },
+    "detail": {"type": "string", "maxLength": 512}
+  }
+}
