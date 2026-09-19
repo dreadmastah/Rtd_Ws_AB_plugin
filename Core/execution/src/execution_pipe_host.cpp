@@ -150,12 +150,19 @@ int main(int argc, char** argv) {
         synthetic ? "SYNTHETIC" : "WSRTD_LIVE_STATUS";
     const std::string risk_provider_name =
         synthetic ? "SYNTHETIC" : "FILE_BACKED_RECONCILED_STATUS";
+    const std::string instrument_provider_name =
+        instrument_status_dir.empty()
+            ? "LEGACY_SIMULATION_SIZING"
+            : "FILE_BACKED_PUBLIC_FILTERS";
+    const bool instrument_rules_required = !instrument_status_dir.empty();
 
     auto execution_status =
         std::make_shared<astu::execution::ExecutionStatusPublisher>(
             execution_status_file,
             data_provider_name,
             risk_provider_name,
+            instrument_provider_name,
+            instrument_rules_required,
             journal_path.string());
     execution_status->publish();
 
@@ -209,12 +216,12 @@ int main(int argc, char** argv) {
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
     if (!instrument_status_dir.empty()) {
-        std::cout << "INSTRUMENT_PROVIDER=FILE_BACKED_PUBLIC_FILTERS\n";
+        std::cout << "INSTRUMENT_PROVIDER=" << instrument_provider_name << "\n";
         std::cout << "INSTRUMENT_STATUS_DIR=" << instrument_status_dir.string() << "\n";
         std::cout << "MAX_INSTRUMENT_STATUS_AGE_MS="
                   << max_instrument_status_age_ms << "\n";
     } else {
-        std::cout << "INSTRUMENT_PROVIDER=LEGACY_SIMULATION_SIZING\n";
+        std::cout << "INSTRUMENT_PROVIDER=" << instrument_provider_name << "\n";
     }
     std::cout << "REPLAY_KEYS_LOADED=" << journal->replay_size() << "\n";
 
