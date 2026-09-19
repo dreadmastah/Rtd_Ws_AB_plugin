@@ -181,6 +181,74 @@ int main() {
         REQUIRE(near(result.simulated_quantity, 0.100));
         REQUIRE(near(result.simulated_notional, 10.0));
 
+        std::ofstream changed(
+            dir / "BTCUSDT.json",
+            std::ios::binary | std::ios::trunc);
+        changed
+            << "{"
+            << "\"schemaVersion\":1,"
+            << "\"messageType\":\"InstrumentConstraints.v1\","
+            << "\"generatedUnixMs\":" << now_ms << ","
+            << "\"ready\":true,"
+            << "\"source\":\"TEST_FIXTURE_CHANGED\","
+            << "\"symbol\":\"BTCUSDT\","
+            << "\"priceTick\":0.1,"
+            << "\"quantityStep\":0.01,"
+            << "\"minQuantity\":0.01,"
+            << "\"maxQuantity\":1000,"
+            << "\"minNotional\":20,"
+            << "\"maxNotional\":0,"
+            << "\"detail\":\"changed provider fixture\""
+            << "}";
+        changed.close();
+
+        const auto reloaded = provider(intent_at(100.0));
+        REQUIRE(reloaded.ready);
+        REQUIRE(near(reloaded.quantity_step, 0.01));
+        REQUIRE(near(reloaded.min_notional, 20.0));
+        const auto changed_result =
+            astu::execution::SimulationEngine::run_with_instrument(
+                intent_at(100.0),
+                ready_data(),
+                ready_risk(),
+                reloaded,
+                2'000);
+        REQUIRE(changed_result.code == DecisionCode::FilterRejected);
+        REQUIRE(!changed_result.accepted_for_simulation);
+
+        std::ofstream stale(
+            dir / "BTCUSDT.json",
+            std::ios::binary | std::ios::trunc);
+        stale
+            << "{"
+            << "\"schemaVersion\":1,"
+            << "\"messageType\":\"InstrumentConstraints.v1\","
+            << "\"generatedUnixMs\":" << (now_ms - 60'000) << ","
+            << "\"ready\":true,"
+            << "\"source\":\"TEST_FIXTURE_STALE\","
+            << "\"symbol\":\"BTCUSDT\","
+            << "\"priceTick\":0.1,"
+            << "\"quantityStep\":0.001,"
+            << "\"minQuantity\":0.001,"
+            << "\"maxQuantity\":1000,"
+            << "\"minNotional\":5,"
+            << "\"maxNotional\":0,"
+            << "\"detail\":\"stale provider fixture\""
+            << "}";
+        stale.close();
+
+        const auto stale_rules = provider(intent_at(100.0));
+        REQUIRE(!stale_rules.ready);
+        REQUIRE(stale_rules.detail == "instrument constraints snapshot stale");
+        const auto stale_result =
+            astu::execution::SimulationEngine::run_with_instrument(
+                intent_at(100.0),
+                ready_data(),
+                ready_risk(),
+                stale_rules,
+                2'000);
+        REQUIRE(stale_result.code == DecisionCode::InstrumentUnavailable);
+
         std::filesystem::remove_all(dir);
     }
 
