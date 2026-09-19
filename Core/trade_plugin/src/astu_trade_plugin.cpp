@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <mutex>
 #include <stdexcept>
 #include <string>
@@ -60,6 +61,24 @@ std::string bounded_string(const char* text, std::size_t max_len) {
         out.resize(max_len);
     }
     return out;
+}
+
+void write_diagnostic(const std::string& text) noexcept {
+    try {
+        const char* raw = std::getenv("ASTU_TRADE_DIAGNOSTIC_FILE");
+        if (!raw || !*raw) {
+            return;
+        }
+        const std::filesystem::path path(raw);
+        if (!path.parent_path().empty()) {
+            std::filesystem::create_directories(path.parent_path());
+        }
+        std::ofstream out(path, std::ios::binary | std::ios::app);
+        if (out) {
+            out << text.substr(0, 1024) << "\n";
+        }
+    } catch (...) {
+    }
 }
 
 std::filesystem::path status_dir_from_environment() {
@@ -175,7 +194,8 @@ AmiVar astu_simulate(int num_args, AmiVar* args) {
         gLastDecision.store(static_cast<int>(response.decision_code));
         return float_result(
             static_cast<float>(static_cast<int>(response.decision_code)));
-    } catch (const std::exception&) {
+    } catch (const std::exception& exc) {
+        write_diagnostic(std::string("AstuSimulate exception: ") + exc.what());
         gLastDecision.store(static_cast<int>(DecisionCode::FrameInvalid));
         return float_result(
             static_cast<float>(static_cast<int>(DecisionCode::FrameInvalid)));
