@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "universeId": "wsrtd-r2-bootstrap",
+  "universeVersion": 1,
+  "hashAlgorithm": "SHA-256",
+  "canonicalization": "UTF-8 symbols in listed order joined by LF with trailing LF",
+  "universeHash": "d31527c87e0aa41edc0fe81c7c16aafcdadaec976bf0455ad886cf4b81c502e0",
+  "symbols": [
+    "BTCUSDT",
+    "SOLUSDT",
+    "BNBUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "ADAUSDT",
+    "TRXUSDT",
+    "AVAXUSDT",
+    "LINKUSDT",
+    "1000SHIBUSDT",
+    "DOTUSDT",
+    "ETHUSDT"
+  ]
+}
