@@ -3,12 +3,14 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "astu/account/live_risk_provider.hpp"
 #include "astu/core/contracts.hpp"
 #include "astu/execution/execution_journal.hpp"
 #include "astu/execution/execution_pipe_server.hpp"
+#include "astu/execution/execution_status.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
 #include "astu/wsrtd/live_status_provider.hpp"
 
@@ -59,6 +61,8 @@ int main(int argc, char** argv) {
     std::filesystem::path risk_status_file =
         "Core/runtime/account_risk_status.v1.json";
     std::uint64_t max_risk_status_age_ms = 5'000;
+    std::filesystem::path execution_status_file =
+        "Core/runtime/execution_status.v1.json";
 
     if (const char* env = std::getenv("ASTU_STATUS_DIR"); env && *env) {
         status_dir = env;
@@ -68,6 +72,9 @@ int main(int argc, char** argv) {
     }
     if (const char* env = std::getenv("ASTU_RISK_STATUS_FILE"); env && *env) {
         risk_status_file = env;
+    }
+    if (const char* env = std::getenv("ASTU_EXECUTION_STATUS_FILE"); env && *env) {
+        execution_status_file = env;
     }
 
     for (int i = 1; i < argc; ++i) {
@@ -84,6 +91,8 @@ int main(int argc, char** argv) {
             risk_status_file = argv[++i];
         } else if (arg == "--max-risk-status-age-ms" && i + 1 < argc) {
             max_risk_status_age_ms = std::stoull(argv[++i]);
+        } else if (arg == "--execution-status-file" && i + 1 < argc) {
+            execution_status_file = argv[++i];
         } else {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
@@ -116,6 +125,19 @@ int main(int argc, char** argv) {
         journal_path,
         100'000);
 
+    const std::string data_provider_name =
+        synthetic ? "SYNTHETIC" : "WSRTD_LIVE_STATUS";
+    const std::string risk_provider_name =
+        synthetic ? "SYNTHETIC" : "FILE_BACKED_RECONCILED_STATUS";
+
+    auto execution_status =
+        std::make_shared<astu::execution::ExecutionStatusPublisher>(
+            execution_status_file,
+            data_provider_name,
+            risk_provider_name,
+            journal_path.string());
+    execution_status->publish();
+
     astu::ipc::SimulationDispatcher dispatcher(
         std::move(data_provider),
         std::move(risk_provider),
@@ -123,38 +145,61 @@ int main(int argc, char** argv) {
         [journal](const std::string& key) {
             return journal->accept_idempotency_key(key);
         },
-        [journal](
+        [journal, execution_status](
             const astu::ipc::SimulationRequest& request,
             const astu::ipc::SimulationResponse& response,
             std::int64_t utc_ms) {
             journal->append(request, response, utc_ms);
+            execution_status->record_response(response);
         });
+
+    execution_status->set_ready(true, true);
+    execution_status->publish();
+
+    std::jthread heartbeat([execution_status](std::stop_token stop) {
+        while (!stop.stop_requested()) {
+            try {
+                execution_status->publish();
+            } catch (const std::exception& exc) {
+                std::cerr << "execution-status publish failed: "
+                          << exc.what() << "\n";
+            }
+            for (int i = 0; i < 10 && !stop.stop_requested(); ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+    });
 
     astu::execution::ExecutionPipeServer server(std::move(dispatcher));
     std::wcout << L"Execution simulation pipe host listening on "
                << astu::ipc::kExecutionPipeName << L"\n";
     std::cout << "ORDER_ROUTING_ENABLED=false\n";
-    std::cout << "DATA_PROVIDER=" << (synthetic ? "SYNTHETIC" : "WSRTD_LIVE_STATUS")
-              << "\n";
+    std::cout << "DATA_PROVIDER=" << data_provider_name << "\n";
     if (!synthetic) {
         std::cout << "STATUS_DIR=" << status_dir.string() << "\n";
         std::cout << "MAX_STATUS_AGE_MS=" << max_status_age_ms << "\n";
     }
-    std::cout << "RISK_PROVIDER="
-              << (synthetic ? "SYNTHETIC" : "FILE_BACKED_RECONCILED_STATUS")
-              << "\n";
+    std::cout << "RISK_PROVIDER=" << risk_provider_name << "\n";
     if (!synthetic) {
         std::cout << "RISK_STATUS_FILE=" << risk_status_file.string() << "\n";
         std::cout << "MAX_RISK_STATUS_AGE_MS=" << max_risk_status_age_ms << "\n";
     }
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
+    std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
     std::cout << "REPLAY_KEYS_LOADED=" << journal->replay_size() << "\n";
 
     for (;;) {
         try {
             server.serve_once();
         } catch (const std::exception& exc) {
+            execution_status->set_degraded(
+                std::string("pipe-host request failed: ") + exc.what());
+            try {
+                execution_status->publish();
+            } catch (...) {
+            }
             std::cerr << "pipe-host request failed: " << exc.what() << "\n";
+            execution_status->set_ready(true, true);
         }
     }
 #else
