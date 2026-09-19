@@ -10,6 +10,7 @@ on:
       - "CleanRoomR2/stack/identity_bridge.py"
       - "CleanRoomR2/stack/universe_identity.v1.json"
       - "CleanRoomR2/stack/config.json"
+      - "CleanRoomR2/stack/binance_usdm_server.py"
       - ".github/workflows/core-sim.yml"
 
 jobs:
@@ -60,8 +61,28 @@ jobs:
                   for symbol in symbols
               },
           }
+          market = {
+              "schemaVersion": 1,
+              "source": "WSRTD-CleanRoomR2",
+              "marketUp": True,
+              "publicUp": True,
+              "receiverCount": 1,
+              "freshnessMs": 5000,
+              "symbols": {
+                  symbol: {
+                      "live": True,
+                      "fresh": True,
+                      "historyHydrated": True,
+                      "quoteAgeMs": 100,
+                  }
+                  for symbol in symbols
+              },
+          }
           (base / "runtime" / "recovery_state.json").write_text(
               json.dumps(state, indent=2) + "\n", encoding="utf-8"
+          )
+          (base / "runtime" / "market_status.v1.json").write_text(
+              json.dumps(market, indent=2) + "\n", encoding="utf-8"
           )
           PY
           python CleanRoomR2/stack/identity_bridge.py --once
@@ -75,6 +96,16 @@ jobs:
           assert obj["generationKind"] == "WSRTD_R2_COMPLETED_M1_OPEN_MS"
           assert len(obj["symbols"]) == 12
           assert all(x["identityReady"] for x in obj["symbols"].values())
+          status = json.loads(
+              Path("CleanRoomR2/stack/runtime/autotrader_status/BTCUSDT.json")
+              .read_text(encoding="utf-8")
+          )
+          assert status["live"] is True
+          assert status["fresh"] is True
+          assert status["cacheReady"] is True
+          assert status["identityReady"] is True
+          assert status["universeVersion"] == 1
+          assert status["dataGeneration"] == 1789824780000
           print("IDENTITY_BRIDGE_TEST=PASS")
           PY
 
@@ -82,3 +113,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_pipe_smoke.cmd
+
+      - name: Windows live WSRTD DataStatus pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_pipe_live_smoke.cmd
