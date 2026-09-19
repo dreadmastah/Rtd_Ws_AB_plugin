@@ -1,8 +1,13 @@
+#include <array>
 #include <cassert>
+#include <cstddef>
 #include <iostream>
+#include <string>
 
 #include "astu/core/contracts.hpp"
 #include "astu/execution/simulation_engine.hpp"
+#include "astu/ipc/frame.hpp"
+#include "astu/ipc/idempotency_cache.hpp"
 #include "astu/trade/signal_intent_builder.hpp"
 #include "astu/wsrtd/data_status_adapter.hpp"
 
@@ -144,6 +149,36 @@ int main() {
             intent, data, risk, 2'000);
         assert(!result.accepted_for_simulation);
         assert(result.code == DecisionCode::RiskBlocked);
+    }
+
+    {
+        const std::string text = "{\"requestId\":\"REQ-1\",\"schemaVersion\":1}";
+        const auto* raw = reinterpret_cast<const std::byte*>(text.data());
+        auto encoded = astu::ipc::encode_frame(
+            std::span<const std::byte>(raw, text.size()));
+        auto decoded = astu::ipc::decode_frame(encoded);
+        const std::string roundtrip(
+            reinterpret_cast<const char*>(decoded.data()), decoded.size());
+        assert(roundtrip == text);
+
+        encoded.back() ^= std::byte{0x01};
+        bool rejected = false;
+        try {
+            (void)astu::ipc::decode_frame(encoded);
+        } catch (const std::invalid_argument&) {
+            rejected = true;
+        }
+        assert(rejected);
+    }
+
+    {
+        astu::ipc::IdempotencyCache cache(2);
+        assert(cache.accept_once("REQ-1"));
+        assert(!cache.accept_once("REQ-1"));
+        assert(cache.accept_once("REQ-2"));
+        assert(cache.accept_once("REQ-3"));
+        assert(cache.size() == 2);
+        assert(cache.accept_once("REQ-1"));
     }
 
     std::cout << "astu_core_tests PASS\n";
