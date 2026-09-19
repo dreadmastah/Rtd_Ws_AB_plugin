@@ -61,6 +61,7 @@ jobs:
                   for symbol in symbols
               },
           }
+          import time
           market = {
               "schemaVersion": 1,
               "source": "WSRTD-CleanRoomR2",
@@ -78,11 +79,31 @@ jobs:
                   for symbol in symbols
               },
           }
+          risk = {
+              "schemaVersion": 1,
+              "messageType": "AccountRiskSnapshot.v1",
+              "generatedUnixMs": int(time.time() * 1000),
+              "source": "CI_RECONCILER",
+              "reconciled": True,
+              "riskState": "NORMAL",
+              "riskCapital": 10000.0,
+              "availableBalance": 10000.0,
+              "grossNotional": 0.0,
+              "maxGrossNotional": 100000.0,
+              "openPositions": 0,
+              "maxOpenPositions": 10,
+              "detail": "CI reconciled simulation snapshot",
+          }
           (base / "runtime" / "recovery_state.json").write_text(
               json.dumps(state, indent=2) + "\n", encoding="utf-8"
           )
           (base / "runtime" / "market_status.v1.json").write_text(
               json.dumps(market, indent=2) + "\n", encoding="utf-8"
+          )
+          core_runtime = Path("Core/runtime")
+          core_runtime.mkdir(parents=True, exist_ok=True)
+          (core_runtime / "account_risk_status.v1.json").write_text(
+              json.dumps(risk, indent=2) + "\n", encoding="utf-8"
           )
           PY
           python CleanRoomR2/stack/identity_bridge.py --once
