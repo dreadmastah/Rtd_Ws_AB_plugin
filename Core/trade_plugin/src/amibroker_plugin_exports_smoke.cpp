@@ -9,6 +9,7 @@
 #include <cstring>
 #include <iostream>
 
+#include "astu/core/contracts.hpp"
 #include "astu/trade/amibroker_abi_min.hpp"
 
 int main(int argc, char** argv) {
@@ -72,6 +73,18 @@ int main(int argc, char** argv) {
             std::strcmp(table[2].Name, "AstuLastDecision") != 0) {
             std::cerr << "GetFunctionTable validation failed\n";
             rc = 6;
+        } else {
+            const AmiVar version = table[1].Descript.Function(0, nullptr);
+            const AmiVar initial_decision = table[2].Descript.Function(0, nullptr);
+            const AmiVar invalid_call = table[0].Descript.Function(0, nullptr);
+            if (version.type != VarFloat || version.val != 10000.0f ||
+                initial_decision.type != VarFloat ||
+                invalid_call.type != VarFloat ||
+                static_cast<int>(invalid_call.val) !=
+                    static_cast<int>(astu::core::DecisionCode::InvalidIntent)) {
+                std::cerr << "AFL function call validation failed\n";
+                rc = 8;
+            }
         }
 
         if (!init || init() != 1 || !release || release() != 1) {
