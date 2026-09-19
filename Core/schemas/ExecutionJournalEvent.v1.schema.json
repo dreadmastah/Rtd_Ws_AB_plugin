@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:ExecutionJournalEvent.v1",
+  "title": "ExecutionJournalEvent.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "idempotencyKey"
+      ],
+      "properties": {
+        "schemaVersion": {"const": 1},
+        "eventType": {"const": "IDEMPOTENCY_RESERVATION"},
+        "utcMs": {"type": "integer", "minimum": 1},
+        "idempotencyKey": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "requestId",
+        "idempotencyKey",
+        "signalId",
+        "symbol",
+        "universeId",
+        "universeVersion",
+        "dataGeneration",
+        "decisionCode",
+        "acceptedForSimulation",
+        "wouldIncreaseExposure",
+        "simulatedQuantity",
+        "orderRoutingEnabled",
+        "reason"
+      ],
+      "properties": {
+        "schemaVersion": {"const": 1},
+        "eventType": {"const": "SIMULATION_DECISION"},
+        "utcMs": {"type": "integer", "minimum": 1},
+        "requestId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "idempotencyKey": {"type": "string", "minLength": 1, "maxLength": 128},
+        "signalId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "symbol": {"type": "string", "minLength": 1, "maxLength": 32},
+        "universeId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "universeVersion": {"type": "integer", "minimum": 1},
+        "dataGeneration": {"type": "integer", "minimum": 1},
+        "decisionCode": {"type": "string", "minLength": 1, "maxLength": 64},
+        "acceptedForSimulation": {"type": "boolean"},
+        "wouldIncreaseExposure": {"type": "boolean"},
+        "simulatedQuantity": {"type": "number", "minimum": 0},
+        "orderRoutingEnabled": {"const": false},
+        "reason": {"type": "string", "maxLength": 512}
+      }
+    }
+  ]
+}
