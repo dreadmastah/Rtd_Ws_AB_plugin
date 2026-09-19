@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:ExecutionResult.v1",
+  "title": "ExecutionResult.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "signalId",
+    "decisionCode",
+    "acceptedForSimulation",
+    "wouldIncreaseExposure",
+    "simulatedQuantity",
+    "orderRoutingEnabled",
+    "reason"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "requestId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "signalId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "decisionCode": {
+      "enum": [
+        "SIMULATED_ACCEPTED",
+        "INVALID_INTENT",
+        "DATA_NOT_READY",
+        "IDENTITY_UNAVAILABLE",
+        "UNIVERSE_MISMATCH",
+        "DATA_GENERATION_MISMATCH",
+        "NOT_YET_VALID",
+        "EXPIRED",
+        "ACCOUNT_NOT_RECONCILED",
+        "RISK_BLOCKED",
+        "ORDER_ROUTING_DISABLED",
+        "DUPLICATE_REQUEST",
+        "FRAME_INVALID"
+      ]
+    },
+    "acceptedForSimulation": {"type": "boolean"},
+    "wouldIncreaseExposure": {"type": "boolean"},
+    "simulatedQuantity": {"type": "number", "minimum": 0},
+    "orderRoutingEnabled": {"const": false},
+    "reason": {"type": "string", "maxLength": 512}
+  }
+}
