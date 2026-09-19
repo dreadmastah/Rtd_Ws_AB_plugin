@@ -22,7 +22,7 @@ if not exist "%CLIENT%" (
 del /q "%JOURNAL%" >nul 2>nul
 
 start "ASTU Execution Simulation Host" /b "%HOST%" --synthetic --journal "%JOURNAL%"
-timeout /t 1 /nobreak >nul
+ping -n 2 127.0.0.1 >nul
 "%CLIENT%"
 set RC=%ERRORLEVEL%
 taskkill /IM astu_execution_pipe_host.exe /F >nul 2>nul
@@ -32,9 +32,9 @@ if not %RC% EQU 0 (
   exit /b %RC%
 )
 
-timeout /t 1 /nobreak >nul
+ping -n 2 127.0.0.1 >nul
 start "ASTU Execution Simulation Host Replay" /b "%HOST%" --synthetic --journal "%JOURNAL%"
-timeout /t 1 /nobreak >nul
+ping -n 2 127.0.0.1 >nul
 "%CLIENT%" --expect-duplicate
 set REPLAY_RC=%ERRORLEVEL%
 taskkill /IM astu_execution_pipe_host.exe /F >nul 2>nul
