@@ -33,7 +33,7 @@ if not exist "%RISK%" (
 
 del /q "%JOURNAL%" >nul 2>nul
 start "ASTU Execution Live Status Host" /b "%HOST%" --status-dir "%STATUS%" --risk-status-file "%RISK%" --journal "%JOURNAL%"
-timeout /t 1 /nobreak >nul
+ping -n 2 127.0.0.1 >nul
 "%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT
 set RC=%ERRORLEVEL%
 
