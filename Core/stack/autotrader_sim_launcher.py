@@ -11,6 +11,7 @@ simulation execution host and the read-only account snapshot producer.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import signal
@@ -295,5 +296,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    import contextlib
     raise SystemExit(main())
