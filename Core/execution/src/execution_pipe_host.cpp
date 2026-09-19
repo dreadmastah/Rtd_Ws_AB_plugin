@@ -1,10 +1,12 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <utility>
 
 #include "astu/core/contracts.hpp"
+#include "astu/execution/execution_journal.hpp"
 #include "astu/execution/execution_pipe_server.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
 #include "astu/wsrtd/live_status_provider.hpp"
@@ -51,9 +53,14 @@ int main(int argc, char** argv) {
     std::filesystem::path status_dir =
         "CleanRoomR2/stack/runtime/autotrader_status";
     std::uint64_t max_status_age_ms = 5'000;
+    std::filesystem::path journal_path =
+        "Core/runtime/execution_journal.v1.jsonl";
 
     if (const char* env = std::getenv("ASTU_STATUS_DIR"); env && *env) {
         status_dir = env;
+    }
+    if (const char* env = std::getenv("ASTU_EXECUTION_JOURNAL"); env && *env) {
+        journal_path = env;
     }
 
     for (int i = 1; i < argc; ++i) {
@@ -64,6 +71,8 @@ int main(int argc, char** argv) {
             status_dir = argv[++i];
         } else if (arg == "--max-status-age-ms" && i + 1 < argc) {
             max_status_age_ms = std::stoull(argv[++i]);
+        } else if (arg == "--journal" && i + 1 < argc) {
+            journal_path = argv[++i];
         } else {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
@@ -80,9 +89,23 @@ int main(int argc, char** argv) {
         };
     }
 
+    auto journal = std::make_shared<astu::execution::ExecutionJournal>(
+        journal_path,
+        100'000);
+
     astu::ipc::SimulationDispatcher dispatcher(
         std::move(data_provider),
-        synthetic_risk);
+        synthetic_risk,
+        4096,
+        [journal](const std::string& key) {
+            return journal->accept_idempotency_key(key);
+        },
+        [journal](
+            const astu::ipc::SimulationRequest& request,
+            const astu::ipc::SimulationResponse& response,
+            std::int64_t utc_ms) {
+            journal->append(request, response, utc_ms);
+        });
 
     astu::execution::ExecutionPipeServer server(std::move(dispatcher));
     std::cout << "Execution simulation pipe host listening on "
@@ -95,6 +118,8 @@ int main(int argc, char** argv) {
         std::cout << "MAX_STATUS_AGE_MS=" << max_status_age_ms << "\n";
     }
     std::cout << "RISK_PROVIDER=SYNTHETIC_ONLY\n";
+    std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
+    std::cout << "REPLAY_KEYS_LOADED=" << journal->replay_size() << "\n";
 
     for (;;) {
         try {
