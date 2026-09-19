@@ -214,23 +214,39 @@ class SimulationDispatcher {
 public:
     using DataProvider = std::function<astu::core::DataStatus(const astu::core::SignalIntent&)>;
     using RiskProvider = std::function<astu::core::AccountRiskSnapshot(const astu::core::SignalIntent&)>;
+    using IdempotencyAcceptor = std::function<bool(const std::string&)>;
+    using ResponseObserver = std::function<void(
+        const SimulationRequest&,
+        const SimulationResponse&,
+        std::int64_t)>;
 
     SimulationDispatcher(
         DataProvider data_provider,
         RiskProvider risk_provider,
-        std::size_t idempotency_capacity = 4096)
+        std::size_t idempotency_capacity = 4096,
+        IdempotencyAcceptor idempotency_acceptor = {},
+        ResponseObserver response_observer = {})
         : data_provider_(std::move(data_provider)),
           risk_provider_(std::move(risk_provider)),
-          idempotency_(idempotency_capacity) {}
+          idempotency_(idempotency_capacity),
+          idempotency_acceptor_(std::move(idempotency_acceptor)),
+          response_observer_(std::move(response_observer)) {}
 
     SimulationResponse dispatch(const SimulationRequest& request, std::int64_t now_utc_ms) {
         if (request.request_id.empty() || request.idempotency_key.empty()) {
             return error_response(request, astu::core::DecisionCode::InvalidIntent,
                                   "requestId/idempotencyKey required");
         }
-        if (!idempotency_.accept_once(request.idempotency_key)) {
-            return error_response(request, astu::core::DecisionCode::DuplicateRequest,
-                                  "duplicate idempotency key");
+        const bool idempotency_ok = idempotency_acceptor_
+            ? idempotency_acceptor_(request.idempotency_key)
+            : idempotency_.accept_once(request.idempotency_key);
+        if (!idempotency_ok) {
+            const auto duplicate = error_response(
+                request,
+                astu::core::DecisionCode::DuplicateRequest,
+                "duplicate idempotency key");
+            observe(request, duplicate, now_utc_ms);
+            return duplicate;
         }
 
         const auto data = data_provider_(request.intent);
@@ -247,6 +263,7 @@ public:
         response.simulated_quantity = decision.simulated_quantity;
         response.order_routing_enabled = false;
         response.reason = decision.reason;
+        observe(request, response, now_utc_ms);
         return response;
     }
 
@@ -278,9 +295,20 @@ private:
         return response;
     }
 
+    void observe(
+        const SimulationRequest& request,
+        const SimulationResponse& response,
+        std::int64_t now_utc_ms) const {
+        if (response_observer_) {
+            response_observer_(request, response, now_utc_ms);
+        }
+    }
+
     DataProvider data_provider_;
     RiskProvider risk_provider_;
     IdempotencyCache idempotency_;
+    IdempotencyAcceptor idempotency_acceptor_;
+    ResponseObserver response_observer_;
 };
 
 }  // namespace astu::ipc
