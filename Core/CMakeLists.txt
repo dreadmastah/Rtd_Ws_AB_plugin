@@ -63,6 +63,10 @@ add_executable(astu_core_tests tests/core_sim_tests.cpp)
 target_link_libraries(astu_core_tests PRIVATE astu_core)
 add_test(NAME astu_core_tests COMMAND astu_core_tests)
 
+add_executable(astu_instrument_sizing_tests tests/instrument_sizing_tests.cpp)
+target_link_libraries(astu_instrument_sizing_tests PRIVATE astu_core)
+add_test(NAME astu_instrument_sizing_tests COMMAND astu_instrument_sizing_tests)
+
 if(WIN32)
     add_test(
         NAME astu_trade_amibroker_exports
