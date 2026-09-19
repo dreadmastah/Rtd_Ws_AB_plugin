@@ -398,8 +398,10 @@ int main() {
         request.intent = intent;
 
         {
+            TRACE("execution_journal_create_1");
             auto journal = std::make_shared<astu::execution::ExecutionJournal>(
                 journal_path, 100);
+            TRACE("execution_journal_created_1");
             astu::ipc::SimulationDispatcher dispatcher(
                 [data](const astu::core::SignalIntent&) { return data; },
                 [](const astu::core::SignalIntent&) { return ready_risk(); },
@@ -414,14 +416,18 @@ int main() {
                     journal->append(req, response, utc_ms);
                 });
 
+            TRACE("execution_journal_dispatch_1");
             const auto response = dispatcher.dispatch(request, 2'000);
+            TRACE("execution_journal_dispatched_1");
             REQUIRE(response.decision_code == DecisionCode::OrderRoutingDisabled);
             REQUIRE(journal->replay_size() == 1);
         }
 
         {
+            TRACE("execution_journal_create_2");
             auto journal = std::make_shared<astu::execution::ExecutionJournal>(
                 journal_path, 100);
+            TRACE("execution_journal_created_2");
             REQUIRE(journal->replay_size() == 1);
 
             astu::ipc::SimulationDispatcher dispatcher(
@@ -438,11 +444,14 @@ int main() {
                     journal->append(req, response, utc_ms);
                 });
 
+            TRACE("execution_journal_dispatch_2");
             const auto replay = dispatcher.dispatch(request, 2'100);
+            TRACE("execution_journal_dispatched_2");
             REQUIRE(replay.decision_code == DecisionCode::DuplicateRequest);
             REQUIRE(!replay.accepted_for_simulation);
         }
 
+        TRACE("execution_journal_readback");
         std::ifstream journal_in(journal_path, std::ios::binary);
         const std::string journal_text(
             (std::istreambuf_iterator<char>(journal_in)),
@@ -452,7 +461,9 @@ int main() {
         REQUIRE(journal_text.find("ORDER_ROUTING_DISABLED") != std::string::npos);
         REQUIRE(journal_text.find("DUPLICATE_REQUEST") != std::string::npos);
 
+        TRACE("execution_journal_remove");
         std::filesystem::remove_all(dir);
+        TRACE("execution_journal_done");
     }
 
     TRACE("complete");
