@@ -1,6 +1,9 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 
@@ -11,6 +14,7 @@
 #include "astu/ipc/simulation_protocol.hpp"
 #include "astu/trade/signal_intent_builder.hpp"
 #include "astu/wsrtd/data_status_adapter.hpp"
+#include "astu/wsrtd/live_status_provider.hpp"
 
 namespace {
 
@@ -231,6 +235,72 @@ int main() {
         const auto response = dispatcher.dispatch_json("not-json", 2'000);
         assert(response.decision_code == DecisionCode::FrameInvalid);
         assert(!response.order_routing_enabled);
+    }
+
+    {
+        const auto now_ms = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+        const auto dir = std::filesystem::temp_directory_path() /
+            "astu_live_status_provider_test";
+        std::filesystem::create_directories(dir);
+        const auto path = dir / "BTCUSDT.json";
+        std::ofstream out(path, std::ios::binary | std::ios::trunc);
+        out
+            << "{"
+            << "\"schemaVersion\":1,"
+            << "\"source\":\"WSRTD-CleanRoomR2\","
+            << "\"symbol\":\"BTCUSDT\","
+            << "\"generatedUnixMs\":" << now_ms << ","
+            << "\"live\":true,"
+            << "\"fresh\":true,"
+            << "\"cacheReady\":true,"
+            << "\"identityReady\":true,"
+            << "\"universeId\":\"wsrtd-r2-bootstrap\","
+            << "\"universeVersion\":1,"
+            << "\"universeHash\":\"d31527c87e0aa41edc0fe81c7c16aafcdadaec976bf0455ad886cf4b81c502e0\","
+            << "\"dataGeneration\":1789824780000,"
+            << "\"generationKind\":\"WSRTD_R2_COMPLETED_M1_OPEN_MS\","
+            << "\"cacheEod\":300,"
+            << "\"cacheIntraday\":1500,"
+            << "\"quoteAgeMs\":100,"
+            << "\"detail\":\"WSRTD runtime data/identity ready\""
+            << "}";
+        out.close();
+
+        astu::wsrtd::LiveStatusProvider provider(dir, 5'000);
+        auto seed = base_intent();
+        auto data = provider(seed);
+        assert(data.live);
+        assert(data.fresh);
+        assert(data.cache_ready);
+        assert(data.identity_ready);
+        assert(data.universe_id.has_value());
+        assert(*data.universe_id == "wsrtd-r2-bootstrap");
+        assert(data.universe_version.has_value() && *data.universe_version == 1);
+        assert(data.data_generation.has_value() &&
+               *data.data_generation == 1'789'824'780'000ULL);
+
+        auto intent = astu::trade::SignalIntentBuilder(seed)
+                          .bind_data_identity(data)
+                          .build();
+        auto result = astu::execution::SimulationEngine::run(
+            intent, data, ready_risk(), 2'000);
+        assert(result.code == DecisionCode::OrderRoutingDisabled);
+
+        std::filesystem::remove_all(dir);
+    }
+
+    {
+        const auto dir = std::filesystem::temp_directory_path() /
+            "astu_live_status_provider_missing_test";
+        std::filesystem::remove_all(dir);
+        astu::wsrtd::LiveStatusProvider provider(dir, 5'000);
+        auto data = provider(base_intent());
+        assert(!data.live);
+        assert(!data.fresh);
+        assert(!data.cache_ready);
+        assert(!data.identity_ready);
     }
 
     std::cout << "astu_core_tests PASS\n";
