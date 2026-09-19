@@ -8,6 +8,7 @@
 #include "astu/execution/simulation_engine.hpp"
 #include "astu/ipc/frame.hpp"
 #include "astu/ipc/idempotency_cache.hpp"
+#include "astu/ipc/simulation_protocol.hpp"
 #include "astu/trade/signal_intent_builder.hpp"
 #include "astu/wsrtd/data_status_adapter.hpp"
 
@@ -179,6 +180,57 @@ int main() {
         assert(cache.accept_once("REQ-3"));
         assert(cache.size() == 2);
         assert(cache.accept_once("REQ-1"));
+    }
+
+    {
+        auto data = ready_data();
+        auto intent = astu::trade::SignalIntentBuilder(base_intent())
+                          .bind_data_identity(data)
+                          .build();
+
+        astu::ipc::SimulationRequest request;
+        request.request_id = "REQ-PROTOCOL-1";
+        request.idempotency_key = "IDEMP-PROTOCOL-1";
+        request.intent = intent;
+
+        const std::string encoded = astu::ipc::encode_request_json(request);
+        const auto decoded = astu::ipc::decode_request_json(encoded);
+        assert(decoded.request_id == request.request_id);
+        assert(decoded.idempotency_key == request.idempotency_key);
+        assert(decoded.intent.signal_id == request.intent.signal_id);
+        assert(decoded.intent.universe_id == request.intent.universe_id);
+        assert(decoded.intent.universe_version == request.intent.universe_version);
+        assert(decoded.intent.data_generation == request.intent.data_generation);
+
+        astu::ipc::SimulationDispatcher dispatcher(
+            [data](const astu::core::SignalIntent&) { return data; },
+            [](const astu::core::SignalIntent&) { return ready_risk(); },
+            4);
+
+        const auto response1 = dispatcher.dispatch(request, 2'000);
+        assert(response1.decision_code == DecisionCode::OrderRoutingDisabled);
+        assert(response1.accepted_for_simulation);
+        assert(!response1.order_routing_enabled);
+
+        const std::string response_json = astu::ipc::encode_response_json(response1);
+        const auto response_roundtrip = astu::ipc::decode_response_json(response_json);
+        assert(response_roundtrip.request_id == request.request_id);
+        assert(response_roundtrip.signal_id == request.intent.signal_id);
+        assert(response_roundtrip.decision_code == DecisionCode::OrderRoutingDisabled);
+        assert(!response_roundtrip.order_routing_enabled);
+
+        const auto response2 = dispatcher.dispatch(request, 2'000);
+        assert(response2.decision_code == DecisionCode::DuplicateRequest);
+        assert(!response2.accepted_for_simulation);
+    }
+
+    {
+        astu::ipc::SimulationDispatcher dispatcher(
+            [](const astu::core::SignalIntent&) { return ready_data(); },
+            [](const astu::core::SignalIntent&) { return ready_risk(); });
+        const auto response = dispatcher.dispatch_json("not-json", 2'000);
+        assert(response.decision_code == DecisionCode::FrameInvalid);
+        assert(!response.order_routing_enabled);
     }
 
     std::cout << "astu_core_tests PASS\n";
