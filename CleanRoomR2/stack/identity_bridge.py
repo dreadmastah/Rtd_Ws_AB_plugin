@@ -37,6 +37,17 @@ MANIFEST_FILE_CFG = Path(str(IDENTITY_CFG.get("manifest_file", "universe_identit
 MANIFEST_PATH = MANIFEST_FILE_CFG if MANIFEST_FILE_CFG.is_absolute() else BASE / MANIFEST_FILE_CFG
 OUTPUT_FILE_CFG = Path(str(IDENTITY_CFG.get("output_file", "runtime/data_identity.v1.json")))
 OUTPUT_PATH = OUTPUT_FILE_CFG if OUTPUT_FILE_CFG.is_absolute() else BASE / OUTPUT_FILE_CFG
+STATUS_DIR_CFG = Path(str(IDENTITY_CFG.get("status_dir", "runtime/autotrader_status")))
+STATUS_DIR = STATUS_DIR_CFG if STATUS_DIR_CFG.is_absolute() else BASE / STATUS_DIR_CFG
+MARKET_STATUS_CFG = CFG.get("autotrader_status", {})
+MARKET_STATUS_FILE_CFG = Path(
+    str(MARKET_STATUS_CFG.get("output_file", "runtime/market_status.v1.json"))
+)
+MARKET_STATUS_PATH = (
+    MARKET_STATUS_FILE_CFG
+    if MARKET_STATUS_FILE_CFG.is_absolute()
+    else BASE / MARKET_STATUS_FILE_CFG
+)
 POLL_SECONDS = max(0.25, float(IDENTITY_CFG.get("poll_seconds", 1.0)))
 ENABLED = bool(IDENTITY_CFG.get("enabled", True))
 GENERATION_KIND = "WSRTD_R2_COMPLETED_M1_OPEN_MS"
@@ -112,6 +123,20 @@ def load_recovery_state() -> dict[str, Any]:
     return obj
 
 
+def load_market_status() -> dict[str, Any]:
+    if not MARKET_STATUS_PATH.exists():
+        return {"schemaVersion": 1, "symbols": {}}
+    try:
+        obj = json.loads(MARKET_STATUS_PATH.read_text(encoding="utf-8"))
+    except Exception as exc:
+        LOG.warning("market status unreadable: %s", exc)
+        return {"schemaVersion": 1, "symbols": {}}
+    if not isinstance(obj, dict) or not isinstance(obj.get("symbols"), dict):
+        LOG.warning("market status structure invalid")
+        return {"schemaVersion": 1, "symbols": {}}
+    return obj
+
+
 def build_snapshot(manifest: dict[str, Any], recovery: dict[str, Any]) -> dict[str, Any]:
     recovery_symbols = recovery.get("symbols", {})
     output_symbols: dict[str, Any] = {}
@@ -153,9 +178,81 @@ def write_atomic(path: Path, obj: dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+def build_runtime_status_files(
+    manifest: dict[str, Any],
+    recovery: dict[str, Any],
+    market: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    recovery_symbols = recovery.get("symbols", {})
+    market_symbols = market.get("symbols", {})
+    generated_ms = int(time.time() * 1000)
+    files: dict[str, dict[str, Any]] = {}
+
+    for symbol in manifest["symbols"]:
+        rec = recovery_symbols.get(symbol, {})
+        if not isinstance(rec, dict):
+            rec = {}
+        mk = market_symbols.get(symbol, {})
+        if not isinstance(mk, dict):
+            mk = {}
+
+        generation = int(rec.get("last_completed_1m_open_ms", 0) or 0)
+        last_eod = int(rec.get("last_completed_eod_date", 0) or 0)
+        live = bool(mk.get("live", False))
+        fresh = bool(mk.get("fresh", False))
+        history_hydrated = bool(mk.get("historyHydrated", False))
+        quote_age_raw = mk.get("quoteAgeMs")
+        quote_age = int(quote_age_raw) if isinstance(quote_age_raw, (int, float)) else 0
+
+        identity_ready = generation > 0
+        cache_ready = history_hydrated
+        detail_parts: list[str] = []
+        if not live:
+            detail_parts.append("market sockets/data not live")
+        if not fresh:
+            detail_parts.append("quote freshness not ready")
+        if not cache_ready:
+            detail_parts.append("full bounded receiver hydration not confirmed")
+        if not identity_ready:
+            detail_parts.append("completed-1m identity watermark unavailable")
+        if not detail_parts:
+            detail_parts.append("WSRTD runtime data/identity ready")
+
+        files[symbol] = {
+            "schemaVersion": 1,
+            "source": "WSRTD-CleanRoomR2",
+            "symbol": symbol,
+            "generatedUnixMs": generated_ms,
+            "live": live,
+            "fresh": fresh,
+            "cacheReady": cache_ready,
+            "identityReady": identity_ready,
+            "universeId": manifest["universeId"] if identity_ready else "",
+            "universeVersion": manifest["universeVersion"] if identity_ready else 0,
+            "universeHash": manifest["universeHash"] if identity_ready else "",
+            "dataGeneration": generation if identity_ready else 0,
+            "generationKind": GENERATION_KIND if identity_ready else "",
+            "cacheEod": 300 if cache_ready and last_eod > 0 else 0,
+            "cacheIntraday": 1500 if cache_ready else 0,
+            "quoteAgeMs": max(0, quote_age),
+            "detail": "; ".join(detail_parts),
+        }
+
+    return files
+
+
+def write_runtime_status_files(files: dict[str, dict[str, Any]]) -> None:
+    STATUS_DIR.mkdir(parents=True, exist_ok=True)
+    for symbol, obj in files.items():
+        write_atomic(STATUS_DIR / f"{symbol}.json", obj)
+
+
 def write_once(manifest: dict[str, Any]) -> dict[str, Any]:
-    snapshot = build_snapshot(manifest, load_recovery_state())
+    recovery = load_recovery_state()
+    market = load_market_status()
+    snapshot = build_snapshot(manifest, recovery)
     write_atomic(OUTPUT_PATH, snapshot)
+    write_runtime_status_files(build_runtime_status_files(manifest, recovery, market))
     return snapshot
 
 
@@ -174,11 +271,17 @@ def main() -> int:
     )
     if args.once:
         snapshot = write_once(manifest)
-        LOG.info("identity snapshot written once ready=%s path=%s", snapshot["identityReady"], OUTPUT_PATH)
+        LOG.info(
+            "identity snapshot written once ready=%s path=%s status_dir=%s",
+            snapshot["identityReady"], OUTPUT_PATH, STATUS_DIR,
+        )
         return 0
     while True:
         snapshot = write_once(manifest)
-        LOG.debug("identity snapshot refreshed ready=%s", snapshot["identityReady"])
+        LOG.debug(
+            "identity snapshot refreshed ready=%s status_dir=%s",
+            snapshot["identityReady"], STATUS_DIR,
+        )
         time.sleep(POLL_SECONDS)
 
 
