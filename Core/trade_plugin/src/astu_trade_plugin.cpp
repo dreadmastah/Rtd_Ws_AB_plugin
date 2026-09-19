@@ -230,7 +230,7 @@ ASTU_AMIBROKER_EXPORT int GetPluginInfo(PluginInfo* info) {
 }
 
 ASTU_AMIBROKER_EXPORT int SetSiteInterface(SiteInterface* site) {
-    if (!site) {
+    if (!site || site->nStructSize < static_cast<int>(sizeof(SiteInterface))) {
         return 0;
     }
     gSite = *site;
