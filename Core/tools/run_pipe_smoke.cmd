@@ -4,6 +4,7 @@ set ROOT=%~dp0..
 set BUILD=%ROOT%\..\build\core
 set HOST=%BUILD%\Release\astu_execution_pipe_host.exe
 set CLIENT=%BUILD%\Release\astu_trade_pipe_smoke.exe
+set JOURNAL=%BUILD%\pipe_smoke_execution_journal.jsonl
 
 if not exist "%HOST%" (
   echo ERROR: missing %HOST%
@@ -18,16 +19,31 @@ if not exist "%CLIENT%" (
   exit /b 2
 )
 
-start "ASTU Execution Simulation Host" /b "%HOST%" --synthetic
+del /q "%JOURNAL%" >nul 2>nul
+
+start "ASTU Execution Simulation Host" /b "%HOST%" --synthetic --journal "%JOURNAL%"
 timeout /t 1 /nobreak >nul
 "%CLIENT%"
 set RC=%ERRORLEVEL%
+taskkill /IM astu_execution_pipe_host.exe /F >nul 2>nul
 
-if %RC% EQU 0 (
-  echo PIPE_SMOKE=PASS
-) else (
+if not %RC% EQU 0 (
   echo PIPE_SMOKE=FAIL RC=%RC%
+  exit /b %RC%
 )
 
+timeout /t 1 /nobreak >nul
+start "ASTU Execution Simulation Host Replay" /b "%HOST%" --synthetic --journal "%JOURNAL%"
+timeout /t 1 /nobreak >nul
+"%CLIENT%" --expect-duplicate
+set REPLAY_RC=%ERRORLEVEL%
 taskkill /IM astu_execution_pipe_host.exe /F >nul 2>nul
-exit /b %RC%
+
+if %REPLAY_RC% EQU 0 (
+  echo PIPE_SMOKE=PASS
+  echo PIPE_DURABLE_REPLAY_GUARD=PASS
+) else (
+  echo PIPE_SMOKE=FAIL REPLAY_RC=%REPLAY_RC%
+)
+
+exit /b %REPLAY_RC%
