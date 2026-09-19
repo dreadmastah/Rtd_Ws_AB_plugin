@@ -32,7 +32,7 @@ DEFAULT_HOST = REPO / "build" / "core" / "Release" / "astu_execution_pipe_host.e
 GATEWAY = ROOT / "account" / "binance_usdm_readonly_gateway.py"
 FIXTURE = ROOT / "account" / "tests" / "fixtures" / "binance_usdm_account_v3.json"
 INSTRUMENT_PUBLISHER = ROOT / "instrument" / "binance_usdm_instrument_rules.py"
-INSTRUMENT_FIXTURE = ROOT / "instrument" / "tests" / "fixtures" / "binance_usdm_exchange_info_btc.json"
+INSTRUMENT_FIXTURE = ROOT / "instrument" / "tests" / "fixtures" / "binance_usdm_exchange_info_bootstrap12.json"
 INSTRUMENT_DIR = RUNTIME / "instrument_constraints"
 
 RUNTIME.mkdir(parents=True, exist_ok=True)
@@ -206,8 +206,8 @@ def run(args: argparse.Namespace) -> int:
             str(INSTRUMENT_FIXTURE),
             "--output-dir",
             str(instrument_dir),
-            "--symbols",
-            "BTCUSDT",
+            "--symbols-file",
+            str(REPO / "CleanRoomR2" / "stack" / "bootstrap_symbols.tls"),
             "--poll-seconds",
             str(args.instrument_poll_seconds),
         ]
