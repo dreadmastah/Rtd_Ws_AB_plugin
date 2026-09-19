@@ -5,9 +5,12 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
+#include <memory>
 #include <string>
 
 #include "astu/core/contracts.hpp"
+#include "astu/execution/execution_journal.hpp"
 #include "astu/execution/simulation_engine.hpp"
 #include "astu/ipc/frame.hpp"
 #include "astu/ipc/idempotency_cache.hpp"
@@ -301,6 +304,81 @@ int main() {
         assert(!data.fresh);
         assert(!data.cache_ready);
         assert(!data.identity_ready);
+    }
+
+    {
+        const auto dir = std::filesystem::temp_directory_path() /
+            "astu_execution_journal_test";
+        std::filesystem::remove_all(dir);
+        std::filesystem::create_directories(dir);
+        const auto journal_path = dir / "execution_journal.v1.jsonl";
+
+        auto data = ready_data();
+        auto intent = astu::trade::SignalIntentBuilder(base_intent())
+                          .bind_data_identity(data)
+                          .build();
+
+        astu::ipc::SimulationRequest request;
+        request.request_id = "REQ-JOURNAL-1";
+        request.idempotency_key = "IDEMP-JOURNAL-1";
+        request.intent = intent;
+
+        {
+            auto journal = std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path, 100);
+            astu::ipc::SimulationDispatcher dispatcher(
+                [data](const astu::core::SignalIntent&) { return data; },
+                [](const astu::core::SignalIntent&) { return ready_risk(); },
+                4,
+                [journal](const std::string& key) {
+                    return journal->accept_idempotency_key(key);
+                },
+                [journal](
+                    const astu::ipc::SimulationRequest& req,
+                    const astu::ipc::SimulationResponse& response,
+                    std::int64_t utc_ms) {
+                    journal->append(req, response, utc_ms);
+                });
+
+            const auto response = dispatcher.dispatch(request, 2'000);
+            assert(response.decision_code == DecisionCode::OrderRoutingDisabled);
+            assert(journal->replay_size() == 1);
+        }
+
+        {
+            auto journal = std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path, 100);
+            assert(journal->replay_size() == 1);
+
+            astu::ipc::SimulationDispatcher dispatcher(
+                [data](const astu::core::SignalIntent&) { return data; },
+                [](const astu::core::SignalIntent&) { return ready_risk(); },
+                4,
+                [journal](const std::string& key) {
+                    return journal->accept_idempotency_key(key);
+                },
+                [journal](
+                    const astu::ipc::SimulationRequest& req,
+                    const astu::ipc::SimulationResponse& response,
+                    std::int64_t utc_ms) {
+                    journal->append(req, response, utc_ms);
+                });
+
+            const auto replay = dispatcher.dispatch(request, 2'100);
+            assert(replay.decision_code == DecisionCode::DuplicateRequest);
+            assert(!replay.accepted_for_simulation);
+        }
+
+        std::ifstream journal_in(journal_path, std::ios::binary);
+        const std::string journal_text(
+            (std::istreambuf_iterator<char>(journal_in)),
+            std::istreambuf_iterator<char>());
+        assert(journal_text.find("IDEMPOTENCY_RESERVATION") != std::string::npos);
+        assert(journal_text.find("SIMULATION_DECISION") != std::string::npos);
+        assert(journal_text.find("ORDER_ROUTING_DISABLED") != std::string::npos);
+        assert(journal_text.find("DUPLICATE_REQUEST") != std::string::npos);
+
+        std::filesystem::remove_all(dir);
     }
 
     std::cout << "astu_core_tests PASS\n";
