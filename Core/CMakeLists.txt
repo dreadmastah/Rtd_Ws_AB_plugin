@@ -49,6 +49,12 @@ if(WIN32)
         trade_plugin/src/amibroker_plugin_exports_smoke.cpp
     )
     target_link_libraries(astu_trade_amibroker_exports_smoke PRIVATE astu_core)
+
+    add_executable(
+        astu_trade_amibroker_call_smoke
+        trade_plugin/src/amibroker_plugin_call_smoke.cpp
+    )
+    target_link_libraries(astu_trade_amibroker_call_smoke PRIVATE astu_core)
 endif()
 
 enable_testing()
