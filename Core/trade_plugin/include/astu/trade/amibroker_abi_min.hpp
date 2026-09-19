@@ -81,7 +81,11 @@ struct FunctionTag {
     FunDesc Descript;
 };
 
+static_assert(sizeof(PluginInfo) == 152);
 static_assert(sizeof(AmiVar) == (sizeof(void*) == 8 ? 12 : 8));
+static_assert(sizeof(SiteInterface) == (sizeof(void*) == 8 ? 80 : 40));
+static_assert(sizeof(FunDesc) == (sizeof(void*) == 8 ? 24 : 12));
+static_assert(sizeof(FunctionTag) == (sizeof(void*) == 8 ? 32 : 16));
 
 }  // namespace astu::trade::amibroker
 
