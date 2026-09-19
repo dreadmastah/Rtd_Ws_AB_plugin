@@ -1,0 +1,66 @@
+WSRTD_COMPAT_3_06_26_R2_STATIC_VALIDATION
+=========================================
+
+ARTIFACT=WsRTD_Compat_3.06.26_R2_x64.dll
+SIZE_BYTES=30720
+SHA256=19952cef822ba2a470e52caa4d4edfeb82933bc9886411d6e85126d95fcf0379
+SOURCE_SHA256=8e95d4070da05fa8d167baf978ca88ce4fd3e70f3477a98f3d6e4eb7d91ab5ce
+SOURCE_SIZE_BYTES=55862
+
+TARGET=Windows x86-64 PE32+
+AmiBroker_RUNTIME_TEST=NOT_PERFORMED_FOR_R2
+AUTHENTICODE=NOT_SIGNED
+CLR_RUNTIME=ABSENT
+
+ABI_STATIC_ASSERTS:
+PluginInfo=152 bytes
+AmiVar=12 bytes
+Quotation=40 bytes
+GQEContext=4 bytes
+
+EXPORT_GATE=PASS
+1 Configure
+2 DataPluginCmd
+3 GetExtraData
+4 GetPluginInfo
+5 GetQuotes
+6 GetQuotesEx
+7 GetRecentInfo
+8 GetStatus
+9 GetSymbolLimit
+10 Init
+11 Notify
+12 Release
+13 SetTimeBase
+14 GetExtraDataEx
+15 GetPluginStatus
+16 IsBackfillComplete
+
+RETENTION_MODEL_GATE=PASS
+EOD_RETENTION=300
+INTRADAY_RETENTION=1500
+TOTAL_RETENTION=1800
+EOD_AND_INTRADAY_EVICTION_PARTITIONED=YES
+OLD_EOD_BACKFILL_DOES_NOT_DISPLACE_NEWER_300_EOD=PASS
+OLD_INTRADAY_BACKFILL_DOES_NOT_DISPLACE_NEWER_1500_INTRADAY=PASS
+ADDITIONAL_LIVE_INTRADAY_DOES_NOT_EVICT_EOD=PASS
+
+STATE_FORMAT=R2_SEPARATE
+STATE_FILENAME=WsRTD_<DBNAME>_30626R2.cleanroom.bin
+
+EXTRADATA_ACCEPTANCE_FIELDS:
+CacheEOD
+CacheIntraday
+CacheTotal
+EODRetention
+IntradayRetention
+
+PE_STATIC_GATE=PASS
+HIGH_ENTROPY_VA=YES
+DYNAMIC_BASE_FLAG=YES
+NX_COMPAT=YES
+
+NOTE:
+SizeOfImage is large because SymbolState reserves a large static symbol table/extra-data area; the quote buffers themselves remain dynamically allocated per active symbol. This is a virtual image reservation characteristic, not a 37 MB DLL file size.
+
+FINAL_STATIC_GATE=PASS
