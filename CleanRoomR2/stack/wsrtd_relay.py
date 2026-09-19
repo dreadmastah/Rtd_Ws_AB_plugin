@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Local WSRTD relay.
+"""Local WSRTD relay with receiver-presence status for R2.1 recovery.
 
 Root / and /receiver connections are treated as WSRTD/AmiBroker receivers.
 /sender connections are treated as market-data senders.
 Messages from receivers are forwarded to all senders; messages from senders
-are forwarded to all receivers. The relay itself never touches exchange APIs.
+are forwarded to all receivers. Internal relay-status packets are sent only
+to sender connections so the Binance bridge knows whether AmiBroker is ready
+to receive automatic recovery history.
 """
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Iterable
 
@@ -71,6 +74,23 @@ async def _fanout(peers: Iterable[ServerConnection], message: str) -> None:
                 pass
 
 
+def _status_message() -> str:
+    return json.dumps(
+        {
+            "_relay": "status",
+            "protocol": "wsrtd-relay-status-v1",
+            "receivers": len(RECEIVERS),
+            "senders": len(SENDERS),
+            "unix_ms": int(time.time() * 1000),
+        },
+        separators=(",", ":"),
+    )
+
+
+async def _notify_senders_status() -> None:
+    await _fanout(SENDERS, _status_message())
+
+
 async def handler(ws: ServerConnection) -> None:
     path = _path(ws)
     role = "sender" if path.startswith("/sender") else "receiver"
@@ -78,6 +98,12 @@ async def handler(ws: ServerConnection) -> None:
     peers.add(ws)
     authed = (role == "sender") or (AUTH == "")
     LOG.info("%s connected path=%s receivers=%d senders=%d", role, path, len(RECEIVERS), len(SENDERS))
+
+    if role == "sender":
+        await _safe_send(ws, _status_message())
+    else:
+        await _notify_senders_status()
+
     try:
         async for raw in ws:
             if not isinstance(raw, str):
@@ -85,11 +111,8 @@ async def handler(ws: ServerConnection) -> None:
             msg = raw.strip()
             if not msg:
                 continue
-
-            # Compatibility with the upstream WSRTD relay role convention.
             if msg in {"rolesend", "rolerecv"}:
                 continue
-
             if role == "receiver" and not authed:
                 if msg == AUTH:
                     authed = True
@@ -98,15 +121,9 @@ async def handler(ws: ServerConnection) -> None:
                 LOG.warning("receiver auth rejected")
                 await ws.close(code=1008, reason="authentication failed")
                 return
-
-            # A configured WSRTD AuthCode is historically sent as a raw string
-            # immediately after connect. When this relay has no auth configured,
-            # ignore non-JSON receiver control strings instead of leaking them to
-            # the data sender.
             if role == "receiver" and not (msg.startswith("{") or msg.startswith("[")):
                 LOG.info("ignored receiver non-JSON control string")
                 continue
-
             if role == "sender":
                 await _fanout(RECEIVERS, msg)
             else:
@@ -116,6 +133,7 @@ async def handler(ws: ServerConnection) -> None:
     finally:
         peers.discard(ws)
         LOG.info("%s disconnected receivers=%d senders=%d", role, len(RECEIVERS), len(SENDERS))
+        await _notify_senders_status()
 
 
 async def main() -> None:
