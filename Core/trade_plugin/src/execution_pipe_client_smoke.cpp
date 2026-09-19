@@ -6,8 +6,18 @@
 #include "astu/ipc/simulation_protocol.hpp"
 #include "astu/trade/execution_pipe_client.hpp"
 
-int main() {
+int main(int argc, char** argv) {
 #ifdef _WIN32
+    bool expect_duplicate = false;
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--expect-duplicate") {
+            expect_duplicate = true;
+        } else {
+            std::cerr << "unknown argument: " << arg << "\n";
+            return 2;
+        }
+    }
     const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
 
@@ -47,12 +57,17 @@ int main() {
                   << (response.order_routing_enabled ? "true" : "false") << "\n";
         std::cout << "simulatedQuantity=" << response.simulated_quantity << "\n";
         std::cout << "reason=" << response.reason << "\n";
-        return response.decision_code == astu::core::DecisionCode::OrderRoutingDisabled ? 0 : 1;
+        const auto expected = expect_duplicate
+            ? astu::core::DecisionCode::DuplicateRequest
+            : astu::core::DecisionCode::OrderRoutingDisabled;
+        return response.decision_code == expected ? 0 : 1;
     } catch (const std::exception& exc) {
         std::cerr << "pipe smoke failed: " << exc.what() << "\n";
         return 2;
     }
 #else
+    (void)argc;
+    (void)argv;
     std::cerr << "Execution Named Pipe smoke client requires Windows.\n";
     return 2;
 #endif
