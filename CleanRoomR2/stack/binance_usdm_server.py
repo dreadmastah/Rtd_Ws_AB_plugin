@@ -40,6 +40,7 @@ RCFG = CFG["relay"]
 REST_BASE = str(BCFG["rest_base"]).rstrip("/")
 MARKET_WS = str(BCFG["market_ws"])
 PUBLIC_WS = str(BCFG["public_ws"])
+PUBLIC_WS_CONNECTIONS = max(1, int(BCFG.get("public_ws_connections", 1)))
 INTERVAL = str(BCFG.get("kline_interval", "1m"))
 PUBLISH_SEC = max(0.05, int(BCFG.get("publish_interval_ms", 250)) / 1000.0)
 OI_POLL_SEC = max(5.0, float(BCFG.get("open_interest_poll_seconds", 30)))
@@ -142,12 +143,12 @@ class App:
         self.session: aiohttp.ClientSession | None = None
         self.relay_ws: ClientConnection | None = None
         self.market_ws: ClientConnection | None = None
-        self.public_ws: ClientConnection | None = None
+        self.public_ws: list[ClientConnection | None] = [None] * PUBLIC_WS_CONNECTIONS
         self.relay_send_lock = asyncio.Lock()
         self.market_send_lock = asyncio.Lock()
-        self.public_send_lock = asyncio.Lock()
+        self.public_send_locks: list[asyncio.Lock] = [asyncio.Lock() for _ in range(PUBLIC_WS_CONNECTIONS)]
         self.market_up = False
-        self.public_up = False
+        self.public_up: list[bool] = [False] * PUBLIC_WS_CONNECTIONS
         self.req_id = 100
         self.backfill_sem = asyncio.Semaphore(2)
         self.receiver_count = 0
@@ -392,6 +393,19 @@ class App:
     def public_streams(self, symbol: str) -> list[str]:
         return [f"{symbol.lower()}@bookTicker"]
 
+    def public_group_index(self, symbol: str) -> int:
+        symbol = symbol.upper()
+        try:
+            return self.bootstrap.index(symbol) % PUBLIC_WS_CONNECTIONS
+        except ValueError:
+            return sum(symbol.encode("utf-8")) % PUBLIC_WS_CONNECTIONS
+
+    def public_group_symbols(self, group_index: int) -> list[str]:
+        return [s for s in sorted(self.active) if self.public_group_index(s) == group_index]
+
+    def public_all_up(self) -> bool:
+        return bool(self.public_up) and all(self.public_up)
+
     async def send_sub(self, ws: ClientConnection | None, lock: asyncio.Lock, method: str, params: list[str]) -> None:
         if ws is None or not params:
             return
@@ -401,21 +415,41 @@ class App:
 
     async def subscribe_symbol(self, symbol: str) -> None:
         await self.send_sub(self.market_ws, self.market_send_lock, "SUBSCRIBE", self.market_streams(symbol))
-        await self.send_sub(self.public_ws, self.public_send_lock, "SUBSCRIBE", self.public_streams(symbol))
+        group_index = self.public_group_index(symbol)
+        await self.send_sub(
+            self.public_ws[group_index],
+            self.public_send_locks[group_index],
+            "SUBSCRIBE",
+            self.public_streams(symbol),
+        )
 
     async def unsubscribe_symbol(self, symbol: str) -> None:
         await self.send_sub(self.market_ws, self.market_send_lock, "UNSUBSCRIBE", self.market_streams(symbol))
-        await self.send_sub(self.public_ws, self.public_send_lock, "UNSUBSCRIBE", self.public_streams(symbol))
+        group_index = self.public_group_index(symbol)
+        await self.send_sub(
+            self.public_ws[group_index],
+            self.public_send_locks[group_index],
+            "UNSUBSCRIBE",
+            self.public_streams(symbol),
+        )
 
     async def market_loop(self) -> None:
         await self.binance_ws_loop("market")
 
-    async def public_loop(self) -> None:
-        await self.binance_ws_loop("public")
+    async def public_loop(self, group_index: int) -> None:
+        await self.binance_ws_loop("public", public_group_index=group_index)
 
-    async def binance_ws_loop(self, kind: str) -> None:
+    async def binance_ws_loop(self, kind: str, public_group_index: int | None = None) -> None:
         uri = MARKET_WS if kind == "market" else PUBLIC_WS
-        lock = self.market_send_lock if kind == "market" else self.public_send_lock
+        if kind == "market":
+            lock = self.market_send_lock
+            group_index: int | None = None
+        else:
+            if public_group_index is None or not (0 <= public_group_index < PUBLIC_WS_CONNECTIONS):
+                raise ValueError(f"invalid public websocket group {public_group_index}")
+            group_index = public_group_index
+            lock = self.public_send_locks[group_index]
+        group_label = "-" if group_index is None else f"{group_index + 1}/{PUBLIC_WS_CONNECTIONS}"
         backoff = 1.0
         connection_seq = 0
         while not self.stop.is_set():
@@ -437,13 +471,15 @@ class App:
                         self.market_up = True
                         params = [x for s in sorted(self.active) for x in self.market_streams(s)]
                     else:
-                        self.public_ws = ws
-                        self.public_up = True
-                        params = [x for s in sorted(self.active) for x in self.public_streams(s)]
+                        assert group_index is not None
+                        self.public_ws[group_index] = ws
+                        self.public_up[group_index] = True
+                        group_symbols = self.public_group_symbols(group_index)
+                        params = [x for s in group_symbols for x in self.public_streams(s)]
                     await self.send_sub(ws, lock, "SUBSCRIBE", params)
                     LOG.info(
-                        "Binance %s websocket connected connection=%d streams=%d uri=%s",
-                        kind, connection_seq, len(params), uri,
+                        "Binance %s websocket connected connection=%d group=%s streams=%d uri=%s",
+                        kind, connection_seq, group_label, len(params), uri,
                     )
                     if kind == "market":
                         self.request_recovery("market-websocket-connected", full=False)
@@ -461,8 +497,8 @@ class App:
                         await self.handle_binance_event(obj)
                     duration = max(0.0, time.monotonic() - connected_monotonic)
                     LOG.warning(
-                        "Binance %s websocket closed cleanly connection=%d duration_seconds=%.3f messages=%d uri=%s",
-                        kind, connection_seq, duration, message_count, uri,
+                        "Binance %s websocket closed cleanly connection=%d group=%s duration_seconds=%.3f messages=%d uri=%s",
+                        kind, connection_seq, group_label, duration, message_count, uri,
                     )
             except (OSError, ConnectionClosed, asyncio.TimeoutError) as exc:
                 duration = 0.0 if connected_monotonic is None else max(0.0, time.monotonic() - connected_monotonic)
@@ -473,23 +509,24 @@ class App:
                     close_code = getattr(rcvd, "code", None)
                     close_reason = getattr(rcvd, "reason", close_reason)
                 LOG.warning(
-                    "Binance %s websocket disconnected connection=%d exception=%s duration_seconds=%.3f messages=%d close_code=%s close_reason=%r uri=%s detail=%s",
-                    kind, connection_seq, type(exc).__name__, duration, message_count,
+                    "Binance %s websocket disconnected connection=%d group=%s exception=%s duration_seconds=%.3f messages=%d close_code=%s close_reason=%r uri=%s detail=%s",
+                    kind, connection_seq, group_label, type(exc).__name__, duration, message_count,
                     close_code, close_reason, uri, exc,
                 )
             except Exception:
                 duration = 0.0 if connected_monotonic is None else max(0.0, time.monotonic() - connected_monotonic)
                 LOG.exception(
-                    "Binance %s websocket loop failure connection=%d duration_seconds=%.3f messages=%d uri=%s",
-                    kind, connection_seq, duration, message_count, uri,
+                    "Binance %s websocket loop failure connection=%d group=%s duration_seconds=%.3f messages=%d uri=%s",
+                    kind, connection_seq, group_label, duration, message_count, uri,
                 )
             finally:
                 if kind == "market":
                     self.market_ws = None
                     self.market_up = False
                 else:
-                    self.public_ws = None
-                    self.public_up = False
+                    assert group_index is not None
+                    self.public_ws[group_index] = None
+                    self.public_up[group_index] = False
             if not self.stop.is_set():
                 await asyncio.sleep(backoff)
                 backoff = min(20.0, backoff * 1.7)
@@ -660,7 +697,7 @@ class App:
         LOG.info("WSRTD command cmd=%s arg=%s", cmd, arg[:160])
 
         if cmd == "cping":
-            code = 200 if self.market_up and self.public_up else 400
+            code = 200 if self.market_up and self.public_all_up() else 400
             status = "Binance USD-M connected" if code == 200 else "Binance USD-M degraded/disconnected"
             await self.relay_send({"cmd": "cping", "code": code, "arg": status})
             return
@@ -991,12 +1028,15 @@ class App:
             tasks = [
                 asyncio.create_task(self.relay_loop(), name="relay"),
                 asyncio.create_task(self.market_loop(), name="market"),
-                asyncio.create_task(self.public_loop(), name="public"),
                 asyncio.create_task(self.publish_loop(), name="publisher"),
                 asyncio.create_task(self.open_interest_loop(), name="open-interest"),
                 asyncio.create_task(self.recovery_loop(), name="recovery"),
                 asyncio.create_task(self.recovery_state_writer_loop(), name="recovery-state-writer"),
             ]
+            tasks.extend(
+                asyncio.create_task(self.public_loop(group_index), name=f"public-{group_index + 1}")
+                for group_index in range(PUBLIC_WS_CONNECTIONS)
+            )
             try:
                 await self.stop.wait()
             finally:
@@ -1017,7 +1057,10 @@ async def main() -> None:
         with contextlib.suppress(NotImplementedError):
             loop.add_signal_handler(sig, app.stop.set)
     LOG.info("bootstrap symbols (%d): %s", len(BOOTSTRAP), ",".join(BOOTSTRAP))
-    LOG.info("Binance endpoints market=%s public=%s rest=%s", MARKET_WS, PUBLIC_WS, REST_BASE)
+    LOG.info(
+        "Binance endpoints market=%s public=%s public_connections=%d rest=%s",
+        MARKET_WS, PUBLIC_WS, PUBLIC_WS_CONNECTIONS, REST_BASE,
+    )
     LOG.info("backfill horizons intraday_full_days=%d intraday_max_days=%d eod_request_days=%d", FULL_BF_DAYS, MAX_BF_DAYS, EOD_BF_DAYS)
     LOG.info(
         "automatic recovery enabled=%s intraday_target=%d eod_target=%d audit_seconds=%.1f state=%s",
