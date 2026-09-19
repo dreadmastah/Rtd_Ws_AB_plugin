@@ -60,6 +60,22 @@ PREFLIGHT_RETRY_INITIAL = max(1.0, float(RECOV_CFG.get("preflight_retry_initial_
 PREFLIGHT_RETRY_MAX = max(PREFLIGHT_RETRY_INITIAL, float(RECOV_CFG.get("preflight_retry_max_seconds", 60)))
 STATE_FILE_CFG = Path(str(RECOV_CFG.get("state_file", "runtime/recovery_state.json")))
 RECOVERY_STATE_PATH = STATE_FILE_CFG if STATE_FILE_CFG.is_absolute() else BASE / STATE_FILE_CFG
+AUTOTRADER_STATUS_CFG = CFG.get("autotrader_status", {})
+AUTOTRADER_STATUS_ENABLED = bool(AUTOTRADER_STATUS_CFG.get("enabled", True))
+AUTOTRADER_STATUS_FILE_CFG = Path(
+    str(AUTOTRADER_STATUS_CFG.get("output_file", "runtime/market_status.v1.json"))
+)
+AUTOTRADER_STATUS_PATH = (
+    AUTOTRADER_STATUS_FILE_CFG
+    if AUTOTRADER_STATUS_FILE_CFG.is_absolute()
+    else BASE / AUTOTRADER_STATUS_FILE_CFG
+)
+AUTOTRADER_STATUS_FLUSH_SEC = max(
+    0.25, float(AUTOTRADER_STATUS_CFG.get("flush_seconds", 1.0))
+)
+AUTOTRADER_STATUS_FRESH_MS = max(
+    1000, int(AUTOTRADER_STATUS_CFG.get("freshness_ms", 5000))
+)
 MINUTE_MS = 60_000
 DAY_MS = 86_400_000
 RELAY_URI = os.getenv(
@@ -127,6 +143,7 @@ class SymbolState:
     funding_rate: float = 0.0
     next_funding_time: int = 0
     have_kline: bool = False
+    last_market_event_unix_ms: int = 0
     updated_monotonic: float = field(default_factory=time.monotonic)
 
 
@@ -151,6 +168,7 @@ class App:
         self.req_id = 100
         self.backfill_sem = asyncio.Semaphore(2)
         self.receiver_count = 0
+        self.hydrated_symbols: set[str] = set()
         self.recovery_event = asyncio.Event()
         self.recovery_reasons: set[str] = set()
         self.recovery_full_requested = False
@@ -270,6 +288,8 @@ class App:
         self.receiver_count = new_count
         if new_count != old_count:
             LOG.info("relay receiver count changed old=%d new=%d", old_count, new_count)
+        if new_count <= 0:
+            self.hydrated_symbols.clear()
         if new_count > 0 and old_count == 0:
             self.request_recovery("receiver-attached", full=RECOVERY_RECEIVER_FULL_REFRESH)
 
@@ -539,6 +559,7 @@ class App:
             st.funding_rate = float(obj.get("r", 0) or 0)
             st.next_funding_time = int(obj.get("T", 0) or 0)
         st.updated_monotonic = time.monotonic()
+        st.last_market_event_unix_ms = int(time.time() * 1000)
 
     def mark_dirty(self, symbol: str) -> None:
         self.dirty.add(symbol)
@@ -584,6 +605,58 @@ class App:
             payload = [r for s in names if s in self.active if (r := self.rtd_record(self.state[s])) is not None]
             if payload:
                 await self.relay_send(payload)
+
+    def autotrader_market_status(self) -> dict[str, Any]:
+        now_ms = int(time.time() * 1000)
+        symbols: dict[str, Any] = {}
+        for symbol in sorted(self.active):
+            st = self.state.setdefault(symbol, SymbolState(symbol))
+            age_ms: int | None = None
+            if st.last_market_event_unix_ms > 0:
+                age_ms = max(0, now_ms - st.last_market_event_unix_ms)
+            live = bool(self.market_up and self.public_up and st.have_kline)
+            fresh = bool(live and age_ms is not None and age_ms <= AUTOTRADER_STATUS_FRESH_MS)
+            hydrated = bool(self.receiver_count > 0 and symbol in self.hydrated_symbols)
+            symbols[symbol] = {
+                "live": live,
+                "fresh": fresh,
+                "historyHydrated": hydrated,
+                "quoteAgeMs": age_ms,
+            }
+        return {
+            "schemaVersion": 1,
+            "source": "WSRTD-CleanRoomR2",
+            "generatedUtc": datetime.now(timezone.utc).isoformat(),
+            "marketUp": bool(self.market_up),
+            "publicUp": bool(self.public_up),
+            "receiverCount": int(self.receiver_count),
+            "freshnessMs": int(AUTOTRADER_STATUS_FRESH_MS),
+            "symbols": symbols,
+        }
+
+    def save_autotrader_market_status(self) -> None:
+        if not AUTOTRADER_STATUS_ENABLED:
+            return
+        AUTOTRADER_STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp = AUTOTRADER_STATUS_PATH.with_suffix(AUTOTRADER_STATUS_PATH.suffix + ".tmp")
+        tmp.write_text(
+            json.dumps(self.autotrader_market_status(), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(tmp, AUTOTRADER_STATUS_PATH)
+
+    async def autotrader_status_writer_loop(self) -> None:
+        if not AUTOTRADER_STATUS_ENABLED:
+            return
+        while not self.stop.is_set():
+            try:
+                self.save_autotrader_market_status()
+            except Exception:
+                LOG.exception("auto-trader market status save failed")
+            try:
+                await asyncio.wait_for(self.stop.wait(), timeout=AUTOTRADER_STATUS_FLUSH_SEC)
+            except asyncio.TimeoutError:
+                pass
 
     async def open_interest_loop(self) -> None:
         while not self.stop.is_set():
@@ -933,8 +1006,14 @@ class App:
                         LOG.warning("automatic recovery interrupted because receiver detached")
                         break
                     if full:
-                        total_1m += await self.send_intraday_target(symbol)
-                        total_eod += await self.send_eod_target(symbol)
+                        m1_count = await self.send_intraday_target(symbol)
+                        eod_count = await self.send_eod_target(symbol)
+                        total_1m += m1_count
+                        total_eod += eod_count
+                        if m1_count >= RECOVERY_1M_RECORDS and eod_count >= RECOVERY_EOD_BARS:
+                            self.hydrated_symbols.add(symbol)
+                        else:
+                            self.hydrated_symbols.discard(symbol)
                     else:
                         total_1m += await self.repair_intraday_gap(symbol)
                         item = self.recovery_symbol_state(symbol)
@@ -996,6 +1075,7 @@ class App:
                 asyncio.create_task(self.open_interest_loop(), name="open-interest"),
                 asyncio.create_task(self.recovery_loop(), name="recovery"),
                 asyncio.create_task(self.recovery_state_writer_loop(), name="recovery-state-writer"),
+                asyncio.create_task(self.autotrader_status_writer_loop(), name="autotrader-status-writer"),
             ]
             try:
                 await self.stop.wait()
@@ -1007,6 +1087,10 @@ class App:
                     self.save_recovery_state()
                 except Exception:
                     LOG.exception("final recovery state save failed")
+                try:
+                    self.save_autotrader_market_status()
+                except Exception:
+                    LOG.exception("final auto-trader market status save failed")
                 self.session = None
 
 
@@ -1022,6 +1106,10 @@ async def main() -> None:
     LOG.info(
         "automatic recovery enabled=%s intraday_target=%d eod_target=%d audit_seconds=%.1f state=%s",
         RECOVERY_ENABLED, RECOVERY_1M_RECORDS, RECOVERY_EOD_BARS, RECOVERY_AUDIT_SEC, RECOVERY_STATE_PATH,
+    )
+    LOG.info(
+        "auto-trader status enabled=%s freshness_ms=%d output=%s",
+        AUTOTRADER_STATUS_ENABLED, AUTOTRADER_STATUS_FRESH_MS, AUTOTRADER_STATUS_PATH,
     )
     await app.run()
 
