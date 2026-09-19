@@ -17,6 +17,14 @@ target_include_directories(astu_core INTERFACE
 add_executable(astu_execution_sim execution/src/execution_sim_main.cpp)
 target_link_libraries(astu_execution_sim PRIVATE astu_core)
 
+if(WIN32)
+    add_executable(astu_execution_pipe_host execution/src/execution_pipe_host.cpp)
+    target_link_libraries(astu_execution_pipe_host PRIVATE astu_core)
+
+    add_executable(astu_trade_pipe_smoke trade_plugin/src/execution_pipe_client_smoke.cpp)
+    target_link_libraries(astu_trade_pipe_smoke PRIVATE astu_core)
+endif()
+
 enable_testing()
 add_executable(astu_core_tests tests/core_sim_tests.cpp)
 target_link_libraries(astu_core_tests PRIVATE astu_core)
