@@ -88,6 +88,7 @@ public:
             << ",\"wouldIncreaseExposure\":"
             << (response.would_increase_exposure ? "true" : "false")
             << ",\"simulatedQuantity\":" << response.simulated_quantity
+            << ",\"simulatedNotional\":" << response.simulated_notional
             << ",\"orderRoutingEnabled\":false"
             << ",\"reason\":\"" << astu::ipc::json_escape(response.reason) << "\""
             << "}\n";
