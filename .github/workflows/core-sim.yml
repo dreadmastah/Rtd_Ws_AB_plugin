@@ -147,3 +147,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_reconciliation_restart_smoke.cmd
+
+      - name: Windows AstuTrade DLL end-to-end smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_amibroker_trade_e2e_smoke.cmd
