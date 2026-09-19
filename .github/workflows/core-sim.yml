@@ -188,6 +188,11 @@ jobs:
         shell: cmd
         run: Core\tools\run_instrument_filter_pipe_smoke.cmd
 
+      - name: Windows bootstrap-12 instrument pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_bootstrap12_instrument_pipe_smoke.cmd
+
       - name: Windows restart reconciliation smoke
         if: runner.os == 'Windows'
         shell: cmd
