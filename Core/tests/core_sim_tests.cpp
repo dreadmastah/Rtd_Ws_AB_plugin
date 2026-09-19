@@ -460,6 +460,7 @@ int main() {
         REQUIRE(journal_text.find("SIMULATION_DECISION") != std::string::npos);
         REQUIRE(journal_text.find("ORDER_ROUTING_DISABLED") != std::string::npos);
         REQUIRE(journal_text.find("DUPLICATE_REQUEST") != std::string::npos);
+        journal_in.close();
 
         TRACE("execution_journal_remove");
         std::filesystem::remove_all(dir);
