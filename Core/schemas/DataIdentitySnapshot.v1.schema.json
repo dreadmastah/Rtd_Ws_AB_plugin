@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:DataIdentitySnapshot.v1",
+  "title": "DataIdentitySnapshot.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "source",
+    "universeId",
+    "universeVersion",
+    "universeHash",
+    "generationKind",
+    "identityReady",
+    "generatedUtc",
+    "recoveryStateSavedUtc",
+    "symbols"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "source": {"const": "WSRTD-CleanRoomR2"},
+    "universeId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "universeVersion": {"type": "integer", "minimum": 1},
+    "universeHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "generationKind": {"const": "WSRTD_R2_COMPLETED_M1_OPEN_MS"},
+    "identityReady": {"type": "boolean"},
+    "generatedUtc": {"type": "string", "minLength": 1},
+    "recoveryStateSavedUtc": {"type": ["string", "null"]},
+    "symbols": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "identityReady",
+          "dataGeneration",
+          "generationKind",
+          "lastCompleted1mOpenMs",
+          "lastCompletedEodDate",
+          "recoveryUpdatedUtc"
+        ],
+        "properties": {
+          "identityReady": {"type": "boolean"},
+          "dataGeneration": {"type": ["integer", "null"], "minimum": 1},
+          "generationKind": {"const": "WSRTD_R2_COMPLETED_M1_OPEN_MS"},
+          "lastCompleted1mOpenMs": {"type": ["integer", "null"], "minimum": 1},
+          "lastCompletedEodDate": {"type": ["integer", "null"], "minimum": 20000101},
+          "recoveryUpdatedUtc": {"type": ["string", "null"]}
+        }
+      }
+    }
+  }
+}
