@@ -62,6 +62,8 @@ orderRoutingEnabled=false
 
 A repeated request with the same idempotency key is rejected by the dispatcher as `DUPLICATE_REQUEST`.
 
+The execution host persists idempotency reservations and simulation decisions in an append-only journal. The smoke runner restarts the host with the same journal and verifies that the same idempotency key remains rejected after process restart.
+
 ## Fail-closed layers
 
 A request is rejected before simulated sizing when any of these fail:
