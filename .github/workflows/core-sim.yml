@@ -142,3 +142,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_pipe_live_smoke.cmd
+
+      - name: Windows restart reconciliation smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_reconciliation_restart_smoke.cmd
