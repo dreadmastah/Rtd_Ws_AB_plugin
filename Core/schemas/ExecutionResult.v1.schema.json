@@ -13,6 +13,7 @@
     "acceptedForSimulation",
     "wouldIncreaseExposure",
     "simulatedQuantity",
+    "simulatedNotional",
     "orderRoutingEnabled",
     "reason"
   ],
@@ -33,6 +34,9 @@
         "EXPIRED",
         "ACCOUNT_NOT_RECONCILED",
         "RISK_BLOCKED",
+        "INSTRUMENT_UNAVAILABLE",
+        "FILTER_REJECTED",
+        "SIZING_REJECTED",
         "ORDER_ROUTING_DISABLED",
         "DUPLICATE_REQUEST",
         "FRAME_INVALID"
@@ -41,6 +45,7 @@
     "acceptedForSimulation": {"type": "boolean"},
     "wouldIncreaseExposure": {"type": "boolean"},
     "simulatedQuantity": {"type": "number", "minimum": 0},
+    "simulatedNotional": {"type": "number", "minimum": 0},
     "orderRoutingEnabled": {"const": false},
     "reason": {"type": "string", "maxLength": 512}
   }
