@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 
+#include "astu/account/live_risk_provider.hpp"
 #include "astu/core/contracts.hpp"
 #include "astu/execution/execution_journal.hpp"
 #include "astu/execution/simulation_engine.hpp"
@@ -304,6 +305,68 @@ int main() {
         assert(!data.fresh);
         assert(!data.cache_ready);
         assert(!data.identity_ready);
+    }
+
+    {
+        const auto now_ms = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+        const auto dir = std::filesystem::temp_directory_path() /
+            "astu_live_risk_provider_test";
+        std::filesystem::remove_all(dir);
+        std::filesystem::create_directories(dir);
+        const auto path = dir / "account_risk_status.v1.json";
+
+        std::ofstream out(path, std::ios::binary | std::ios::trunc);
+        out
+            << "{"
+            << "\"schemaVersion\":1,"
+            << "\"messageType\":\"AccountRiskSnapshot.v1\","
+            << "\"generatedUnixMs\":" << now_ms << ","
+            << "\"source\":\"TEST_RECONCILER\","
+            << "\"reconciled\":true,"
+            << "\"riskState\":\"NORMAL\","
+            << "\"riskCapital\":10000,"
+            << "\"availableBalance\":9000,"
+            << "\"grossNotional\":1000,"
+            << "\"maxGrossNotional\":50000,"
+            << "\"openPositions\":1,"
+            << "\"maxOpenPositions\":10,"
+            << "\"detail\":\"reconciled test snapshot\""
+            << "}";
+        out.close();
+
+        astu::account::LiveRiskProvider provider(path, 5'000);
+        const auto risk = provider(base_intent());
+        assert(risk.reconciled);
+        assert(risk.risk_state == astu::core::RiskState::Normal);
+        assert(risk.risk_capital == 10'000.0);
+        assert(risk.available_balance == 9'000.0);
+        assert(risk.gross_notional == 1'000.0);
+        assert(risk.max_gross_notional == 50'000.0);
+        assert(risk.open_positions == 1);
+        assert(risk.max_open_positions == 10);
+
+        std::filesystem::remove_all(dir);
+    }
+
+    {
+        const auto path = std::filesystem::temp_directory_path() /
+            "astu_missing_account_risk_status.v1.json";
+        std::filesystem::remove(path);
+        astu::account::LiveRiskProvider provider(path, 5'000);
+        const auto risk = provider(base_intent());
+        assert(!risk.reconciled);
+        assert(risk.risk_state == astu::core::RiskState::Emergency);
+
+        auto data = ready_data();
+        auto intent = astu::trade::SignalIntentBuilder(base_intent())
+                          .bind_data_identity(data)
+                          .build();
+        const auto result = astu::execution::SimulationEngine::run(
+            intent, data, risk, 2'000);
+        assert(result.code == DecisionCode::AccountNotReconciled);
+        assert(!result.accepted_for_simulation);
     }
 
     {
