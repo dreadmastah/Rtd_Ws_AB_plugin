@@ -158,3 +158,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_sim_stack_fixture_smoke.cmd
+
+      - name: Windows execution crash restart smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_execution_restart_smoke.cmd
