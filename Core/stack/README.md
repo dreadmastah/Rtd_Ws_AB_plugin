@@ -12,6 +12,16 @@ It never enables order routing.
 
 The read-only gateway has no order, cancel, leverage, margin-mode, or transfer methods.
 
+## Instrument modes
+
+- `disabled` — default. The execution host uses the legacy simulation sizing path and does not require an instrument snapshot.
+- `fixture` — CI/development. Publishes the checked-in BTCUSDT public exchange-info fixture into `InstrumentConstraints.v1`.
+- `public` — periodically reads Binance USD-M public `/fapi/v1/exchangeInfo` and publishes local `InstrumentConstraints.v1` snapshots for the configured bootstrap symbols.
+
+The instrument publisher uses public metadata only. It has no credentials, signing, or order endpoint.
+
+When an instrument mode is enabled, the execution host fails closed if the symbol rules are missing, stale, malformed, or fail the quantity/notional filters.
+
 ## Start
 
 From the repository root after the C++ build:
@@ -23,7 +33,7 @@ python Core\stack\autotrader_sim_launcher.py --risk-mode disabled
 For a local fixture-backed simulation:
 
 ```cmd
-python Core\stack\autotrader_sim_launcher.py --risk-mode fixture
+python Core\stack\autotrader_sim_launcher.py --risk-mode fixture --instrument-mode fixture
 ```
 
 For explicitly enabled read-only account reconciliation:
@@ -32,7 +42,7 @@ For explicitly enabled read-only account reconciliation:
 set ASTU_BINANCE_PRIVATE_READONLY_ENABLED=1
 set BINANCE_API_KEY=...
 set BINANCE_API_SECRET=...
-python Core\stack\autotrader_sim_launcher.py --risk-mode readonly
+python Core\stack\autotrader_sim_launcher.py --risk-mode readonly --instrument-mode public
 ```
 
 ## Status and stop
