@@ -303,7 +303,7 @@ def main() -> int:
             write_atomic(args.output, snapshot)
             print(f"BINANCE_PRIVATE_READONLY=FAIL_CLOSED error={type(exc).__name__}: {exc}")
 
-        if args.once or fixture_mode:
+        if args.once:
             return 0 if snapshot["reconciled"] else 5
         time.sleep(args.poll_seconds)
 
