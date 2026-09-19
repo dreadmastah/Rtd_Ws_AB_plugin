@@ -12,6 +12,7 @@
 #include "astu/execution/execution_pipe_server.hpp"
 #include "astu/execution/execution_status.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
+#include "astu/instrument/live_instrument_provider.hpp"
 #include "astu/wsrtd/live_status_provider.hpp"
 
 namespace {
@@ -63,6 +64,8 @@ int main(int argc, char** argv) {
     std::uint64_t max_risk_status_age_ms = 5'000;
     std::filesystem::path execution_status_file =
         "Core/runtime/execution_status.v1.json";
+    std::filesystem::path instrument_status_dir;
+    std::uint64_t max_instrument_status_age_ms = 86'400'000;
 
     if (const char* env = std::getenv("ASTU_STATUS_DIR"); env && *env) {
         status_dir = env;
@@ -75,6 +78,9 @@ int main(int argc, char** argv) {
     }
     if (const char* env = std::getenv("ASTU_EXECUTION_STATUS_FILE"); env && *env) {
         execution_status_file = env;
+    }
+    if (const char* env = std::getenv("ASTU_INSTRUMENT_STATUS_DIR"); env && *env) {
+        instrument_status_dir = env;
     }
 
     for (int i = 1; i < argc; ++i) {
@@ -93,6 +99,10 @@ int main(int argc, char** argv) {
             max_risk_status_age_ms = std::stoull(argv[++i]);
         } else if (arg == "--execution-status-file" && i + 1 < argc) {
             execution_status_file = argv[++i];
+        } else if (arg == "--instrument-status-dir" && i + 1 < argc) {
+            instrument_status_dir = argv[++i];
+        } else if (arg == "--max-instrument-status-age-ms" && i + 1 < argc) {
+            max_instrument_status_age_ms = std::stoull(argv[++i]);
         } else {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
@@ -119,6 +129,17 @@ int main(int argc, char** argv) {
         risk_provider = [provider](const astu::core::SignalIntent& intent) {
             return provider(intent);
         };
+    }
+
+    astu::ipc::SimulationDispatcher::InstrumentProvider instrument_provider;
+    if (!instrument_status_dir.empty()) {
+        astu::instrument::LiveInstrumentProvider provider(
+            instrument_status_dir,
+            max_instrument_status_age_ms);
+        instrument_provider =
+            [provider](const astu::core::SignalIntent& intent) {
+                return provider(intent);
+            };
     }
 
     auto journal = std::make_shared<astu::execution::ExecutionJournal>(
@@ -151,7 +172,8 @@ int main(int argc, char** argv) {
             std::int64_t utc_ms) {
             journal->append(request, response, utc_ms);
             execution_status->record_response(response);
-        });
+        },
+        std::move(instrument_provider));
 
     execution_status->set_ready(true, true);
     execution_status->publish();
@@ -186,6 +208,14 @@ int main(int argc, char** argv) {
     }
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
+    if (!instrument_status_dir.empty()) {
+        std::cout << "INSTRUMENT_PROVIDER=FILE_BACKED_PUBLIC_FILTERS\n";
+        std::cout << "INSTRUMENT_STATUS_DIR=" << instrument_status_dir.string() << "\n";
+        std::cout << "MAX_INSTRUMENT_STATUS_AGE_MS="
+                  << max_instrument_status_age_ms << "\n";
+    } else {
+        std::cout << "INSTRUMENT_PROVIDER=LEGACY_SIMULATION_SIZING\n";
+    }
     std::cout << "REPLAY_KEYS_LOADED=" << journal->replay_size() << "\n";
 
     for (;;) {
