@@ -32,12 +32,18 @@ astu_execution_pipe_host.exe
 astu_trade_pipe_smoke.exe
 ```
 
-The host currently uses a deterministic in-process simulation DataStatus/Risk provider. It is a transport proof, not yet the live WSRTD status provider.
+The host defaults to the live file-backed WSRTD DataStatus provider. Use `--synthetic` only for isolated transport tests. The risk provider is still synthetic in both modes.
 
-Start the host:
+Start the host against the normal WSRTD runtime status directory:
 
 ```cmd
-astu_execution_pipe_host.exe
+astu_execution_pipe_host.exe --status-dir CleanRoomR2\stack\runtime\autotrader_status
+```
+
+For transport-only testing:
+
+```cmd
+astu_execution_pipe_host.exe --synthetic
 ```
 
 Then from another console:
