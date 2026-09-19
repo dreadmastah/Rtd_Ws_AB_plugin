@@ -43,6 +43,13 @@
     "enabled": true,
     "manifest_file": "universe_identity.v1.json",
     "output_file": "runtime/data_identity.v1.json",
-    "poll_seconds": 1.0
+    "poll_seconds": 1,
+    "status_dir": "runtime/autotrader_status"
+  },
+  "autotrader_status": {
+    "enabled": true,
+    "output_file": "runtime/market_status.v1.json",
+    "flush_seconds": 1,
+    "freshness_ms": 5000
   }
 }
