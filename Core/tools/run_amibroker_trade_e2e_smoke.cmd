@@ -12,6 +12,7 @@ set JOURNAL=%BUILD%\amibroker_trade_e2e_journal.jsonl
 set BRIDGE=%ROOT%\..\CleanRoomR2\stack\identity_bridge.py
 set GATEWAY=%ROOT%\account\binance_usdm_readonly_gateway.py
 set FIXTURE=%ROOT%\account\tests\fixtures\binance_usdm_account_v3.json
+set DIAG=%BUILD%\amibroker_trade_e2e_diagnostic.log
 
 if not exist "%HOST%" (
   echo ERROR: missing %HOST%
@@ -35,6 +36,8 @@ if not exist "%RISK%" (
 )
 
 del /q "%JOURNAL%" >nul 2>nul
+del /q "%DIAG%" >nul 2>nul
+set ASTU_TRADE_DIAGNOSTIC_FILE=%DIAG%
 
 python "%BRIDGE%" --once
 if errorlevel 1 (
@@ -60,6 +63,11 @@ if %RC% EQU 0 (
   echo ASTU_TRADE_DLL_E2E_SMOKE=PASS
 ) else (
   echo ASTU_TRADE_DLL_E2E_SMOKE=FAIL RC=%RC%
+  if exist "%DIAG%" (
+    echo --- ASTU_TRADE_DIAGNOSTIC ---
+    type "%DIAG%"
+    echo --- END_ASTU_TRADE_DIAGNOSTIC ---
+  )
 )
 
 exit /b %RC%
