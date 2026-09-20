@@ -94,6 +94,14 @@ struct AccountRiskSnapshot {
     double max_symbol_notional{0.0};
     double minimum_available_balance_reserve{0.0};
     double margin_reservation_rate{0.0};
+
+    // Margin-health metrics originate from the reconciled account snapshot.
+    // Configured limits are execution-local policy layered on top.
+    bool margin_metrics_reconciled{false};
+    double margin_balance{0.0};
+    double initial_margin{0.0};
+    double max_effective_leverage{0.0};
+    double max_margin_utilization{0.0};
 };
 
 struct PositionSnapshot {
