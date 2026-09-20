@@ -126,7 +126,9 @@ public:
         std::uint64_t max_pending_entry_scale_in_reservations,
         double max_symbol_notional,
         double minimum_available_balance_reserve,
-        double margin_reservation_rate) {
+        double margin_reservation_rate,
+        double max_effective_leverage,
+        double max_margin_utilization) {
         std::lock_guard<std::mutex> lock(mu_);
         max_pending_entry_scale_in_reservations_ =
             max_pending_entry_scale_in_reservations;
@@ -135,6 +137,10 @@ public:
             minimum_available_balance_reserve;
         margin_reservation_rate_ =
             margin_reservation_rate;
+        max_effective_leverage_ =
+            max_effective_leverage;
+        max_margin_utilization_ =
+            max_margin_utilization;
     }
 
     void set_exposure_reservation_metrics(
@@ -208,6 +214,8 @@ public:
         double max_symbol_notional = 0.0;
         double minimum_available_balance_reserve = 0.0;
         double margin_reservation_rate = 0.0;
+        double max_effective_leverage = 0.0;
+        double max_margin_utilization = 0.0;
         {
             std::lock_guard<std::mutex> lock(mu_);
             lifecycle = lifecycle_state_;
@@ -273,6 +281,10 @@ public:
                 minimum_available_balance_reserve_;
             margin_reservation_rate =
                 margin_reservation_rate_;
+            max_effective_leverage =
+                max_effective_leverage_;
+            max_margin_utilization =
+                max_margin_utilization_;
         }
 
         std::ostringstream out;
@@ -348,6 +360,10 @@ public:
             << minimum_available_balance_reserve
             << ",\"simulationMarginReservationRate\":"
             << margin_reservation_rate
+            << ",\"maxEffectiveLeverage\":"
+            << max_effective_leverage
+            << ",\"maxMarginUtilization\":"
+            << max_margin_utilization
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -463,6 +479,8 @@ private:
     double max_symbol_notional_{0.0};
     double minimum_available_balance_reserve_{0.0};
     double margin_reservation_rate_{0.0};
+    double max_effective_leverage_{0.0};
+    double max_margin_utilization_{0.0};
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
