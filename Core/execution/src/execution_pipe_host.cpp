@@ -9,6 +9,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "astu/account/live_position_provider.hpp"
 #include "astu/account/live_realized_pnl_provider.hpp"
