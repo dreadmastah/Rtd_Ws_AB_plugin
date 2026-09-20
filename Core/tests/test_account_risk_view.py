@@ -23,6 +23,7 @@ def base_status() -> dict:
         "riskProvider": "FIXTURE",
         "realizedPnlProvider": "FIXTURE",
         "orderRoutingEnabled": False,
+        "executionEnvironment": "SIMULATION_ONLY",
         "accountLossMetricsReady": True,
         "accountLossUtcDayIndex": 20000,
         "accountLossUtcWeekStartDayIndex": 19996,
@@ -330,6 +331,7 @@ def main() -> int:
 
     unsafe = base_status()
     unsafe["orderRoutingEnabled"] = True
+    unsafe["executionEnvironment"] = "MAINNET"
     try:
         mod.build_view(
             unsafe,
@@ -338,7 +340,7 @@ def main() -> int:
             max_source_age_ms=5_000,
         )
     except ValueError as exc:
-        assert "orderRoutingEnabled" in str(exc)
+        assert "routing outside" in str(exc)
     else:
         raise AssertionError("unsafe routing status must be rejected")
 
@@ -367,7 +369,7 @@ def main() -> int:
         assert obj["orderRoutingEnabled"] is False
         assert "READ ONLY" in html
         assert "No order controls exist in this view." in html
-        assert "orderRoutingEnabled=false" in html
+        assert "Environment: SIMULATION_ONLY" in html
         assert "Per-symbol projected exposure" in html
         assert "BTCUSDT" in html
 
