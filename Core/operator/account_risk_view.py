@@ -780,6 +780,7 @@ def render_html(view: dict[str, Any], refresh_seconds: float) -> str:
             '<tr><td colspan="8">No trustworthy ExecutionStatus evidence available.</td></tr>'
         )
 
+    symbol_risk = view["symbolRisk"]
     symbol_rows = []
     for row in symbol_risk.get("symbols", []):
         symbol_rows.append(
@@ -801,7 +802,6 @@ def render_html(view: dict[str, Any], refresh_seconds: float) -> str:
 
     evidence = view["realizedPnlEvidence"]
     account = view["accountRiskObservation"]
-    symbol_risk = view["symbolRisk"]
     projected = view["projectedRisk"]
     periods = view["periods"]
 
