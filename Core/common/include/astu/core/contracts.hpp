@@ -92,6 +92,8 @@ struct AccountRiskSnapshot {
     bool symbol_exposure_reconciled{false};
     double symbol_notional{0.0};
     double max_symbol_notional{0.0};
+    double minimum_available_balance_reserve{0.0};
+    double margin_reservation_rate{0.0};
 };
 
 struct PositionSnapshot {
