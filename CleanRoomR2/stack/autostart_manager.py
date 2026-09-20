@@ -16,13 +16,10 @@ RUN_VALUE = "WSRTD_R21_AutoRecovery"
 
 
 def ensure_command(dbname: str, relay_port: int) -> str:
-    scripts = BASE / ".venv" / "Scripts"
-    py = scripts / "pythonw.exe"
-    if not py.exists():
-        py = scripts / "python.exe"
+    pyw = BASE / ".venv" / "Scripts" / "pythonw.exe"
     launcher = BASE / "stack_launcher.py"
     return subprocess.list2cmdline([
-        str(py),
+        str(pyw),
         str(launcher),
         "--ensure-running",
         "--dbname",
@@ -37,13 +34,14 @@ def install(dbname: str) -> int:
         print("WSRTD_AUTOSTART=FAIL_WINDOWS_ONLY")
         return 2
     py = BASE / ".venv" / "Scripts" / "python.exe"
+    pyw = BASE / ".venv" / "Scripts" / "pythonw.exe"
     pause = BASE / "runtime" / "maintenance_pause"
     try:
         pause.unlink()
     except OSError:
         pass
-    if not py.exists():
-        print("WSRTD_AUTOSTART=FAIL_VENV_MISSING")
+    if not py.exists() or not pyw.exists():
+        print("WSRTD_AUTOSTART=FAIL_VENV_PYTHON_OR_PYTHONW_MISSING")
         return 2
 
     import winreg
@@ -127,10 +125,14 @@ def status() -> int:
     print(f"RUN_KEY_PRESENT={bool(run_value)}")
     if run_value:
         print(f"RUN_COMMAND={run_value}")
+    run_headless = "pythonw.exe" in run_value.lower()
+    task_headless = cp.returncode == 0 and "pythonw.exe" in (cp.stdout or "").lower()
+    print(f"RUN_COMMAND_HEADLESS={run_headless}")
     print(f"WATCHDOG_TASK_PRESENT={cp.returncode == 0}")
+    print(f"WATCHDOG_COMMAND_HEADLESS={task_headless}")
     if cp.returncode == 0:
         print(cp.stdout.strip())
-    return 0 if run_value and cp.returncode == 0 else 1
+    return 0 if run_value and cp.returncode == 0 and run_headless and task_headless else 1
 
 
 def main() -> int:
