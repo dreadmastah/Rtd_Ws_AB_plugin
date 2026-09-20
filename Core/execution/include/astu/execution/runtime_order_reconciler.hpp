@@ -24,9 +24,10 @@ struct RuntimeOrderReconciliationReport {
 
 class RuntimeOrderReconciler {
 public:
+    template <typename Provider>
     static RuntimeOrderReconciliationReport sweep(
         const std::shared_ptr<ExecutionJournal>& journal,
-        const FileBackedSimulationOrderSnapshotProvider& provider,
+        const Provider& provider,
         std::int64_t utc_ms) {
         if (!journal) {
             throw std::invalid_argument(
