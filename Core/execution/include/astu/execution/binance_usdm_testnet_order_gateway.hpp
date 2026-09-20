@@ -48,6 +48,20 @@ struct TestnetOrderRequest {
     bool reduce_only{false};
 };
 
+struct TestnetOrderQueryResult {
+    bool ready{false};
+    bool found{false};
+    std::uint32_t http_status{0};
+    std::int64_t exchange_code{0};
+    std::string symbol;
+    std::string exchange_order_id;
+    std::string client_order_id;
+    std::string exchange_status;
+    double original_quantity{0.0};
+    double cumulative_filled_quantity{0.0};
+    std::string detail;
+};
+
 struct TestnetOrderResult {
     TestnetSubmitOutcome outcome{TestnetSubmitOutcome::Unknown};
     std::uint32_t http_status{0};
@@ -103,6 +117,24 @@ inline std::string decimal_text(double value) {
     std::ostringstream out;
     out << std::setprecision(
         std::numeric_limits<double>::max_digits10) << value;
+    return out.str();
+}
+
+inline std::string build_testnet_order_query_params(
+    const std::string& symbol,
+    const std::string& client_order_id,
+    std::uint64_t timestamp_ms) {
+    if (symbol.empty() || client_order_id.empty() ||
+        client_order_id.size() > 36 || timestamp_ms == 0) {
+        throw std::invalid_argument(
+            "invalid Testnet order query identity");
+    }
+    std::ostringstream out;
+    out
+        << "symbol=" << symbol
+        << "&origClientOrderId=" << client_order_id
+        << "&recvWindow=" << kBinanceTestnetRecvWindowMs
+        << "&timestamp=" << timestamp_ms;
     return out.str();
 }
 
@@ -464,6 +496,167 @@ public:
             result.client_order_id = order.client_order_id;
             result.detail =
                 std::string("Binance Testnet submission outcome unknown: ") +
+                exc.what();
+            return result;
+        }
+    }
+
+    TestnetOrderQueryResult query_order(
+        const std::string& symbol,
+        const std::string& client_order_id,
+        std::uint64_t timestamp_ms) const noexcept {
+        try {
+            const auto params =
+                build_testnet_order_query_params(
+                    symbol,
+                    client_order_id,
+                    timestamp_ms);
+            const auto signature =
+                detail::hmac_sha256_hex(api_secret_, params);
+            const auto target =
+                std::wstring(kBinanceUsdmTestnetOrderPath.begin(),
+                             kBinanceUsdmTestnetOrderPath.end()) +
+                L"?" +
+                std::wstring(params.begin(), params.end()) +
+                L"&signature=" +
+                std::wstring(signature.begin(), signature.end());
+
+            detail::WinHttpHandle session(WinHttpOpen(
+                L"AstuExecution/1.0",
+                WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
+                WINHTTP_NO_PROXY_NAME,
+                WINHTTP_NO_PROXY_BYPASS,
+                0));
+            if (!session.valid()) {
+                throw std::runtime_error("WinHttpOpen failed");
+            }
+            detail::WinHttpHandle connection(WinHttpConnect(
+                session.get(),
+                L"testnet.binancefuture.com",
+                INTERNET_DEFAULT_HTTPS_PORT,
+                0));
+            if (!connection.valid()) {
+                throw std::runtime_error("WinHttpConnect failed");
+            }
+            detail::WinHttpHandle request(WinHttpOpenRequest(
+                connection.get(),
+                L"GET",
+                target.c_str(),
+                nullptr,
+                WINHTTP_NO_REFERER,
+                WINHTTP_DEFAULT_ACCEPT_TYPES,
+                WINHTTP_FLAG_SECURE));
+            if (!request.valid()) {
+                throw std::runtime_error("WinHttpOpenRequest failed");
+            }
+
+            const std::wstring headers =
+                L"X-MBX-APIKEY: " +
+                std::wstring(api_key_.begin(), api_key_.end()) +
+                L"\r\n";
+            if (!WinHttpSendRequest(
+                    request.get(),
+                    headers.c_str(),
+                    static_cast<DWORD>(-1L),
+                    WINHTTP_NO_REQUEST_DATA,
+                    0,
+                    0,
+                    0) ||
+                !WinHttpReceiveResponse(request.get(), nullptr)) {
+                throw std::runtime_error(
+                    "Binance Testnet order query HTTP request failed");
+            }
+
+            DWORD status = 0;
+            DWORD status_size = sizeof(status);
+            if (!WinHttpQueryHeaders(
+                    request.get(),
+                    WINHTTP_QUERY_STATUS_CODE |
+                        WINHTTP_QUERY_FLAG_NUMBER,
+                    WINHTTP_HEADER_NAME_BY_INDEX,
+                    &status,
+                    &status_size,
+                    WINHTTP_NO_HEADER_INDEX)) {
+                throw std::runtime_error(
+                    "WinHttpQueryHeaders(status) failed");
+            }
+
+            const auto body =
+                detail::read_response_body(request.get());
+            TestnetOrderQueryResult result;
+            result.http_status = status;
+            result.symbol = symbol;
+            result.client_order_id = client_order_id;
+
+            if (status >= 200 && status < 300) {
+                const auto obj =
+                    astu::ipc::FlatJsonParser(body).parse();
+                result.ready = true;
+                result.found = true;
+                result.exchange_order_id =
+                    std::to_string(
+                        astu::ipc::require_u64(obj, "orderId"));
+                result.client_order_id =
+                    astu::ipc::require_string(
+                        obj, "clientOrderId");
+                result.exchange_status =
+                    astu::ipc::require_string(obj, "status");
+                result.original_quantity =
+                    std::stod(
+                        astu::ipc::require_string(
+                            obj, "origQty"));
+                result.cumulative_filled_quantity =
+                    std::stod(
+                        astu::ipc::require_string(
+                            obj, "executedQty"));
+                if (!std::isfinite(result.original_quantity) ||
+                    result.original_quantity <= 0.0 ||
+                    !std::isfinite(
+                        result.cumulative_filled_quantity) ||
+                    result.cumulative_filled_quantity < 0.0 ||
+                    result.cumulative_filled_quantity >
+                        result.original_quantity + 1e-12) {
+                    throw std::runtime_error(
+                        "Binance Testnet order query returned invalid quantities");
+                }
+                result.detail =
+                    "authoritative Binance USD-M Testnet order query";
+                return result;
+            }
+
+            if (status >= 400 && status < 500) {
+                try {
+                    const auto obj =
+                        astu::ipc::FlatJsonParser(body).parse();
+                    result.exchange_code =
+                        astu::ipc::require_i64(obj, "code");
+                    result.detail =
+                        detail::optional_string(obj, "msg");
+                } catch (...) {
+                    result.detail =
+                        "Binance Testnet order query rejected with HTTP " +
+                        std::to_string(status);
+                }
+                // Binance -2013 means the queried order identity is not
+                // currently known. This is authoritative absence, not proof
+                // that a recently ambiguous submission never reached the
+                // exchange, so callers keep the internal order UNKNOWN.
+                result.ready = true;
+                result.found = false;
+                return result;
+            }
+
+            result.detail =
+                "Binance Testnet order query ambiguous HTTP " +
+                std::to_string(status);
+            return result;
+        } catch (const std::exception& exc) {
+            TestnetOrderQueryResult result;
+            result.symbol = symbol;
+            result.client_order_id = client_order_id;
+            result.detail =
+                std::string(
+                    "Binance Testnet order query unavailable: ") +
                 exc.what();
             return result;
         }
