@@ -205,6 +205,7 @@ public:
         bool required,
         std::string status_file,
         bool ready,
+        std::string settlement_asset,
         double daily_realized_trade_pnl,
         double weekly_realized_trade_pnl,
         double daily_realized_trade_loss,
@@ -224,6 +225,7 @@ public:
         realized_pnl_required_ = required;
         realized_pnl_status_file_ = std::move(status_file);
         realized_pnl_ready_ = ready;
+        realized_pnl_settlement_asset_ = std::move(settlement_asset);
         daily_realized_trade_pnl_ = daily_realized_trade_pnl;
         weekly_realized_trade_pnl_ = weekly_realized_trade_pnl;
         daily_realized_trade_loss_ = daily_realized_trade_loss;
@@ -342,6 +344,7 @@ public:
         bool realized_pnl_required = false;
         std::string realized_pnl_status_file;
         bool realized_pnl_ready = false;
+        std::string realized_pnl_settlement_asset;
         double daily_realized_trade_pnl = 0.0;
         double weekly_realized_trade_pnl = 0.0;
         double daily_realized_trade_loss = 0.0;
@@ -473,6 +476,8 @@ public:
             realized_pnl_required = realized_pnl_required_;
             realized_pnl_status_file = realized_pnl_status_file_;
             realized_pnl_ready = realized_pnl_ready_;
+            realized_pnl_settlement_asset =
+                realized_pnl_settlement_asset_;
             daily_realized_trade_pnl = daily_realized_trade_pnl_;
             weekly_realized_trade_pnl = weekly_realized_trade_pnl_;
             daily_realized_trade_loss = daily_realized_trade_loss_;
@@ -622,6 +627,9 @@ public:
             << astu::ipc::json_escape(realized_pnl_status_file) << "\""
             << ",\"realizedPnlReady\":"
             << (realized_pnl_ready ? "true" : "false")
+            << ",\"realizedPnlSettlementAsset\":\""
+            << astu::ipc::json_escape(realized_pnl_settlement_asset)
+            << "\""
             << ",\"dailyRealizedTradePnl\":"
             << daily_realized_trade_pnl
             << ",\"weeklyRealizedTradePnl\":"
@@ -793,6 +801,7 @@ private:
     bool realized_pnl_required_{false};
     std::string realized_pnl_status_file_;
     bool realized_pnl_ready_{false};
+    std::string realized_pnl_settlement_asset_;
     double daily_realized_trade_pnl_{0.0};
     double weekly_realized_trade_pnl_{0.0};
     double daily_realized_trade_loss_{0.0};
