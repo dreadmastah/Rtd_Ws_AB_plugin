@@ -456,6 +456,42 @@ int main() {
     }
 
     {
+        const auto req =
+            request("STRICT-SYMBOL", SignalAction::Buy, "BTCUSDT");
+        auto risk =
+            base_risk(0.0, 100'000.0, 0, 10);
+        risk.symbol_exposure_reconciled = true;
+        risk.symbol_notional = 12.0;
+        risk.max_symbol_notional = 15.0;
+
+        astu::core::InstrumentConstraints rules;
+        rules.ready = true;
+        rules.source = "STRICT-SYMBOL-TEST";
+        rules.symbol = "BTCUSDT";
+        rules.price_tick = 0.1;
+        rules.quantity_step = 0.01;
+        rules.min_quantity = 0.01;
+        rules.max_quantity = 1000.0;
+        rules.min_notional = 1.0;
+        rules.max_notional = 100'000.0;
+
+        const auto decision =
+            astu::execution::SimulationEngine::run_with_instrument(
+                req.intent,
+                ready_data(req.intent),
+                risk,
+                rules,
+                3'000);
+        REQUIRE(decision.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(decision.accepted_for_simulation);
+        REQUIRE(std::fabs(decision.simulated_notional - 3.0) <
+                1e-12);
+        REQUIRE(std::fabs(decision.simulated_quantity - 0.03) <
+                1e-12);
+    }
+
+    {
         const auto journal_path = root / "positions.jsonl";
         auto journal =
             std::make_shared<astu::execution::ExecutionJournal>(
