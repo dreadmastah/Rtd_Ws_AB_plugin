@@ -270,6 +270,52 @@ public:
             reconstructed_count;
     }
 
+    void set_account_risk_observation(
+        bool ready,
+        std::uint64_t observed_unix_ms,
+        std::string risk_state,
+        double current_risk_capital,
+        double current_available_balance,
+        double projected_available_balance,
+        double current_gross_notional,
+        double projected_gross_notional,
+        double max_gross_notional,
+        std::uint32_t current_open_positions,
+        std::uint32_t projected_open_positions,
+        std::uint32_t max_open_positions,
+        bool margin_metrics_ready,
+        double current_margin_balance,
+        double current_initial_margin,
+        double projected_initial_margin,
+        double projected_effective_leverage,
+        double projected_margin_utilization,
+        bool net_directional_ready,
+        double current_net_directional_notional,
+        double projected_net_directional_notional) {
+        std::lock_guard<std::mutex> lock(mu_);
+        account_risk_observation_ready_ = ready;
+        account_risk_observed_unix_ms_ = observed_unix_ms;
+        account_risk_state_ = std::move(risk_state);
+        current_risk_capital_ = current_risk_capital;
+        current_available_balance_ = current_available_balance;
+        projected_available_balance_ = projected_available_balance;
+        current_gross_notional_ = current_gross_notional;
+        projected_gross_notional_ = projected_gross_notional;
+        current_max_gross_notional_ = max_gross_notional;
+        current_open_positions_ = current_open_positions;
+        projected_open_positions_ = projected_open_positions;
+        current_max_open_positions_ = max_open_positions;
+        account_margin_metrics_ready_ = margin_metrics_ready;
+        current_margin_balance_ = current_margin_balance;
+        current_initial_margin_ = current_initial_margin;
+        projected_initial_margin_ = projected_initial_margin;
+        projected_effective_leverage_ = projected_effective_leverage;
+        projected_margin_utilization_ = projected_margin_utilization;
+        account_net_directional_ready_ = net_directional_ready;
+        current_net_directional_notional_ = current_net_directional_notional;
+        projected_net_directional_notional_ = projected_net_directional_notional;
+    }
+
     void record_response(const astu::ipc::SimulationResponse& response) {
         requests_seen_.fetch_add(1, std::memory_order_relaxed);
         std::lock_guard<std::mutex> lock(mu_);
@@ -320,6 +366,27 @@ public:
         double max_effective_leverage = 0.0;
         double max_margin_utilization = 0.0;
         double max_net_directional_notional = 0.0;
+        bool account_risk_observation_ready = false;
+        std::uint64_t account_risk_observed_unix_ms = 0;
+        std::string account_risk_state;
+        double current_risk_capital = 0.0;
+        double current_available_balance = 0.0;
+        double projected_available_balance = 0.0;
+        double current_gross_notional = 0.0;
+        double projected_gross_notional = 0.0;
+        double current_max_gross_notional = 0.0;
+        std::uint32_t current_open_positions = 0;
+        std::uint32_t projected_open_positions = 0;
+        std::uint32_t current_max_open_positions = 0;
+        bool account_margin_metrics_ready = false;
+        double current_margin_balance = 0.0;
+        double current_initial_margin = 0.0;
+        double projected_initial_margin = 0.0;
+        double projected_effective_leverage = 0.0;
+        double projected_margin_utilization = 0.0;
+        bool account_net_directional_ready = false;
+        double current_net_directional_notional = 0.0;
+        double projected_net_directional_notional = 0.0;
         bool account_loss_baseline_enabled = false;
         std::string account_loss_baseline_file;
         bool account_loss_metrics_ready = false;
@@ -432,6 +499,38 @@ public:
                 max_margin_utilization_;
             max_net_directional_notional =
                 max_net_directional_notional_;
+            account_risk_observation_ready =
+                account_risk_observation_ready_;
+            account_risk_observed_unix_ms =
+                account_risk_observed_unix_ms_;
+            account_risk_state = account_risk_state_;
+            current_risk_capital = current_risk_capital_;
+            current_available_balance = current_available_balance_;
+            projected_available_balance =
+                projected_available_balance_;
+            current_gross_notional = current_gross_notional_;
+            projected_gross_notional = projected_gross_notional_;
+            current_max_gross_notional =
+                current_max_gross_notional_;
+            current_open_positions = current_open_positions_;
+            projected_open_positions = projected_open_positions_;
+            current_max_open_positions =
+                current_max_open_positions_;
+            account_margin_metrics_ready =
+                account_margin_metrics_ready_;
+            current_margin_balance = current_margin_balance_;
+            current_initial_margin = current_initial_margin_;
+            projected_initial_margin = projected_initial_margin_;
+            projected_effective_leverage =
+                projected_effective_leverage_;
+            projected_margin_utilization =
+                projected_margin_utilization_;
+            account_net_directional_ready =
+                account_net_directional_ready_;
+            current_net_directional_notional =
+                current_net_directional_notional_;
+            projected_net_directional_notional =
+                projected_net_directional_notional_;
             account_loss_baseline_enabled =
                 account_loss_baseline_enabled_;
             account_loss_baseline_file =
@@ -579,6 +678,48 @@ public:
             << max_margin_utilization
             << ",\"maxNetDirectionalNotional\":"
             << max_net_directional_notional
+            << ",\"accountRiskObservationReady\":"
+            << (account_risk_observation_ready ? "true" : "false")
+            << ",\"accountRiskObservedUnixMs\":"
+            << account_risk_observed_unix_ms
+            << ",\"accountRiskState\":\""
+            << astu::ipc::json_escape(account_risk_state) << "\""
+            << ",\"currentRiskCapital\":"
+            << current_risk_capital
+            << ",\"currentAvailableBalance\":"
+            << current_available_balance
+            << ",\"projectedAvailableBalance\":"
+            << projected_available_balance
+            << ",\"currentGrossNotional\":"
+            << current_gross_notional
+            << ",\"projectedGrossNotional\":"
+            << projected_gross_notional
+            << ",\"currentMaxGrossNotional\":"
+            << current_max_gross_notional
+            << ",\"currentOpenPositions\":"
+            << current_open_positions
+            << ",\"projectedOpenPositions\":"
+            << projected_open_positions
+            << ",\"currentMaxOpenPositions\":"
+            << current_max_open_positions
+            << ",\"accountMarginMetricsReady\":"
+            << (account_margin_metrics_ready ? "true" : "false")
+            << ",\"currentMarginBalance\":"
+            << current_margin_balance
+            << ",\"currentInitialMargin\":"
+            << current_initial_margin
+            << ",\"projectedInitialMargin\":"
+            << projected_initial_margin
+            << ",\"projectedEffectiveLeverage\":"
+            << projected_effective_leverage
+            << ",\"projectedMarginUtilization\":"
+            << projected_margin_utilization
+            << ",\"accountNetDirectionalReady\":"
+            << (account_net_directional_ready ? "true" : "false")
+            << ",\"currentNetDirectionalNotional\":"
+            << current_net_directional_notional
+            << ",\"projectedNetDirectionalNotional\":"
+            << projected_net_directional_notional
             << ",\"accountLossBaselineEnabled\":"
             << (account_loss_baseline_enabled ? "true" : "false")
             << ",\"accountLossBaselineFile\":\""
@@ -777,6 +918,27 @@ private:
     double max_effective_leverage_{0.0};
     double max_margin_utilization_{0.0};
     double max_net_directional_notional_{0.0};
+    bool account_risk_observation_ready_{false};
+    std::uint64_t account_risk_observed_unix_ms_{0};
+    std::string account_risk_state_{"UNKNOWN"};
+    double current_risk_capital_{0.0};
+    double current_available_balance_{0.0};
+    double projected_available_balance_{0.0};
+    double current_gross_notional_{0.0};
+    double projected_gross_notional_{0.0};
+    double current_max_gross_notional_{0.0};
+    std::uint32_t current_open_positions_{0};
+    std::uint32_t projected_open_positions_{0};
+    std::uint32_t current_max_open_positions_{0};
+    bool account_margin_metrics_ready_{false};
+    double current_margin_balance_{0.0};
+    double current_initial_margin_{0.0};
+    double projected_initial_margin_{0.0};
+    double projected_effective_leverage_{0.0};
+    double projected_margin_utilization_{0.0};
+    bool account_net_directional_ready_{false};
+    double current_net_directional_notional_{0.0};
+    double projected_net_directional_notional_{0.0};
     bool account_loss_baseline_enabled_{false};
     std::string account_loss_baseline_file_;
     bool account_loss_metrics_ready_{false};
