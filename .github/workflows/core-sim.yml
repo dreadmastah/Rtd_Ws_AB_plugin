@@ -162,6 +162,8 @@ jobs:
           assert obj["openPositions"] == 1
           assert abs(obj["grossNotional"] - 1000.0) < 1e-9
           assert abs(obj["riskCapital"] - 10250.0) < 1e-9
+          assert abs(obj["marginBalance"] - 10250.0) < 1e-9
+          assert abs(obj["initialMargin"] - 100.0) < 1e-9
 
           symbols = [
               line.strip()
