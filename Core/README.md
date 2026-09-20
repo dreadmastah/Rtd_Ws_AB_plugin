@@ -503,6 +503,83 @@ Deterministic coverage proves:
 
 No exchange order, position, leverage, margin-mode, or routing mutation is introduced.
 
+## Persisted UTC loss budgets and high-water drawdown
+
+The execution risk layer now persists account-risk baselines independently of the order journal in:
+
+```text
+Core/runtime/account_loss_baseline.v1.json
+```
+
+The path is configurable with:
+
+```text
+--account-loss-baseline-file PATH
+ASTU_ACCOUNT_LOSS_BASELINE_FILE
+```
+
+The state uses `AccountLossBaselineState.v1` and persists:
+
+- UTC day index;
+- Monday-aligned UTC week-start day index;
+- daily and weekly starting Risk Capital;
+- daily and weekly starting Margin Balance;
+- all-time observed Margin Balance high-water mark;
+- last persisted observation time.
+
+The host runs a background account-risk monitor while these limits are enabled, so baseline/high-water maintenance is not dependent on a trading signal arriving. State writes are atomic and bounded to period/high-water changes plus a 60-second persistence heartbeat.
+
+The current compatibility loss metrics are explicit:
+
+```text
+dailyRiskCapitalLoss =
+    max(0, dailyStartRiskCapital - currentRiskCapital)
+
+weeklyRiskCapitalLoss =
+    max(0, weeklyStartRiskCapital - currentRiskCapital)
+
+dailyTotalPnlLoss =
+    max(0, dailyStartMarginBalance - currentMarginBalance)
+
+weeklyTotalPnlLoss =
+    max(0, weeklyStartMarginBalance - currentMarginBalance)
+
+accountDrawdown =
+    max(0, highWaterMarginBalance - currentMarginBalance)
+```
+
+Configured limits are:
+
+```text
+--max-daily-risk-capital-loss VALUE
+--max-weekly-risk-capital-loss VALUE
+--max-daily-total-pnl-loss VALUE
+--max-weekly-total-pnl-loss VALUE
+--max-account-drawdown VALUE
+```
+
+with environment equivalents:
+
+```text
+ASTU_MAX_DAILY_RISK_CAPITAL_LOSS
+ASTU_MAX_WEEKLY_RISK_CAPITAL_LOSS
+ASTU_MAX_DAILY_TOTAL_PNL_LOSS
+ASTU_MAX_WEEKLY_TOTAL_PNL_LOSS
+ASTU_MAX_ACCOUNT_DRAWDOWN
+```
+
+All default to `0` (disabled). A configured loss/drawdown control fails closed as `ACCOUNT_NOT_RECONCILED` when the required account/baseline evidence is unavailable. Once consumption reaches a configured threshold, additional exposure-increasing intents are `RISK_BLOCKED`. Exit/reduction actions remain outside the new-exposure block.
+
+UTC period rollover resets the corresponding daily/weekly starting values to the first reconciled observation in the new UTC period. If no baseline file exists when the policy is first enabled, the first reconciled observation becomes the persisted compatibility baseline for that active period. The high-water Margin Balance does not reset on daily/weekly rollover.
+
+`ExecutionStatus.v1` now exposes baseline readiness, baseline file, UTC period identifiers, start values, high-water value, current loss/drawdown consumption, and every configured threshold.
+
+The deterministic coverage verifies baseline persistence across restart, UTC daily and weekly rollover, high-water advancement, clock-rollback fail-closed behavior, daily/weekly risk-capital and total-PnL gates, drawdown blocking, and malformed-state startup rejection. The Windows smoke proves a persisted daily Risk Capital loss block and a persisted Margin Balance high-water drawdown block across execution-host restarts.
+
+This increment does **not** claim to provide exact Binance realized-trade PnL. The current read-only account snapshot provides account metrics suitable for Risk Capital and Margin Balance baselines, but not a historical realized-income ledger. Exact architecture-grade daily/weekly realized-loss accounting still requires a separate read-only realized-PnL/income evidence source so funding, commissions, transfers and realized trade PnL can be distinguished rather than inferred from account-balance changes.
+
+No order submission, cancellation, leverage/margin mutation, transfer, hedge request or `SUBMITTING` transition is introduced.
+
 ## Current next implementation step
 
-After this directional-exposure layer is validated, the next simulation-only account-risk increment should add daily/weekly loss-budget and high-water drawdown controls using explicitly reconciled account metrics and persisted UTC baselines. Those controls should fail closed when the required baseline or PnL evidence is unavailable and remain entirely pre-submission.
+The next simulation-only risk increment should add an explicit read-only realized-PnL evidence source and persisted daily/weekly realized-PnL accumulators. It should reconcile realized trade PnL, funding and commissions without treating deposits/transfers or unrealized PnL as realized trading loss, then feed the existing UTC loss-budget gate while preserving the same no-submission boundary.
