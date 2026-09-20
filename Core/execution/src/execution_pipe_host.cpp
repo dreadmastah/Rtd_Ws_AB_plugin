@@ -74,6 +74,8 @@ int main(int argc, char** argv) {
         "CleanRoomR2/stack/runtime/autotrader_status";
     double synthetic_max_gross_notional = 100'000.0;
     std::uint32_t synthetic_max_open_positions = 10;
+    std::uint64_t max_pending_entry_scale_in_reservations = 0;
+    double max_symbol_notional = 0.0;
     std::uint64_t max_status_age_ms = 5'000;
     std::filesystem::path journal_path =
         "Core/runtime/execution_journal.v1.jsonl";
@@ -125,6 +127,12 @@ int main(int argc, char** argv) {
         } else if (arg == "--synthetic-max-open-positions" && i + 1 < argc) {
             synthetic_max_open_positions = static_cast<std::uint32_t>(
                 std::stoul(argv[++i]));
+        } else if (arg == "--max-pending-entry-scale-in-reservations" &&
+                   i + 1 < argc) {
+            max_pending_entry_scale_in_reservations =
+                std::stoull(argv[++i]);
+        } else if (arg == "--max-symbol-notional" && i + 1 < argc) {
+            max_symbol_notional = std::stod(argv[++i]);
         } else if (arg == "--status-dir" && i + 1 < argc) {
             status_dir = argv[++i];
         } else if (arg == "--max-status-age-ms" && i + 1 < argc) {
@@ -247,13 +255,43 @@ int main(int argc, char** argv) {
     }
 
     auto base_risk_provider = std::move(risk_provider);
+    const auto projected_position_provider = position_provider;
     risk_provider =
-        [base_risk_provider = std::move(base_risk_provider), journal](
+        [base_risk_provider = std::move(base_risk_provider),
+         journal,
+         projected_position_provider,
+         synthetic,
+         max_pending_entry_scale_in_reservations,
+         max_symbol_notional](
             const astu::core::SignalIntent& intent) mutable {
             auto risk = base_risk_provider(intent);
+
+            bool symbol_exposure_reconciled = false;
+            double reconciled_symbol_notional = 0.0;
+            if (synthetic) {
+                symbol_exposure_reconciled = true;
+            } else if (projected_position_provider) {
+                const auto position =
+                    projected_position_provider(intent);
+                if (position.reconciled &&
+                    position.schema_version == 1 &&
+                    position.symbol == intent.symbol &&
+                    std::isfinite(position.notional) &&
+                    position.notional >= 0.0) {
+                    symbol_exposure_reconciled = true;
+                    reconciled_symbol_notional =
+                        position.notional;
+                }
+            }
+
             return astu::execution::ExposureReservationRiskOverlay::apply(
                 risk,
-                journal->exposure_reservation_summary());
+                journal->exposure_reservation_summary(
+                    intent.symbol),
+                max_pending_entry_scale_in_reservations,
+                symbol_exposure_reconciled,
+                reconciled_symbol_notional,
+                max_symbol_notional);
         };
 
     auto order_lifecycle =
@@ -304,6 +342,9 @@ int main(int argc, char** argv) {
         journal->exposure_reservation_release_count(),
         journal->exposure_reservation_implicit_release_count(),
         journal->exposure_reservation_reconstructed_count());
+    execution_status->set_projected_risk_limits(
+        max_pending_entry_scale_in_reservations,
+        max_symbol_notional);
     execution_status->set_runtime_order_reconciliation(
         startup_order_snapshot_required,
         0,
@@ -546,6 +587,10 @@ int main(int argc, char** argv) {
         std::cout << "SYNTHETIC_MAX_OPEN_POSITIONS="
                   << synthetic_max_open_positions << "\n";
     }
+    std::cout << "MAX_PENDING_ENTRY_SCALE_IN_RESERVATIONS="
+              << max_pending_entry_scale_in_reservations << "\n";
+    std::cout << "MAX_SYMBOL_NOTIONAL="
+              << max_symbol_notional << "\n";
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
     if (!instrument_status_dir.empty()) {
