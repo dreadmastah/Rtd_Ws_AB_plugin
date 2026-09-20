@@ -14,7 +14,8 @@ This code cannot submit an exchange order. It contains a disabled-by-default Bin
 - `execution/` - fail-closed intent validation, account risk gate, deterministic simulation sizing, instrument filters, durable journal, and disabled order manager.
 - `account/` - read-only private-account boundary plus stale/missing fail-closed risk and per-symbol position snapshot providers.
 - `instrument/` - versioned symbol constraints provider for quantity step, min/max quantity and notional filters.
-- `schemas/` - JSON Schema Draft 2020-12 contracts for `SignalIntent.v1` and `DataStatus.v1`.
+- `order_state/` - local authoritative simulation order-state snapshot source used for startup reconciliation tests/runtime simulation.
+- `schemas/` - JSON Schema Draft 2020-12 contracts for the signal, status, risk, position, instrument, order, FSM and reconciliation messages.
 - `tests/` - deterministic simulation-only checks.
 
 ## WSRTD R2 integration status
@@ -202,6 +203,36 @@ The live reconciliation acceptance follows this path while the execution host re
 
 It rejects a post-`FILLED` cancel attempt, verifies the live `ExecutionStatus.v1` transition/reconciliation counters, restarts the execution host, and verifies reconstruction of the same final state. Both the live and offline acceptance paths assert that no `SUBMITTING` transition or exchange-submission attempt occurred.
 
+## Authoritative simulated order-state startup reconciliation
+
+The execution host can now opt into a file-backed authoritative simulation order-state source with `--order-snapshot-dir` (or `ASTU_ORDER_SNAPSHOT_DIR`). Each tracked normalized simulation order is compared at startup against `AuthoritativeSimulationOrderSnapshot.v1`.
+
+Startup behavior is deliberately fail-closed:
+
+- exact state + cumulative-fill agreement is counted as matched;
+- missing, stale, malformed, non-ready, state-mismatched, or fill-mismatched snapshots for a non-terminal order move the journal state to `UNKNOWN_RECONCILE_REQUIRED`;
+- an order already in `UNKNOWN_RECONCILE_REQUIRED` remains unresolved until explicit reconciliation evidence arrives through the reconciliation pipe;
+- a terminal journal state that disagrees with the authoritative snapshot aborts startup rather than mutating the terminal state;
+- rejected pre-order validation attempts are not treated as authoritative exchange/order-state objects because no normalized `SimulationOrderIntent.v1` exists for them.
+
+The local simulation snapshot source is:
+
+`Core/order_state/simulated_order_state_source.py`
+
+It only publishes local JSON snapshots and contains no network, credential, signing, or order-submission behavior.
+
+The Windows startup acceptance proves:
+
+`SIZING + authoritative SIZING -> matched`
+
+then:
+
+`SIZING + authoritative WORKING -> UNKNOWN_RECONCILE_REQUIRED`
+
+The order remains unresolved until `WORKING` evidence is supplied through `\\.\pipe\AstuExecutionReconcileSim.v1`. After restart with a matching WORKING snapshot, startup returns to a fully matched state. The test also verifies that no `SUBMITTING` transition or exchange-submission attempt appears.
+
+`ExecutionStatus.v1` now exposes the startup snapshot provider plus tracked, matched, marked-unknown, and unresolved counts.
+
 ## Current next implementation step
 
-After this service-side reconciliation ingress is validated, the next simulation-only increment should add an authoritative simulated order-state snapshot/reconciliation source for startup. Startup should compare persistent journal state with that snapshot, place unresolved disagreements into `UNKNOWN_RECONCILE_REQUIRED`, and require reconciliation evidence before resolving them. No exchange order-submission endpoint should be added.
+After this startup-authority layer is validated, the next simulation-only increment should add a periodic in-process reconciliation sweep for already-running non-terminal orders. The sweep should compare fresh authoritative simulation snapshots against journal state, mark runtime disagreements as `UNKNOWN_RECONCILE_REQUIRED`, surface stale/missing-source health, and require explicit reconciliation evidence for resolution. It should remain read-only with respect to exchange connectivity and must not add an order-submission endpoint.
