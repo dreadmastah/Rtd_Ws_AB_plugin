@@ -769,6 +769,26 @@ Cross-platform native tests cover bounded universe loading and deterministic sta
 
 This remains observability only. `SymbolRiskStatus.v1` cannot submit, cancel, amend, transfer, change leverage/margin state, or mutate positions.
 
+## ABU-M13 Testnet execution scaffold
+
+Core Simulation CI run #582 completed successfully on both Ubuntu and Windows at `b08632e15b97bbbb9910f50c7296638f3630364e`, satisfying the integration-stabilization gate.
+
+The next architecture milestone is Binance Testnet order execution. The first M13 slice is now present but deliberately **not activatable**:
+
+- Windows-native HMAC-SHA256 signing and WinHTTP HTTPS transport target only `testnet.binancefuture.com/fapi/v1/order`;
+- MARKET order requests use deterministic client-order IDs derived from the persistent internal order ID;
+- BUY/SELL direction is derived from SignalIntent position side and exposure direction;
+- SCALE_OUT/SELL-style reduction is marked `reduceOnly=true`;
+- persistent Testnet transitions support `SIZING -> SUBMITTING -> ACKNOWLEDGED | REJECTED | UNKNOWN_RECONCILE_REQUIRED`;
+- submission attempts are durably journaled before the HTTP result is interpreted;
+- transport/5xx ambiguity enters `UNKNOWN_RECONCILE_REQUIRED` rather than retrying a potentially accepted order;
+- Testnet rejection releases projected exposure reservations; acknowledged/unknown orders retain them until authoritative reconciliation;
+- `ExecutionResult.v1` and `ExecutionStatus.v1` now carry explicit execution-environment/routing evidence;
+- the read-only Account Risk view can display `BINANCE_USDM_TESTNET` distinctly from `SIMULATION_ONLY` and still contains no mutation controls;
+- mainnet private routing is not represented by any accepted environment or endpoint.
+
+The host currently refuses `--enable-testnet-order-routing` even when armed and credentialed. This is intentional: the existing authoritative order snapshot source is simulation-only, while Architecture R3.1 requires Binance to remain authoritative for actual order/fill/position state.
+
 ## Current next implementation step
 
-The Architecture R3.1 account-risk evidence requested by the current compatibility scope is now represented at both account and per-symbol level in the read-only operator view. Before adding another functional risk feature, the next increment should be **integration stabilization**: run the full Ubuntu/Windows Core Simulation CI against the accumulated PR head, fix any compile/schema/smoke regressions, and only then advance to another architecture requirement that is explicitly supported by the source documents.
+Implement the **authoritative Binance USD-M Testnet order/user-data reconciliation source** required before M13 routing activation. It must bind deterministic client-order IDs to exchange order IDs, ingest/query authoritative order status and cumulative fills, recover ambiguous submissions, prove account/position/order convergence, and only then allow the explicit Testnet arm gate to reach `SUBMITTING`. Mainnet private routing remains a separate later governance decision.
