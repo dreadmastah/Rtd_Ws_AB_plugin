@@ -54,7 +54,7 @@ if errorlevel 1 (
   goto cleanup
 )
 
-python -c "import json; rows=[json.loads(x) for x in open(r'%JOURNAL%',encoding='utf-8') if x.strip()]; states=[x.get('toState') for x in rows if x.get('eventType')=='ORDER_STATE_TRANSITION']; assert states==['INTENT_RECEIVED','VALIDATING','RISK_APPROVED','SIZING'], states; assert all(x.get('exchangeSubmissionAttempted') is False for x in rows if x.get('eventType')=='ORDER_STATE_TRANSITION'); print('ORDER_FSM_INITIAL_JOURNAL=PASS')"
+python -c "import json; rows=[json.loads(x) for x in open(r'%JOURNAL%',encoding='utf-8') if x.strip()]; states=[x.get('toState') for x in rows if x.get('eventType')=='ORDER_STATE_TRANSITION']; intents=[x for x in rows if x.get('eventType')=='SIMULATION_ORDER_INTENT']; assert states==['INTENT_RECEIVED','VALIDATING','RISK_APPROVED','SIZING'], states; assert len(intents)==1, intents; assert intents[0]['simulationOrderId']=='!ORDER_ID!', intents; assert intents[0]['orderRoutingEnabled'] is False; assert intents[0]['exchangeSubmissionAttempted'] is False; assert all(x.get('exchangeSubmissionAttempted') is False for x in rows if x.get('eventType')=='ORDER_STATE_TRANSITION'); print('ORDER_FSM_INITIAL_JOURNAL=PASS')"
 if errorlevel 1 (
   echo ORDER_FSM_RESTART_SMOKE=FAIL INITIAL_JOURNAL
   set RC=6
@@ -103,7 +103,7 @@ if errorlevel 1 (
   goto cleanup
 )
 
-python -c "import json; rows=[json.loads(x) for x in open(r'%JOURNAL%',encoding='utf-8') if x.strip()]; trans=[x for x in rows if x.get('eventType')=='ORDER_STATE_TRANSITION']; assert len(trans)==4, len(trans); assert all(x['simulationOnly'] is True and x['exchangeSubmissionAttempted'] is False for x in trans); assert trans[-1]['toState']=='SIZING'; print('ORDER_FSM_NO_SUBMISSION=PASS')"
+python -c "import json; rows=[json.loads(x) for x in open(r'%JOURNAL%',encoding='utf-8') if x.strip()]; trans=[x for x in rows if x.get('eventType')=='ORDER_STATE_TRANSITION']; intents=[x for x in rows if x.get('eventType')=='SIMULATION_ORDER_INTENT']; assert len(trans)==4, len(trans); assert len(intents)==1, len(intents); assert all(x['simulationOnly'] is True and x['exchangeSubmissionAttempted'] is False for x in trans); assert intents[0]['simulationOnly'] is True and intents[0]['exchangeSubmissionAttempted'] is False and intents[0]['orderRoutingEnabled'] is False; assert trans[-1]['toState']=='SIZING'; print('ORDER_FSM_NO_SUBMISSION=PASS')"
 if errorlevel 1 (
   echo ORDER_FSM_RESTART_SMOKE=FAIL EXCHANGE_SUBMISSION_FLAG
   set RC=12
@@ -119,6 +119,7 @@ if !RC! EQU 0 (
   echo RECOVERED_ORDERS_AT_STARTUP=1
   echo TRACKED_ORDERS=1
   echo ORDER_TRANSITIONS=4
+  echo SIMULATION_ORDER_INTENTS=1
   echo ORDER_ROUTING_ENABLED=false
 ) else (
   echo ORDER_FSM_RESTART_SMOKE=FAIL RC=!RC!
