@@ -182,7 +182,7 @@ int main() {
             astu::execution::AccountRiskEngine::evaluate(
                 exposure_intent(),
                 risk);
-        REQUIRE(decision.decision_code == DecisionCode::RiskBlocked);
+        REQUIRE(decision.code == DecisionCode::RiskBlocked);
         REQUIRE(decision.reason.find("daily risk-capital") !=
                 std::string::npos);
     }
@@ -196,7 +196,7 @@ int main() {
             astu::execution::AccountRiskEngine::evaluate(
                 exposure_intent(),
                 risk);
-        REQUIRE(decision.decision_code == DecisionCode::RiskBlocked);
+        REQUIRE(decision.code == DecisionCode::RiskBlocked);
         REQUIRE(decision.reason.find("weekly total-PnL") !=
                 std::string::npos);
     }
@@ -210,7 +210,7 @@ int main() {
             astu::execution::AccountRiskEngine::evaluate(
                 exposure_intent(),
                 risk);
-        REQUIRE(decision.decision_code == DecisionCode::RiskBlocked);
+        REQUIRE(decision.code == DecisionCode::RiskBlocked);
         REQUIRE(decision.reason.find("drawdown") !=
                 std::string::npos);
     }
@@ -222,7 +222,7 @@ int main() {
             astu::execution::AccountRiskEngine::evaluate(
                 exposure_intent(),
                 risk);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::AccountNotReconciled);
     }
 
