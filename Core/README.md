@@ -298,6 +298,50 @@ Reservations remain active through `UNKNOWN_RECONCILE_REQUIRED`, `ACKNOWLEDGED`,
 
 The Windows acceptance uses a synthetic account with only 10 notional units of gross headroom. The first BUY reserves the full 10, the second independent BUY is rejected as `RISK_BLOCKED`, restart reconstructs the reservation and still blocks new exposure, terminal FILLED reconciliation releases it, and a later BUY can use the restored headroom. The journal assertion continues to require `exchangeSubmissionAttempted=false` and no `SUBMITTING` transition.
 
+## Pending entry/scale-in and per-symbol projected-risk limits
+
+The reservation layer now feeds two additional execution-local limits:
+
+- `maxPendingEntryScaleInReservations` limits the number of active BUY/SCALE_IN projected exposure reservations;
+- `maxSymbolNotional` limits reconciled per-symbol position notional plus active reservations for that same symbol plus the newly sized simulated intent.
+
+Both limits default to `0` (disabled) because the architecture defines the limit categories but does not prescribe numeric policy values. They can be configured with:
+
+```text
+--max-pending-entry-scale-in-reservations N
+--max-symbol-notional VALUE
+```
+
+or the equivalent environment variables:
+
+```text
+ASTU_MAX_PENDING_ENTRY_SCALE_IN_RESERVATIONS
+ASTU_MAX_SYMBOL_NOTIONAL
+```
+
+The pending-reservation limit is evaluated before another exposure-increasing intent is sized. Because the current simulation reservation set contains only BUY/SCALE_IN orders, its active count is the projected pending-entry/scale-in count.
+
+The per-symbol limit is evaluated from two sources together:
+
+1. reconciled symbol position notional from `PositionSnapshot.v1`;
+2. active exposure reservations already held for the same symbol.
+
+Sizing then caps the new simulated order by remaining symbol headroom. If the configured per-symbol limit requires position state and the symbol snapshot is missing, stale or unreconciled, the request fails closed as `POSITION_UNAVAILABLE`.
+
+For synthetic transport/risk tests, the reconciled starting symbol notional is explicitly zero. Live/fixture execution uses the file-backed reconciled position provider.
+
+`ExecutionStatus.v1` now publishes the configured pending-reservation and per-symbol-notional limits alongside current reservation counts and reserved gross notional.
+
+The deterministic acceptance coverage proves:
+
+- one active reservation with a configured maximum of one blocks another BUY even when global gross headroom remains;
+- that pending limit remains effective after restart because the reservation is reconstructed;
+- terminal reconciliation releases the reservation and permits a later entry;
+- BTC can consume its configured per-symbol headroom while an independent ETH reservation can still be accepted;
+- missing reconciled symbol exposure fails closed when a per-symbol limit is enabled.
+
+No exchange order submission, cancel, leverage/margin mutation or `SUBMITTING` transition is introduced.
+
 ## Current next implementation step
 
-After this reservation layer is validated, the next simulation-only risk increment should add explicit limits for maximum pending entry/scale-in reservations and per-symbol projected notional. Those limits should evaluate reconciled account/position state plus active reservations together, so projected portfolio and symbol exposure remain bounded before any Testnet submission work begins.
+After this projected portfolio/symbol reservation layer is validated, the next simulation-only risk increment should reserve available-balance/margin budget as well as notional. That increment should combine reconciled available balance with active entry reservations, enforce a configurable minimum free-balance reserve, rebuild the reserved balance on restart, and release it only through terminal reconciliation. It should remain entirely pre-submission and simulation-only.
