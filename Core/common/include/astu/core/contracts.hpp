@@ -77,6 +77,7 @@ struct DataStatus {
 struct RealizedPnlSnapshot {
     bool reconciled{false};
     std::string source;
+    std::string settlement_asset;
     std::uint64_t utc_day_start_unix_ms{0};
     std::uint64_t utc_week_start_unix_ms{0};
     double daily_realized_trade_pnl{0.0};
