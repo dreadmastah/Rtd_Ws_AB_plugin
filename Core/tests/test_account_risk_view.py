@@ -99,6 +99,45 @@ def budget(view: dict, budget_id: str) -> dict:
     return next(row for row in view["budgets"] if row["id"] == budget_id)
 
 
+def symbol_status() -> dict:
+    return {
+        "schemaVersion": 1,
+        "messageType": "SymbolRiskStatus.v1",
+        "generatedUnixMs": 1_000_000,
+        "orderRoutingEnabled": False,
+        "symbols": [
+            {
+                "symbol": "BTCUSDT",
+                "positionReady": True,
+                "positionMode": "LONG",
+                "currentNotional": 1000.0,
+                "activeReservations": 1,
+                "reservedGrossNotional": 300.0,
+                "projectedNotional": 1300.0,
+                "maxSymbolNotional": 2500.0,
+                "headroom": 1200.0,
+                "limitEnabled": True,
+                "status": "HEADROOM",
+                "detail": "fixture",
+            },
+            {
+                "symbol": "ETHUSDT",
+                "positionReady": True,
+                "positionMode": "FLAT",
+                "currentNotional": 0.0,
+                "activeReservations": 0,
+                "reservedGrossNotional": 0.0,
+                "projectedNotional": 0.0,
+                "maxSymbolNotional": 2500.0,
+                "headroom": 2500.0,
+                "limitEnabled": True,
+                "status": "HEADROOM",
+                "detail": "fixture",
+            },
+        ],
+    }
+
+
 def main() -> int:
     status = base_status()
 
@@ -107,6 +146,9 @@ def main() -> int:
         now_ms=1_001_000,
         source_path="execution_status.v1.json",
         max_source_age_ms=5_000,
+        symbol_risk=symbol_status(),
+        symbol_risk_source_path="symbol_risk_status.v1.json",
+        max_symbol_risk_age_ms=5_000,
     )
     assert view["gateState"] == "CLEAR"
     assert view["blockReasons"] == []
@@ -124,6 +166,52 @@ def main() -> int:
     assert abs(account["marginUtilizationHeadroom"] - 0.485) < 1e-12
     assert abs(account["longDirectionalHeadroom"] - 4500.0) < 1e-12
     assert abs(account["shortDirectionalHeadroom"] - 5500.0) < 1e-12
+    assert view["symbolRisk"]["ready"] is True
+    assert len(view["symbolRisk"]["symbols"]) == 2
+    btc = next(
+        row for row in view["symbolRisk"]["symbols"]
+        if row["symbol"] == "BTCUSDT"
+    )
+    assert btc["positionMode"] == "LONG"
+    assert abs(btc["currentNotional"] - 1000.0) < 1e-12
+    assert abs(btc["reservedGrossNotional"] - 300.0) < 1e-12
+    assert abs(btc["projectedNotional"] - 1300.0) < 1e-12
+    assert abs(btc["headroom"] - 1200.0) < 1e-12
+
+    stale_symbols = symbol_status()
+    stale_symbols["generatedUnixMs"] = 900_000
+    view = mod.build_view(
+        base_status(),
+        now_ms=1_001_000,
+        source_path="execution_status.v1.json",
+        max_source_age_ms=5_000,
+        symbol_risk=stale_symbols,
+        symbol_risk_source_path="symbol_risk_status.v1.json",
+        max_symbol_risk_age_ms=5_000,
+    )
+    assert view["symbolRisk"]["ready"] is False
+    assert view["symbolRisk"]["reason"] == "SYMBOL_RISK_STATUS_STALE"
+    assert all(
+        row["status"] == "UNAVAILABLE"
+        for row in view["symbolRisk"]["symbols"]
+    )
+
+    unsafe_symbols = symbol_status()
+    unsafe_symbols["orderRoutingEnabled"] = True
+    try:
+        mod.build_view(
+            base_status(),
+            now_ms=1_001_000,
+            source_path="execution_status.v1.json",
+            max_source_age_ms=5_000,
+            symbol_risk=unsafe_symbols,
+            symbol_risk_source_path="symbol_risk_status.v1.json",
+            max_symbol_risk_age_ms=5_000,
+        )
+    except ValueError as exc:
+        assert "routing enabled" in str(exc)
+    else:
+        raise AssertionError("unsafe SymbolRiskStatus must be rejected")
 
     observation_missing = base_status()
     observation_missing["accountRiskObservationReady"] = False
@@ -259,13 +347,19 @@ def main() -> int:
         source = root / "status.json"
         output_json = root / "view.json"
         output_html = root / "view.html"
+        symbol_source = root / "symbol_risk.json"
         source.write_text(json.dumps(base_status()), encoding="utf-8")
+        live_symbols = symbol_status()
+        live_symbols["generatedUnixMs"] = base_status()["generatedUnixMs"]
+        symbol_source.write_text(json.dumps(live_symbols), encoding="utf-8")
         mod.publish_once(
             source,
             output_json,
             output_html,
             max_source_age_ms=10**15,
             refresh_seconds=1.0,
+            symbol_risk_status_path=symbol_source,
+            max_symbol_risk_age_ms=10**15,
         )
         obj = json.loads(output_json.read_text(encoding="utf-8"))
         html = output_html.read_text(encoding="utf-8")
@@ -274,6 +368,8 @@ def main() -> int:
         assert "READ ONLY" in html
         assert "No order controls exist in this view." in html
         assert "orderRoutingEnabled=false" in html
+        assert "Per-symbol projected exposure" in html
+        assert "BTCUSDT" in html
 
     print("ACCOUNT_RISK_VIEW_TESTS=PASS")
     return 0
