@@ -688,6 +688,49 @@ The view refuses any `ExecutionStatus.v1` that reports `orderRoutingEnabled=true
 
 The simulation supervisor starts this read-only projection by default as a separately supervised child. Cross-platform tests cover clear/headroom, threshold blocking, missing realized evidence, stale evidence, clock rollback, disabled budgets and routing-invariant rejection. The Windows supervised-stack smoke requires the JSON and HTML views before continuing through the normal simulation-only request path.
 
+## Live account-risk observations and projected headroom
+
+`ExecutionStatus.v1` now carries a continuously refreshed read-only account observation in addition to policy configuration and reservation counters. The execution host samples the same base reconciled account provider already used by the risk path and combines it with durable reservation summaries strictly for status publication.
+
+The new status evidence includes:
+
+- current Risk Capital and available balance;
+- projected available balance after active balance reservations;
+- current and projected gross notional plus the reconciled maximum;
+- current/projected/max open-position counts;
+- reconciled Margin Balance and initial margin;
+- projected initial margin, effective leverage and margin utilization;
+- current and projected signed net-directional notional;
+- source risk state, observation readiness and observation timestamp.
+
+The formulas intentionally match the existing risk overlay:
+
+```text
+projectedAvailableBalance =
+    max(0, currentAvailableBalance - reservedAvailableBalance)
+
+projectedGrossNotional =
+    max(0, currentGrossNotional + reservedGrossNotional)
+
+projectedInitialMargin =
+    currentInitialMargin + reservedAvailableBalance
+
+projectedEffectiveLeverage =
+    projectedGrossNotional / currentMarginBalance
+
+projectedMarginUtilization =
+    projectedInitialMargin / currentMarginBalance
+
+projectedNetDirectionalNotional =
+    currentNetDirectionalNotional + reservedNetDirectionalNotional
+```
+
+`AccountRiskView.v1` now derives live headroom for available balance, gross notional, open positions, effective leverage, margin utilization, and both LONG/SHORT directional exposure. It also derives account-level block reasons for the same risk-state, max-position, pending-reservation, gross-notional, free-balance, leverage, margin-utilization and directional boundaries enforced by the simulation risk gate.
+
+A dedicated cross-platform C++ test verifies that `ExecutionStatusPublisher` serializes the account observations while retaining `orderRoutingEnabled=false`. The Windows supervised-stack acceptance verifies the fixture's Risk Capital, available balance, gross exposure, margin metrics, effective leverage, margin utilization and signed net exposure through the generated Account Risk view.
+
+This is an observability-only addition. The status monitor does not dispatch a signal, size an order, call a private mutation endpoint, or alter the execution decision path.
+
 ## Current next implementation step
 
-The operator view can show projected reservations and configured limits, but `ExecutionStatus.v1` does not yet publish all current reconciled account values needed to display live headroom for effective leverage, margin utilization, free balance, gross notional and signed net exposure in the same deterministic way as the loss budgets. The next increment should add those read-only account/exposure observations to `ExecutionStatus.v1` and extend `AccountRiskView.v1` with their current/projected values and headroom, without adding any exchange mutation or routing capability.
+Account-level projected headroom is now observable. The remaining risk-UI gap is **per-symbol projected exposure headroom across the selected universe**: `maxSymbolNotional` is configured globally, but the operator view does not yet have a read-only snapshot of each symbol's reconciled notional plus active symbol reservations. The next increment should publish a bounded per-symbol risk-status artifact for the bootstrap universe and surface symbol-level current/projected notional and headroom, without introducing an order or account mutation control.
