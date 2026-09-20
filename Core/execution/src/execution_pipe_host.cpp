@@ -576,7 +576,7 @@ int main(int argc, char** argv) {
     }
     if (testnet_order_routing_enabled && synthetic) {
         throw std::invalid_argument(
-            "Testnet order routing refuses synthetic account/data mode");
+            "Demo Trading order routing refuses synthetic account/data mode");
     }
     if (testnet_order_routing_enabled &&
         (risk_status_file.empty() ||
@@ -584,13 +584,13 @@ int main(int argc, char** argv) {
          instrument_status_dir.empty() ||
          order_snapshot_dir.empty())) {
         throw std::invalid_argument(
-            "Testnet order routing requires account, position, instrument and authoritative order evidence");
+            "Demo Trading order routing requires account, position, instrument and authoritative order evidence");
     }
 
     if (testnet_order_routing_enabled) {
         if (max_testnet_convergence_age_ms == 0) {
             throw std::invalid_argument(
-                "Testnet convergence age must be positive");
+                "Demo Trading convergence age must be positive");
         }
         const astu::execution::FileBackedTestnetConvergenceProvider
             convergence_provider(
@@ -599,11 +599,11 @@ int main(int argc, char** argv) {
         const auto convergence = convergence_provider();
         if (!convergence.ready) {
             throw std::runtime_error(
-                "Binance Testnet routing fail-closed: account/position/order user-data convergence unavailable: " +
+                "Binance Demo Trading routing fail-closed: account/position/order user-data convergence unavailable: " +
                 convergence.detail);
         }
         throw std::runtime_error(
-            "Binance Testnet routing convergence is ready, but activation remains administratively locked until live Testnet user-data transport/recovery acceptance is completed");
+            "Binance Demo Trading routing convergence is ready, but activation remains administratively locked until live Testnet user-data transport/recovery acceptance is completed");
     }
 
     const bool account_loss_limits_enabled =
@@ -1355,7 +1355,7 @@ int main(int argc, char** argv) {
         if (api_key == nullptr || *api_key == '\0' ||
             api_secret == nullptr || *api_secret == '\0') {
             throw std::runtime_error(
-                "armed Testnet routing requires ASTU_BINANCE_TESTNET_API_KEY and ASTU_BINANCE_TESTNET_API_SECRET");
+                "armed Demo Trading routing requires ASTU_BINANCE_TESTNET_API_KEY and ASTU_BINANCE_TESTNET_API_SECRET");
         }
         auto gateway =
             std::make_shared<
