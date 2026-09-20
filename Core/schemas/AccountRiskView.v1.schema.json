@@ -23,6 +23,7 @@
     "budgets",
     "realizedPnlEvidence",
     "accountRiskObservation",
+    "symbolRisk",
     "projectedRisk",
     "lastDecisionCode",
     "detail"
@@ -378,6 +379,131 @@
             "null"
           ],
           "minimum": 0
+        }
+      }
+    },
+    "symbolRisk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourcePath",
+        "sourceGeneratedUnixMs",
+        "sourceAgeMs",
+        "sourceFresh",
+        "maxSourceAgeMs",
+        "ready",
+        "reason",
+        "symbols"
+      ],
+      "properties": {
+        "sourcePath": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "sourceGeneratedUnixMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourceAgeMs": {
+          "type": "integer"
+        },
+        "sourceFresh": {
+          "type": "boolean"
+        },
+        "maxSourceAgeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "symbols": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "symbol",
+              "positionReady",
+              "positionMode",
+              "currentNotional",
+              "activeReservations",
+              "reservedGrossNotional",
+              "projectedNotional",
+              "maxSymbolNotional",
+              "headroom",
+              "limitEnabled",
+              "status",
+              "detail"
+            ],
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[A-Z0-9]+$"
+              },
+              "positionReady": {
+                "type": "boolean"
+              },
+              "positionMode": {
+                "enum": [
+                  "FLAT",
+                  "LONG",
+                  "SHORT",
+                  "HEDGED",
+                  "UNKNOWN"
+                ]
+              },
+              "currentNotional": {
+                "type": "number",
+                "minimum": 0
+              },
+              "activeReservations": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reservedGrossNotional": {
+                "type": "number",
+                "minimum": 0
+              },
+              "projectedNotional": {
+                "type": "number",
+                "minimum": 0
+              },
+              "maxSymbolNotional": {
+                "type": "number",
+                "minimum": 0
+              },
+              "headroom": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "limitEnabled": {
+                "type": "boolean"
+              },
+              "status": {
+                "enum": [
+                  "DISABLED",
+                  "UNAVAILABLE",
+                  "HEADROOM",
+                  "BLOCKED"
+                ]
+              },
+              "detail": {
+                "type": "string",
+                "maxLength": 512
+              }
+            }
+          }
         }
       }
     }
