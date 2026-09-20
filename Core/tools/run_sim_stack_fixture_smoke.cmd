@@ -42,7 +42,9 @@ python "%ROOT%\tools\verify_account_risk_view_smoke.py" ^
 set RC=%ERRORLEVEL%
 if not %RC% EQU 0 goto cleanup
 
-"%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT --case-id stack-fixture-buy --action BUY --side LONG --expect ORDER_ROUTING_DISABLED
+rem Use an explicit fixture price that yields a positive BTC quantity at
+rem the deterministic 0.1%% Risk Capital budget and 0.001 LOT_SIZE step.
+"%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT --case-id stack-fixture-buy --action BUY --side LONG --trigger-price 100 --expect ORDER_ROUTING_DISABLED
 set RC=%ERRORLEVEL%
 if not %RC% EQU 0 goto cleanup
 
