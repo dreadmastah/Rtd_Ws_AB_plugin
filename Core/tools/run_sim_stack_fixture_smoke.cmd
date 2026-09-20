@@ -41,6 +41,11 @@ if not %RC% EQU 0 goto cleanup
 set RC=%ERRORLEVEL%
 if not %RC% EQU 0 goto cleanup
 
+ping -n 3 127.0.0.1 >nul
+python -c "import json, pathlib; o=json.loads(pathlib.Path(r'%RISKVIEW_JSON%').read_text(encoding='utf-8')); rows={r['symbol']:r for r in o['symbolRisk']['symbols']}; b=rows['BTCUSDT']; assert b['positionReady'] is True; assert b['activeReservations']==1, b; assert b['reservedGrossNotional']>0, b; assert b['projectedNotional']>b['currentNotional'], b; assert o['orderRoutingEnabled'] is False; print('SYMBOL_RISK_RESERVATION_PROJECTION=PASS')"
+set RC=%ERRORLEVEL%
+if not %RC% EQU 0 goto cleanup
+
 "%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT --case-id stack-fixture-scale-in --action SCALE_IN --side LONG --trigger-price 1000 --expect ORDER_ROUTING_DISABLED
 set RC=%ERRORLEVEL%
 
