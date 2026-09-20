@@ -234,7 +234,20 @@ public:
             return 0.0;
         }
         constexpr double kSyntheticRiskFraction = 0.001;
-        return (risk.risk_capital * kSyntheticRiskFraction) / intent.trigger_price;
+        double budget = risk.risk_capital * kSyntheticRiskFraction;
+        if (astu::core::increases_exposure(intent.action) &&
+            risk.max_gross_notional > 0.0) {
+            budget = std::min(
+                budget,
+                std::max(
+                    0.0,
+                    risk.max_gross_notional -
+                        risk.gross_notional));
+        }
+        if (!std::isfinite(budget) || budget <= 0.0) {
+            return 0.0;
+        }
+        return budget / intent.trigger_price;
     }
 
     static Result simulate_with_constraints(
