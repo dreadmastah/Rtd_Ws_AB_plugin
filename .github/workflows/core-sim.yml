@@ -198,6 +198,9 @@ jobs:
       - name: Position snapshot reconciliation semantics
         run: python Core/account/tests/test_position_snapshots.py
 
+      - name: Signed net directional account semantics
+        run: python Core/account/tests/test_directional_risk_snapshot.py
+
       - name: Public instrument rules bootstrap universe fixture
         shell: bash
         run: |
