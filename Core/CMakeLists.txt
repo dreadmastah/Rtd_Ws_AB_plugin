@@ -173,6 +173,19 @@ add_test(
     COMMAND astu_execution_status_tests
 )
 
+add_executable(
+    astu_symbol_risk_status_tests
+    tests/symbol_risk_status_tests.cpp
+)
+target_link_libraries(
+    astu_symbol_risk_status_tests
+    PRIVATE astu_core
+)
+add_test(
+    NAME astu_symbol_risk_status_tests
+    COMMAND astu_symbol_risk_status_tests
+)
+
 if(WIN32)
     add_executable(
         astu_named_pipe_security_tests
