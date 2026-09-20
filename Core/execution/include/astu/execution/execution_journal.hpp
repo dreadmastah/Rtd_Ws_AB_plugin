@@ -480,7 +480,10 @@ public:
         const std::string& simulation_order_id,
         astu::execution::OrderState to_state,
         std::int64_t utc_ms,
-        std::string reason) {
+        std::string reason,
+        bool simulation_only = true,
+        bool exchange_submission_attempted = false,
+        std::string execution_environment = "SIMULATION_ONLY") {
         std::lock_guard<std::mutex> lock(mu_);
         if (simulation_order_id.empty()) {
             throw std::invalid_argument("simulation order id is required");
@@ -519,8 +522,12 @@ public:
             << ",\"toState\":\""
             << astu::execution::order_state_to_string(to_state) << "\""
             << ",\"transitionSequence\":" << sequence
-            << ",\"simulationOnly\":true"
-            << ",\"exchangeSubmissionAttempted\":false"
+            << ",\"simulationOnly\":"
+            << (simulation_only ? "true" : "false")
+            << ",\"exchangeSubmissionAttempted\":"
+            << (exchange_submission_attempted ? "true" : "false")
+            << ",\"executionEnvironment\":\""
+            << astu::ipc::json_escape(execution_environment) << "\""
             << ",\"reason\":\"" << astu::ipc::json_escape(reason) << "\""
             << "}\n";
 
@@ -530,6 +537,59 @@ public:
             sequence,
         };
         ++order_transition_count_;
+    }
+
+    void append_testnet_submission_attempt(
+        const astu::ipc::SimulationRequest& request,
+        const std::string& simulation_order_id,
+        const std::string& client_order_id,
+        const std::string& exchange_side,
+        double quantity,
+        bool reduce_only,
+        std::int64_t utc_ms) {
+        std::lock_guard<std::mutex> lock(mu_);
+        const auto state_it = order_states_.find(simulation_order_id);
+        if (state_it == order_states_.end() ||
+            state_it->second.state != OrderState::Submitting ||
+            client_order_id.empty() ||
+            (exchange_side != "BUY" && exchange_side != "SELL") ||
+            !std::isfinite(quantity) || quantity <= 0.0) {
+            throw std::invalid_argument(
+                "invalid Binance Testnet submission attempt");
+        }
+
+        std::ostringstream out;
+        out << std::setprecision(17);
+        out
+            << "{"
+            << "\"schemaVersion\":1"
+            << ",\"eventType\":\"TESTNET_ORDER_SUBMISSION_ATTEMPT\""
+            << ",\"utcMs\":" << utc_ms
+            << ",\"simulationOrderId\":\""
+            << astu::ipc::json_escape(simulation_order_id) << "\""
+            << ",\"requestId\":\""
+            << astu::ipc::json_escape(request.request_id) << "\""
+            << ",\"signalId\":\""
+            << astu::ipc::json_escape(request.intent.signal_id) << "\""
+            << ",\"symbol\":\""
+            << astu::ipc::json_escape(request.intent.symbol) << "\""
+            << ",\"exchangeSide\":\""
+            << exchange_side << "\""
+            << ",\"quantity\":" << quantity
+            << ",\"reduceOnly\":"
+            << (reduce_only ? "true" : "false")
+            << ",\"clientOrderId\":\""
+            << astu::ipc::json_escape(client_order_id) << "\""
+            << ",\"executionEnvironment\":\"BINANCE_USDM_TESTNET\""
+            << ",\"exchangeSubmissionAttempted\":true"
+            << "}\n";
+        append_durable(out.str());
+        ++testnet_submission_attempt_count_;
+    }
+
+    std::uint64_t testnet_submission_attempt_count() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        return testnet_submission_attempt_count_;
     }
 
     std::optional<astu::execution::OrderState> order_state(
@@ -611,6 +671,10 @@ private:
                 }
                 if (event_type == "EXPOSURE_RESERVATION_RELEASED") {
                     replay_exposure_reservation_released_unlocked(obj);
+                    continue;
+                }
+                if (event_type == "TESTNET_ORDER_SUBMISSION_ATTEMPT") {
+                    replay_testnet_submission_attempt_unlocked(obj);
                     continue;
                 }
                 if (event_type != "IDEMPOTENCY_RESERVATION" &&
@@ -1143,6 +1207,37 @@ private:
         ++reconciliation_event_count_;
     }
 
+    void replay_testnet_submission_attempt_unlocked(
+        const astu::ipc::JsonObject& obj) {
+        const auto order_id =
+            astu::ipc::require_string(obj, "simulationOrderId");
+        const auto client_order_id =
+            astu::ipc::require_string(obj, "clientOrderId");
+        const auto exchange_side =
+            astu::ipc::require_string(obj, "exchangeSide");
+        const auto quantity =
+            astu::ipc::require_double(obj, "quantity");
+        if (order_id.empty() ||
+            client_order_id.empty() ||
+            (exchange_side != "BUY" && exchange_side != "SELL") ||
+            !std::isfinite(quantity) || quantity <= 0.0 ||
+            astu::ipc::require_string(
+                obj, "executionEnvironment") !=
+                "BINANCE_USDM_TESTNET" ||
+            !astu::ipc::require_bool(
+                obj, "exchangeSubmissionAttempted")) {
+            throw std::runtime_error(
+                "invalid Testnet submission attempt journal event");
+        }
+        const auto state_it = order_states_.find(order_id);
+        if (state_it == order_states_.end() ||
+            state_it->second.state != OrderState::Submitting) {
+            throw std::runtime_error(
+                "Testnet submission attempt missing SUBMITTING state");
+        }
+        ++testnet_submission_attempt_count_;
+    }
+
     void replay_order_transition_unlocked(
         const astu::ipc::JsonObject& obj) {
         const auto order_id =
@@ -1153,10 +1248,28 @@ private:
             astu::ipc::require_string(obj, "toState"));
         const auto sequence =
             astu::ipc::require_u64(obj, "transitionSequence");
-        if (!astu::ipc::require_bool(obj, "simulationOnly") ||
-            astu::ipc::require_bool(obj, "exchangeSubmissionAttempted")) {
+        const bool simulation_only =
+            astu::ipc::require_bool(obj, "simulationOnly");
+        const bool exchange_submission_attempted =
+            astu::ipc::require_bool(obj, "exchangeSubmissionAttempted");
+        std::string execution_environment = "SIMULATION_ONLY";
+        if (obj.find("executionEnvironment") != obj.end()) {
+            execution_environment =
+                astu::ipc::require_string(
+                    obj, "executionEnvironment");
+        }
+        const bool testnet_transition =
+            !simulation_only &&
+            exchange_submission_attempted &&
+            execution_environment == "BINANCE_USDM_TESTNET" &&
+            (to_state == OrderState::Submitting ||
+             to_state == OrderState::Acknowledged ||
+             to_state == OrderState::Rejected ||
+             to_state == OrderState::UnknownReconcileRequired);
+        if ((!simulation_only || exchange_submission_attempted) &&
+            !testnet_transition) {
             throw std::runtime_error(
-                "execution journal contains non-simulation order transition");
+                "execution journal contains unauthorized routed order transition");
         }
         if (order_id.empty()) {
             throw std::runtime_error(
@@ -1274,6 +1387,7 @@ private:
     std::uint64_t exposure_reservation_release_count_{0};
     std::uint64_t exposure_reservation_implicit_release_count_{0};
     std::uint64_t exposure_reservation_reconstructed_count_{0};
+    std::uint64_t testnet_submission_attempt_count_{0};
 };
 
 }  // namespace astu::execution
