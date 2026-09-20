@@ -261,23 +261,47 @@ def run(args: argparse.Namespace) -> int:
         args.enable_testnet_order_routing
         and args.arm_testnet_order_routing
     )
-    if routing_active:
+    demo_authority_active = args.testnet_user_data_mode == "live"
+
+    if demo_authority_active:
         if args.risk_mode != "readonly":
             print(
-                "ASTU_SIM_STACK_FATAL=Demo routing requires --risk-mode readonly"
+                "ASTU_SIM_STACK_FATAL=Demo authority requires --risk-mode readonly"
             )
             return 2
         if args.instrument_mode != "public":
             print(
-                "ASTU_SIM_STACK_FATAL=Demo routing requires --instrument-mode public"
+                "ASTU_SIM_STACK_FATAL=Demo authority requires --instrument-mode public"
             )
             return 2
-        if args.testnet_user_data_mode != "live":
+        if args.testnet_rest_base_url.rstrip("/") != "https://demo-fapi.binance.com":
             print(
-                "ASTU_SIM_STACK_FATAL=Demo routing requires "
-                "--testnet-user-data-mode live"
+                "ASTU_SIM_STACK_FATAL=Demo authority requires "
+                "https://demo-fapi.binance.com"
             )
             return 2
+        if not args.testnet_user_data_ws_url_template.strip():
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo authority requires explicit "
+                "user-stream WebSocket template"
+            )
+            return 2
+        if (
+            not os.getenv("ASTU_BINANCE_TESTNET_API_KEY", "").strip()
+            or not os.getenv("ASTU_BINANCE_TESTNET_API_SECRET", "").strip()
+        ):
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo authority credentials unavailable"
+            )
+            return 2
+        if os.getenv("ASTU_BINANCE_TESTNET_USER_DATA_ENABLED", "").strip() != "1":
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo authority requires "
+                "ASTU_BINANCE_TESTNET_USER_DATA_ENABLED=1"
+            )
+            return 2
+
+    if routing_active:
         if not (0 < args.max_symbol_notional <= 100):
             print(
                 "ASTU_SIM_STACK_FATAL=Demo routing acceptance requires "
@@ -288,32 +312,6 @@ def run(args: argparse.Namespace) -> int:
             print(
                 "ASTU_SIM_STACK_FATAL=Demo routing acceptance requires "
                 "--max-pending-entry-scale-in-reservations 1"
-            )
-            return 2
-        if args.testnet_rest_base_url.rstrip("/") != "https://demo-fapi.binance.com":
-            print(
-                "ASTU_SIM_STACK_FATAL=Demo routing requires "
-                "https://demo-fapi.binance.com"
-            )
-            return 2
-        if not args.testnet_user_data_ws_url_template.strip():
-            print(
-                "ASTU_SIM_STACK_FATAL=Demo routing requires explicit "
-                "user-stream WebSocket template"
-            )
-            return 2
-        if (
-            not os.getenv("ASTU_BINANCE_TESTNET_API_KEY", "").strip()
-            or not os.getenv("ASTU_BINANCE_TESTNET_API_SECRET", "").strip()
-        ):
-            print(
-                "ASTU_SIM_STACK_FATAL=Demo routing credentials unavailable"
-            )
-            return 2
-        if os.getenv("ASTU_BINANCE_TESTNET_USER_DATA_ENABLED", "").strip() != "1":
-            print(
-                "ASTU_SIM_STACK_FATAL=Demo routing requires "
-                "ASTU_BINANCE_TESTNET_USER_DATA_ENABLED=1"
             )
             return 2
         # In active Demo mode, authoritative order snapshots are produced by
@@ -427,7 +425,7 @@ def run(args: argparse.Namespace) -> int:
             "--poll-seconds",
             str(args.risk_poll_seconds),
         ]
-        if routing_active:
+        if demo_authority_active:
             risk_command.extend([
                 "--base-url",
                 str(args.testnet_rest_base_url),
@@ -524,7 +522,7 @@ def run(args: argparse.Namespace) -> int:
             "--poll-seconds",
             str(args.instrument_poll_seconds),
         ]
-        if routing_active:
+        if demo_authority_active:
             instrument_command.extend([
                 "--rest-base",
                 str(args.testnet_rest_base_url),
@@ -533,7 +531,7 @@ def run(args: argparse.Namespace) -> int:
     try:
         if risk_command is not None:
             risk_env = None
-            if routing_active and args.risk_mode == "readonly":
+            if demo_authority_active and args.risk_mode == "readonly":
                 risk_env = {
                     "ASTU_BINANCE_PRIVATE_READONLY_ENABLED": "1",
                     "BINANCE_API_KEY": os.environ[
@@ -712,6 +710,10 @@ def run(args: argparse.Namespace) -> int:
         print(f"SYMBOL_RISK_UNIVERSE_FILE={symbol_risk_universe_file}")
         print(f"ACCOUNT_RISK_VIEW_MODE={args.account_risk_view_mode}")
         print(f"TESTNET_USER_DATA_MODE={args.testnet_user_data_mode}")
+        print(
+            "DEMO_AUTHORITY_ACTIVE="
+            f"{str(demo_authority_active).lower()}"
+        )
         print(f"TESTNET_USER_DATA_STATUS={testnet_user_data_status}")
         print(f"TESTNET_ORDER_AUTHORITY_DIR={testnet_order_authority_dir}")
         if args.account_risk_view_mode == "local":
