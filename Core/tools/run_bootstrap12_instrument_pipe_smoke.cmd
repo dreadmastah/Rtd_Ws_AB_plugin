@@ -24,7 +24,10 @@ if errorlevel 1 (
   exit /b 3
 )
 
-python "%GATEWAY%" --once --fixture "%RISK_FIXTURE%" --output "%RISK%"
+rem This smoke exercises all 12 BUY simulations. Keep the unrelated
+rem projected open-position cap above the bootstrap universe size.
+python "%GATEWAY%" --once --fixture "%RISK_FIXTURE%" --output "%RISK%" ^
+  --max-open-positions 64
 if errorlevel 1 (
   echo BOOTSTRAP12_INSTRUMENT_PIPE_SMOKE=FAIL RISK_REFRESH
   exit /b 4
