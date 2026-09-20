@@ -95,6 +95,33 @@ public:
         startup_order_unresolved_ = unresolved;
     }
 
+    void set_runtime_order_reconciliation(
+        bool enabled,
+        std::uint64_t last_sweep_utc_ms,
+        std::uint64_t sweep_count,
+        std::uint64_t tracked_nonterminal,
+        std::uint64_t matched,
+        std::uint64_t marked_unknown,
+        std::uint64_t unresolved,
+        std::uint64_t source_unavailable,
+        std::uint64_t terminal_skipped,
+        std::uint64_t concurrent_state_changes,
+        std::uint64_t sweep_errors) {
+        std::lock_guard<std::mutex> lock(mu_);
+        runtime_order_reconciliation_enabled_ = enabled;
+        runtime_order_last_sweep_utc_ms_ = last_sweep_utc_ms;
+        runtime_order_sweep_count_ = sweep_count;
+        runtime_order_tracked_nonterminal_ = tracked_nonterminal;
+        runtime_order_matched_ = matched;
+        runtime_order_marked_unknown_ = marked_unknown;
+        runtime_order_unresolved_ = unresolved;
+        runtime_order_source_unavailable_ = source_unavailable;
+        runtime_order_terminal_skipped_ = terminal_skipped;
+        runtime_order_concurrent_state_changes_ =
+            concurrent_state_changes;
+        runtime_order_sweep_errors_ = sweep_errors;
+    }
+
     void record_response(const astu::ipc::SimulationResponse& response) {
         requests_seen_.fetch_add(1, std::memory_order_relaxed);
         std::lock_guard<std::mutex> lock(mu_);
@@ -117,6 +144,17 @@ public:
         std::uint64_t startup_order_matched = 0;
         std::uint64_t startup_order_marked_unknown = 0;
         std::uint64_t startup_order_unresolved = 0;
+        bool runtime_order_reconciliation_enabled = false;
+        std::uint64_t runtime_order_last_sweep_utc_ms = 0;
+        std::uint64_t runtime_order_sweep_count = 0;
+        std::uint64_t runtime_order_tracked_nonterminal = 0;
+        std::uint64_t runtime_order_matched = 0;
+        std::uint64_t runtime_order_marked_unknown = 0;
+        std::uint64_t runtime_order_unresolved = 0;
+        std::uint64_t runtime_order_source_unavailable = 0;
+        std::uint64_t runtime_order_terminal_skipped = 0;
+        std::uint64_t runtime_order_concurrent_state_changes = 0;
+        std::uint64_t runtime_order_sweep_errors = 0;
         {
             std::lock_guard<std::mutex> lock(mu_);
             lifecycle = lifecycle_state_;
@@ -134,6 +172,28 @@ public:
                 startup_order_marked_unknown_;
             startup_order_unresolved =
                 startup_order_unresolved_;
+            runtime_order_reconciliation_enabled =
+                runtime_order_reconciliation_enabled_;
+            runtime_order_last_sweep_utc_ms =
+                runtime_order_last_sweep_utc_ms_;
+            runtime_order_sweep_count =
+                runtime_order_sweep_count_;
+            runtime_order_tracked_nonterminal =
+                runtime_order_tracked_nonterminal_;
+            runtime_order_matched =
+                runtime_order_matched_;
+            runtime_order_marked_unknown =
+                runtime_order_marked_unknown_;
+            runtime_order_unresolved =
+                runtime_order_unresolved_;
+            runtime_order_source_unavailable =
+                runtime_order_source_unavailable_;
+            runtime_order_terminal_skipped =
+                runtime_order_terminal_skipped_;
+            runtime_order_concurrent_state_changes =
+                runtime_order_concurrent_state_changes_;
+            runtime_order_sweep_errors =
+                runtime_order_sweep_errors_;
         }
 
         std::ostringstream out;
@@ -161,6 +221,28 @@ public:
             << startup_order_marked_unknown
             << ",\"startupOrderUnresolved\":"
             << startup_order_unresolved
+            << ",\"runtimeOrderReconciliationEnabled\":"
+            << (runtime_order_reconciliation_enabled ? "true" : "false")
+            << ",\"runtimeOrderLastSweepUtcMs\":"
+            << runtime_order_last_sweep_utc_ms
+            << ",\"runtimeOrderSweepCount\":"
+            << runtime_order_sweep_count
+            << ",\"runtimeOrderTrackedNonterminal\":"
+            << runtime_order_tracked_nonterminal
+            << ",\"runtimeOrderMatched\":"
+            << runtime_order_matched
+            << ",\"runtimeOrderMarkedUnknown\":"
+            << runtime_order_marked_unknown
+            << ",\"runtimeOrderUnresolved\":"
+            << runtime_order_unresolved
+            << ",\"runtimeOrderSourceUnavailable\":"
+            << runtime_order_source_unavailable
+            << ",\"runtimeOrderTerminalSkipped\":"
+            << runtime_order_terminal_skipped
+            << ",\"runtimeOrderConcurrentStateChanges\":"
+            << runtime_order_concurrent_state_changes
+            << ",\"runtimeOrderSweepErrors\":"
+            << runtime_order_sweep_errors
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -252,6 +334,17 @@ private:
     std::uint64_t startup_order_matched_{0};
     std::uint64_t startup_order_marked_unknown_{0};
     std::uint64_t startup_order_unresolved_{0};
+    bool runtime_order_reconciliation_enabled_{false};
+    std::uint64_t runtime_order_last_sweep_utc_ms_{0};
+    std::uint64_t runtime_order_sweep_count_{0};
+    std::uint64_t runtime_order_tracked_nonterminal_{0};
+    std::uint64_t runtime_order_matched_{0};
+    std::uint64_t runtime_order_marked_unknown_{0};
+    std::uint64_t runtime_order_unresolved_{0};
+    std::uint64_t runtime_order_source_unavailable_{0};
+    std::uint64_t runtime_order_terminal_skipped_{0};
+    std::uint64_t runtime_order_concurrent_state_changes_{0};
+    std::uint64_t runtime_order_sweep_errors_{0};
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
