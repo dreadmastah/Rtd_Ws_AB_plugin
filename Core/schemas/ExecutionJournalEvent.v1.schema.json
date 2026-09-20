@@ -226,6 +226,100 @@
           "maxLength": 512
         }
       }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "simulationOrderId",
+        "requestId",
+        "idempotencyKey",
+        "signalId",
+        "symbol",
+        "action",
+        "side",
+        "quantity",
+        "referencePrice",
+        "notional",
+        "simulationOnly",
+        "orderRoutingEnabled",
+        "exchangeSubmissionAttempted"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "SIMULATION_ORDER_INTENT"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "simulationOrderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "signalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "action": {
+          "enum": [
+            "BUY",
+            "SELL",
+            "SCALE_IN",
+            "SCALE_OUT"
+          ]
+        },
+        "side": {
+          "enum": [
+            "LONG",
+            "SHORT"
+          ]
+        },
+        "quantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "referencePrice": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "notional": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "simulationOnly": {
+          "const": true
+        },
+        "orderRoutingEnabled": {
+          "const": false
+        },
+        "exchangeSubmissionAttempted": {
+          "const": false
+        }
+      }
     }
   ]
 }
