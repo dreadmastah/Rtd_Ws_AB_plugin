@@ -59,7 +59,9 @@ public:
     void set_order_state_metrics(
         std::size_t recovered_orders_at_startup,
         std::size_t tracked_orders,
-        std::uint64_t order_transition_count) noexcept {
+        std::uint64_t order_transition_count,
+        std::uint64_t recovered_reconciliation_events_at_startup,
+        std::uint64_t reconciliation_event_count) noexcept {
         recovered_orders_at_startup_.store(
             static_cast<std::uint64_t>(recovered_orders_at_startup),
             std::memory_order_relaxed);
@@ -68,6 +70,12 @@ public:
             std::memory_order_relaxed);
         order_transition_count_.store(
             order_transition_count,
+            std::memory_order_relaxed);
+        recovered_reconciliation_events_at_startup_.store(
+            recovered_reconciliation_events_at_startup,
+            std::memory_order_relaxed);
+        reconciliation_event_count_.store(
+            reconciliation_event_count,
             std::memory_order_relaxed);
     }
 
@@ -117,6 +125,8 @@ public:
             << ",\"recoveredOrdersAtStartup\":" << recovered_orders_at_startup_.load(std::memory_order_relaxed)
             << ",\"trackedOrders\":" << tracked_orders_.load(std::memory_order_relaxed)
             << ",\"orderTransitionCount\":" << order_transition_count_.load(std::memory_order_relaxed)
+            << ",\"recoveredReconciliationEventsAtStartup\":" << recovered_reconciliation_events_at_startup_.load(std::memory_order_relaxed)
+            << ",\"reconciliationEventCount\":" << reconciliation_event_count_.load(std::memory_order_relaxed)
             << ",\"lastDecisionCode\":";
         if (last_decision.empty()) {
             out << "null";
@@ -197,6 +207,8 @@ private:
     std::atomic<std::uint64_t> recovered_orders_at_startup_{0};
     std::atomic<std::uint64_t> tracked_orders_{0};
     std::atomic<std::uint64_t> order_transition_count_{0};
+    std::atomic<std::uint64_t> recovered_reconciliation_events_at_startup_{0};
+    std::atomic<std::uint64_t> reconciliation_event_count_{0};
 };
 
 }  // namespace astu::execution
