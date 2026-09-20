@@ -5,9 +5,9 @@
     "income": "-60.0",
     "asset": "USDT",
     "info": "REALIZED_PNL",
-    "timeOffsetMs": -3600000,
     "tranId": 1001,
-    "tradeId": "501"
+    "tradeId": "501",
+    "dayOffsetMs": 0
   },
   {
     "symbol": "BTCUSDT",
@@ -15,9 +15,9 @@
     "income": "1.0",
     "asset": "USDT",
     "info": "FUNDING_FEE",
-    "timeOffsetMs": -3000000,
     "tranId": 1002,
-    "tradeId": ""
+    "tradeId": "",
+    "dayOffsetMs": 0
   },
   {
     "symbol": "BTCUSDT",
@@ -25,9 +25,9 @@
     "income": "-2.0",
     "asset": "USDT",
     "info": "COMMISSION",
-    "timeOffsetMs": -2400000,
     "tranId": 1003,
-    "tradeId": "501"
+    "tradeId": "501",
+    "dayOffsetMs": 0
   },
   {
     "symbol": "",
@@ -35,8 +35,8 @@
     "income": "-999.0",
     "asset": "USDT",
     "info": "TRANSFER",
-    "timeOffsetMs": -1800000,
     "tranId": 1004,
-    "tradeId": ""
+    "tradeId": "",
+    "dayOffsetMs": 0
   }
 ]
