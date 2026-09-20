@@ -50,6 +50,27 @@
     "maxMarginUtilization",
     "reservedNetDirectionalNotional",
     "maxNetDirectionalNotional",
+    "accountRiskObservationReady",
+    "accountRiskObservedUnixMs",
+    "accountRiskState",
+    "currentRiskCapital",
+    "currentAvailableBalance",
+    "projectedAvailableBalance",
+    "currentGrossNotional",
+    "projectedGrossNotional",
+    "currentMaxGrossNotional",
+    "currentOpenPositions",
+    "projectedOpenPositions",
+    "currentMaxOpenPositions",
+    "accountMarginMetricsReady",
+    "currentMarginBalance",
+    "currentInitialMargin",
+    "projectedInitialMargin",
+    "projectedEffectiveLeverage",
+    "projectedMarginUtilization",
+    "accountNetDirectionalReady",
+    "currentNetDirectionalNotional",
+    "projectedNetDirectionalNotional",
     "accountLossBaselineEnabled",
     "accountLossBaselineFile",
     "accountLossMetricsReady",
@@ -480,6 +501,91 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 16
+    },
+    "accountRiskObservationReady": {
+      "type": "boolean"
+    },
+    "accountRiskObservedUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "accountRiskState": {
+      "enum": [
+        "NORMAL",
+        "WARNING",
+        "RESTRICTED",
+        "BLOCK_NEW_ENTRIES",
+        "EMERGENCY",
+        "UNKNOWN"
+      ]
+    },
+    "currentRiskCapital": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currentAvailableBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "projectedAvailableBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currentGrossNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "projectedGrossNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currentMaxGrossNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currentOpenPositions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "projectedOpenPositions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "currentMaxOpenPositions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "accountMarginMetricsReady": {
+      "type": "boolean"
+    },
+    "currentMarginBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currentInitialMargin": {
+      "type": "number",
+      "minimum": 0
+    },
+    "projectedInitialMargin": {
+      "type": "number",
+      "minimum": 0
+    },
+    "projectedEffectiveLeverage": {
+      "type": "number",
+      "minimum": 0
+    },
+    "projectedMarginUtilization": {
+      "type": "number",
+      "minimum": 0
+    },
+    "accountNetDirectionalReady": {
+      "type": "boolean"
+    },
+    "currentNetDirectionalNotional": {
+      "type": "number"
+    },
+    "projectedNetDirectionalNotional": {
+      "type": "number"
     }
   }
 }
