@@ -296,7 +296,7 @@ def query_order(
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--rest-base-url", default="https://testnet.binancefuture.com")
+    ap.add_argument("--rest-base-url", default="https://demo-fapi.binance.com")
     ap.add_argument("--ws-url-template", default=os.getenv(
         "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE", ""
     ))
