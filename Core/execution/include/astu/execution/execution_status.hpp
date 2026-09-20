@@ -129,7 +129,8 @@ public:
         std::uint32_t reserved_position_slots,
         std::uint64_t create_count,
         std::uint64_t release_count,
-        std::uint64_t implicit_release_count) {
+        std::uint64_t implicit_release_count,
+        std::uint64_t reconstructed_count) {
         std::lock_guard<std::mutex> lock(mu_);
         recovered_active_exposure_reservations_at_startup_ =
             recovered_active_at_startup;
@@ -140,6 +141,8 @@ public:
         exposure_reservation_release_count_ = release_count;
         exposure_reservation_implicit_release_count_ =
             implicit_release_count;
+        exposure_reservation_reconstructed_count_ =
+            reconstructed_count;
     }
 
     void record_response(const astu::ipc::SimulationResponse& response) {
@@ -182,6 +185,7 @@ public:
         std::uint64_t exposure_reservation_create_count = 0;
         std::uint64_t exposure_reservation_release_count = 0;
         std::uint64_t exposure_reservation_implicit_release_count = 0;
+        std::uint64_t exposure_reservation_reconstructed_count = 0;
         {
             std::lock_guard<std::mutex> lock(mu_);
             lifecycle = lifecycle_state_;
@@ -235,6 +239,8 @@ public:
                 exposure_reservation_release_count_;
             exposure_reservation_implicit_release_count =
                 exposure_reservation_implicit_release_count_;
+            exposure_reservation_reconstructed_count =
+                exposure_reservation_reconstructed_count_;
         }
 
         std::ostringstream out;
@@ -298,6 +304,8 @@ public:
             << exposure_reservation_release_count
             << ",\"exposureReservationImplicitReleaseCount\":"
             << exposure_reservation_implicit_release_count
+            << ",\"exposureReservationReconstructedCount\":"
+            << exposure_reservation_reconstructed_count
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -407,6 +415,7 @@ private:
     std::uint64_t exposure_reservation_create_count_{0};
     std::uint64_t exposure_reservation_release_count_{0};
     std::uint64_t exposure_reservation_implicit_release_count_{0};
+    std::uint64_t exposure_reservation_reconstructed_count_{0};
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
