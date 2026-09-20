@@ -826,6 +826,48 @@ The supervisor can manage the live sidecar with `--testnet-user-data-mode live`;
 
 Cross-platform CI covers stream-event normalization, ASTU order ownership, event-time regression, liveness expiry, account/position REST convergence, order convergence, schema shape, and the C++ freshness/convergence gate.
 
+## Credentialed Testnet acceptance harness
+
+`Core/tools/testnet_acceptance.py` provides a guarded manual acceptance path. It is **preflight-only by default** and rejects Binance production `fapi.binance.com` outright.
+
+Accepted REST hosts are limited in code to:
+
+```text
+https://testnet.binancefuture.com
+https://demo-fapi.binance.com
+```
+
+A live user-data stream URL is never guessed. Set `ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE` explicitly after verifying the currently valid Binance Testnet stream endpoint.
+
+Credentialed preflight, no order submission:
+
+```powershell
+$env:ASTU_BINANCE_TESTNET_API_KEY="<testnet key>"
+$env:ASTU_BINANCE_TESTNET_API_SECRET="<testnet secret>"
+$env:ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE="<verified wss template containing {listenKey}>"
+
+python Core/tools/testnet_acceptance.py
+```
+
+The preflight verifies Testnet REST credentials, public symbol price access, listen-key lifecycle, and WebSocket upgrade/keepalive when a stream template is supplied. It writes `Core/runtime/testnet_acceptance_report.v1.json`.
+
+Submitting one bounded Testnet MARKET acceptance order additionally requires both an explicit CLI flag and a separate environment arm:
+
+```powershell
+$env:ASTU_TESTNET_ACCEPTANCE_ARM="I_UNDERSTAND_TESTNET_ORDER"
+
+python Core/tools/testnet_acceptance.py `
+  --execute-market-order `
+  --symbol BTCUSDT `
+  --side BUY `
+  --quantity <explicit quantity> `
+  --max-test-notional 25
+```
+
+The harness enforces a compiled hard maximum Testnet notional of 50 quote units, requires the requested notional to remain at or below `--max-test-notional`, derives a unique `ASTU-ACC-...` client order ID, submits only `MARKET`, then queries `GET /fapi/v1/order` by `origClientOrderId`. CI tests the mainnet-host rejection, explicit-arm requirement, and notional caps without making any network request.
+
+The runtime host's final Testnet activation refusal remains unchanged. The acceptance harness is a separate manual validation surface and does not make the application live-trading-capable.
+
 ## Current next implementation step
 
-Run a **credentialed manual Binance USD-M Testnet acceptance** outside default CI: verify the current Testnet user-data WebSocket endpoint, listen-key lifecycle/reconnect behavior, live `ORDER_TRADE_UPDATE` delivery, REST fallback after an intentionally ambiguous submission, and account + position + order convergence after a real Testnet MARKET order. Only after that acceptance is reproducible should the final administrative activation refusal be removed for explicit Testnet-only arming. Mainnet private routing remains out of scope.
+Complete a **credentialed manual Binance USD-M Testnet acceptance** outside default CI: verify the currently valid user-data stream endpoint, listen-key lifecycle/reconnect behavior, live `ORDER_TRADE_UPDATE` delivery, REST fallback after an intentionally ambiguous submission, and account + position + order convergence after the bounded Testnet MARKET acceptance order. Only after that evidence is captured and reproducible should the final administrative activation refusal be reconsidered for explicit Testnet-only arming. Mainnet private routing remains out of scope.
