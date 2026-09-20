@@ -142,6 +142,11 @@ def run(args: argparse.Namespace) -> int:
         or args.max_margin_utilization < 0
         or args.max_margin_utilization > 1
         or args.max_net_directional_notional < 0
+        or args.max_daily_risk_capital_loss < 0
+        or args.max_weekly_risk_capital_loss < 0
+        or args.max_daily_total_pnl_loss < 0
+        or args.max_weekly_total_pnl_loss < 0
+        or args.max_account_drawdown < 0
         or (
             (
                 args.minimum_available_balance_reserve > 0
@@ -296,6 +301,18 @@ def run(args: argparse.Namespace) -> int:
             str(args.max_margin_utilization),
             "--max-net-directional-notional",
             str(args.max_net_directional_notional),
+            "--max-daily-risk-capital-loss",
+            str(args.max_daily_risk_capital_loss),
+            "--max-weekly-risk-capital-loss",
+            str(args.max_weekly_risk_capital_loss),
+            "--max-daily-total-pnl-loss",
+            str(args.max_daily_total_pnl_loss),
+            "--max-weekly-total-pnl-loss",
+            str(args.max_weekly_total_pnl_loss),
+            "--max-account-drawdown",
+            str(args.max_account_drawdown),
+            "--account-loss-baseline-file",
+            str(args.account_loss_baseline_file),
         ]
         if instrument_command is not None:
             host_command.extend([
@@ -338,6 +355,12 @@ def run(args: argparse.Namespace) -> int:
         print(f"MAX_EFFECTIVE_LEVERAGE={args.max_effective_leverage}")
         print(f"MAX_MARGIN_UTILIZATION={args.max_margin_utilization}")
         print(f"MAX_NET_DIRECTIONAL_NOTIONAL={args.max_net_directional_notional}")
+        print(f"MAX_DAILY_RISK_CAPITAL_LOSS={args.max_daily_risk_capital_loss}")
+        print(f"MAX_WEEKLY_RISK_CAPITAL_LOSS={args.max_weekly_risk_capital_loss}")
+        print(f"MAX_DAILY_TOTAL_PNL_LOSS={args.max_daily_total_pnl_loss}")
+        print(f"MAX_WEEKLY_TOTAL_PNL_LOSS={args.max_weekly_total_pnl_loss}")
+        print(f"MAX_ACCOUNT_DRAWDOWN={args.max_account_drawdown}")
+        print(f"ACCOUNT_LOSS_BASELINE_FILE={args.account_loss_baseline_file}")
         print(f"INSTRUMENT_MODE={args.instrument_mode}")
         if instrument_command is not None:
             print(f"INSTRUMENT_STATUS_DIR={instrument_dir}")
@@ -485,6 +508,40 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.0,
         help="0 disables the symmetric absolute signed-net-notional limit.",
+    )
+    ap.add_argument(
+        "--max-daily-risk-capital-loss",
+        type=float,
+        default=0.0,
+        help="0 disables the persisted UTC-day Risk Capital loss budget.",
+    )
+    ap.add_argument(
+        "--max-weekly-risk-capital-loss",
+        type=float,
+        default=0.0,
+        help="0 disables the persisted UTC-week Risk Capital loss budget.",
+    )
+    ap.add_argument(
+        "--max-daily-total-pnl-loss",
+        type=float,
+        default=0.0,
+        help="0 disables the UTC-day margin-balance total-PnL loss budget.",
+    )
+    ap.add_argument(
+        "--max-weekly-total-pnl-loss",
+        type=float,
+        default=0.0,
+        help="0 disables the UTC-week margin-balance total-PnL loss budget.",
+    )
+    ap.add_argument(
+        "--max-account-drawdown",
+        type=float,
+        default=0.0,
+        help="0 disables margin-balance high-water drawdown enforcement.",
+    )
+    ap.add_argument(
+        "--account-loss-baseline-file",
+        default=str(RUNTIME / "account_loss_baseline.v1.json"),
     )
     ap.add_argument("--restart-delay-seconds", type=float, default=2.0)
     return ap.parse_args()
