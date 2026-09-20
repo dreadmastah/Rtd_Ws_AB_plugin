@@ -259,6 +259,12 @@ def build_view(
     ):
         reasons.append("ACCOUNT_NOT_RECONCILED:REALIZED_PNL_UNAVAILABLE")
 
+    account_observation_ready = (
+        source_fresh and _boolean(status, "accountRiskObservationReady")
+    )
+    if source_fresh and not account_observation_ready:
+        reasons.append("ACCOUNT_NOT_RECONCILED:ACCOUNT_RISK_OBSERVATION_UNAVAILABLE")
+
     if not any(reason.startswith("ACCOUNT_NOT_RECONCILED:") for reason in reasons):
         for row in budgets:
             if row["blocked"]:
@@ -312,6 +318,100 @@ def build_view(
             ),
             "ignoredIncomeRecords": _integer(
                 status, "realizedPnlIgnoredIncomeRecords"
+            ),
+        },
+        "accountRiskObservation": {
+            "ready": account_observation_ready,
+            "observedUnixMs": _integer(status, "accountRiskObservedUnixMs"),
+            "riskState": _string(status, "accountRiskState"),
+            "riskCapital": _number(status, "currentRiskCapital"),
+            "availableBalance": _number(status, "currentAvailableBalance"),
+            "projectedAvailableBalance": _number(
+                status, "projectedAvailableBalance"
+            ),
+            "availableBalanceHeadroom": max(
+                0.0,
+                _number(status, "projectedAvailableBalance")
+                - _number(status, "minimumAvailableBalanceReserve"),
+            ),
+            "grossNotional": _number(status, "currentGrossNotional"),
+            "projectedGrossNotional": _number(
+                status, "projectedGrossNotional"
+            ),
+            "maxGrossNotional": _number(status, "currentMaxGrossNotional"),
+            "grossNotionalHeadroom": max(
+                0.0,
+                _number(status, "currentMaxGrossNotional")
+                - _number(status, "projectedGrossNotional"),
+            ),
+            "openPositions": _integer(status, "currentOpenPositions"),
+            "projectedOpenPositions": _integer(
+                status, "projectedOpenPositions"
+            ),
+            "maxOpenPositions": _integer(status, "currentMaxOpenPositions"),
+            "openPositionHeadroom": max(
+                0,
+                _integer(status, "currentMaxOpenPositions")
+                - _integer(status, "projectedOpenPositions"),
+            ),
+            "marginMetricsReady": (
+                source_fresh and _boolean(status, "accountMarginMetricsReady")
+            ),
+            "marginBalance": _number(status, "currentMarginBalance"),
+            "initialMargin": _number(status, "currentInitialMargin"),
+            "projectedInitialMargin": _number(
+                status, "projectedInitialMargin"
+            ),
+            "projectedEffectiveLeverage": _number(
+                status, "projectedEffectiveLeverage"
+            ),
+            "effectiveLeverageHeadroom": (
+                max(
+                    0.0,
+                    _number(status, "maxEffectiveLeverage")
+                    - _number(status, "projectedEffectiveLeverage"),
+                )
+                if _number(status, "maxEffectiveLeverage") > 0
+                else None
+            ),
+            "projectedMarginUtilization": _number(
+                status, "projectedMarginUtilization"
+            ),
+            "marginUtilizationHeadroom": (
+                max(
+                    0.0,
+                    _number(status, "maxMarginUtilization")
+                    - _number(status, "projectedMarginUtilization"),
+                )
+                if _number(status, "maxMarginUtilization") > 0
+                else None
+            ),
+            "netDirectionalReady": (
+                source_fresh and _boolean(status, "accountNetDirectionalReady")
+            ),
+            "netDirectionalNotional": _number(
+                status, "currentNetDirectionalNotional"
+            ),
+            "projectedNetDirectionalNotional": _number(
+                status, "projectedNetDirectionalNotional"
+            ),
+            "longDirectionalHeadroom": (
+                max(
+                    0.0,
+                    _number(status, "maxNetDirectionalNotional")
+                    - _number(status, "projectedNetDirectionalNotional"),
+                )
+                if _number(status, "maxNetDirectionalNotional") > 0
+                else None
+            ),
+            "shortDirectionalHeadroom": (
+                max(
+                    0.0,
+                    _number(status, "maxNetDirectionalNotional")
+                    + _number(status, "projectedNetDirectionalNotional"),
+                )
+                if _number(status, "maxNetDirectionalNotional") > 0
+                else None
             ),
         },
         "projectedRisk": {
@@ -390,6 +490,36 @@ def build_error_view(
             "recordsInCurrentWeek": 0,
             "ignoredIncomeRecords": 0,
         },
+        "accountRiskObservation": {
+            "ready": False,
+            "observedUnixMs": 0,
+            "riskState": "UNKNOWN",
+            "riskCapital": 0.0,
+            "availableBalance": 0.0,
+            "projectedAvailableBalance": 0.0,
+            "availableBalanceHeadroom": 0.0,
+            "grossNotional": 0.0,
+            "projectedGrossNotional": 0.0,
+            "maxGrossNotional": 0.0,
+            "grossNotionalHeadroom": 0.0,
+            "openPositions": 0,
+            "projectedOpenPositions": 0,
+            "maxOpenPositions": 0,
+            "openPositionHeadroom": 0,
+            "marginMetricsReady": False,
+            "marginBalance": 0.0,
+            "initialMargin": 0.0,
+            "projectedInitialMargin": 0.0,
+            "projectedEffectiveLeverage": 0.0,
+            "effectiveLeverageHeadroom": None,
+            "projectedMarginUtilization": 0.0,
+            "marginUtilizationHeadroom": None,
+            "netDirectionalReady": False,
+            "netDirectionalNotional": 0.0,
+            "projectedNetDirectionalNotional": 0.0,
+            "longDirectionalHeadroom": None,
+            "shortDirectionalHeadroom": None,
+        },
         "projectedRisk": {
             "activeExposureReservations": 0,
             "reservedGrossNotional": 0.0,
@@ -452,6 +582,7 @@ def render_html(view: dict[str, Any], refresh_seconds: float) -> str:
         )
 
     evidence = view["realizedPnlEvidence"]
+    account = view["accountRiskObservation"]
     projected = view["projectedRisk"]
     periods = view["periods"]
 
@@ -537,6 +668,36 @@ orderRoutingEnabled=false. This page only renders local ExecutionStatus.v1 evide
 <dt>Records this week</dt><dd>{esc(_fmt(evidence['recordsInCurrentWeek'], 0))}</dd>
 <dt>Ignored income records</dt><dd>{esc(_fmt(evidence['ignoredIncomeRecords'], 0))}</dd>
 <dt>Evidence ready</dt><dd>{esc(_fmt(evidence['ready']))}</dd>
+</dl></div>
+</div>
+
+<h2>Live account and projected headroom</h2>
+<div class="grid">
+<div class="card"><dl>
+<dt>Risk state</dt><dd>{esc(str(account['riskState']))}</dd>
+<dt>Risk Capital</dt><dd>{esc(_fmt(account['riskCapital']))}</dd>
+<dt>Available balance</dt><dd>{esc(_fmt(account['availableBalance']))}</dd>
+<dt>Projected available balance</dt><dd>{esc(_fmt(account['projectedAvailableBalance']))}</dd>
+<dt>Available-balance headroom</dt><dd>{esc(_fmt(account['availableBalanceHeadroom']))}</dd>
+</dl></div>
+<div class="card"><dl>
+<dt>Gross notional</dt><dd>{esc(_fmt(account['grossNotional']))}</dd>
+<dt>Projected gross notional</dt><dd>{esc(_fmt(account['projectedGrossNotional']))}</dd>
+<dt>Gross-notional headroom</dt><dd>{esc(_fmt(account['grossNotionalHeadroom']))}</dd>
+<dt>Projected open positions</dt><dd>{esc(_fmt(account['projectedOpenPositions'], 0))}</dd>
+<dt>Open-position headroom</dt><dd>{esc(_fmt(account['openPositionHeadroom'], 0))}</dd>
+</dl></div>
+<div class="card"><dl>
+<dt>Projected effective leverage</dt><dd>{esc(_fmt(account['projectedEffectiveLeverage']))}</dd>
+<dt>Leverage headroom</dt><dd>{esc(_fmt(account['effectiveLeverageHeadroom']))}</dd>
+<dt>Projected margin utilization</dt><dd>{esc(_fmt(account['projectedMarginUtilization'] * 100))}%</dd>
+<dt>Margin-utilization headroom</dt><dd>{esc(_fmt(None if account['marginUtilizationHeadroom'] is None else account['marginUtilizationHeadroom'] * 100))}%</dd>
+</dl></div>
+<div class="card"><dl>
+<dt>Projected signed net notional</dt><dd>{esc(_fmt(account['projectedNetDirectionalNotional']))}</dd>
+<dt>LONG directional headroom</dt><dd>{esc(_fmt(account['longDirectionalHeadroom']))}</dd>
+<dt>SHORT directional headroom</dt><dd>{esc(_fmt(account['shortDirectionalHeadroom']))}</dd>
+<dt>Account observation ready</dt><dd>{esc(_fmt(account['ready']))}</dd>
 </dl></div>
 </div>
 
