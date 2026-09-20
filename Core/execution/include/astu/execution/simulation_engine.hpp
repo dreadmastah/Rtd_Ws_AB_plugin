@@ -97,6 +97,61 @@ public:
     }
 };
 
+class PositionStateEngine {
+public:
+    static bool requires_position_state(
+        astu::core::SignalAction action) noexcept {
+        return action == astu::core::SignalAction::ScaleIn ||
+               action == astu::core::SignalAction::ScaleOut;
+    }
+
+    static astu::core::SimulationDecision evaluate(
+        const astu::core::SignalIntent& intent,
+        const astu::core::PositionSnapshot& position) {
+        const bool exposure = astu::core::increases_exposure(intent.action);
+        if (!requires_position_state(intent.action)) {
+            return {astu::core::DecisionCode::SimulatedAccepted, true,
+                    exposure, 0.0, 0.0,
+                    "position-state gate not required for this action"};
+        }
+
+        if (!position.reconciled || position.schema_version != 1 ||
+            position.symbol != intent.symbol) {
+            return {astu::core::DecisionCode::PositionUnavailable, false,
+                    exposure, 0.0, 0.0,
+                    "reconciled symbol position unavailable"};
+        }
+
+        if (position.mode == astu::core::PositionMode::Hedged ||
+            position.mode == astu::core::PositionMode::Unknown) {
+            return {astu::core::DecisionCode::PositionConflict, false,
+                    exposure, 0.0, 0.0,
+                    "position mode is ambiguous for scale action"};
+        }
+
+        if (position.mode == astu::core::PositionMode::Flat ||
+            position.quantity <= 0.0) {
+            return {astu::core::DecisionCode::PositionConflict, false,
+                    exposure, 0.0, 0.0,
+                    "scale action requires an existing position"};
+        }
+
+        const auto expected =
+            intent.side == astu::core::PositionSide::Long
+                ? astu::core::PositionMode::Long
+                : astu::core::PositionMode::Short;
+        if (position.mode != expected) {
+            return {astu::core::DecisionCode::PositionConflict, false,
+                    exposure, 0.0, 0.0,
+                    "SignalIntent side conflicts with reconciled position"};
+        }
+
+        return {astu::core::DecisionCode::SimulatedAccepted, true,
+                exposure, 0.0, 0.0,
+                "position-state gate passed for simulation"};
+    }
+};
+
 class InstrumentFilterEngine {
 public:
     static astu::core::SimulationDecision validate_rules(
@@ -185,7 +240,8 @@ public:
     static Result simulate_with_constraints(
         const astu::core::SignalIntent& intent,
         const astu::core::AccountRiskSnapshot& risk,
-        const astu::core::InstrumentConstraints& rules) {
+        const astu::core::InstrumentConstraints& rules,
+        double max_quantity_cap = 0.0) {
         Result out;
         if (intent.trigger_price <= 0.0 || risk.risk_capital <= 0.0 ||
             rules.quantity_step <= 0.0) {
@@ -209,7 +265,10 @@ public:
             return out;
         }
 
-        const double raw_quantity = budget / intent.trigger_price;
+        double raw_quantity = budget / intent.trigger_price;
+        if (max_quantity_cap > 0.0) {
+            raw_quantity = std::min(raw_quantity, max_quantity_cap);
+        }
         const double steps = std::floor(
             (raw_quantity / rules.quantity_step) + 1e-12);
         const double quantity = steps * rules.quantity_step;
@@ -277,6 +336,12 @@ public:
             return risk_result;
         }
 
+        if (PositionStateEngine::requires_position_state(intent.action)) {
+            return {astu::core::DecisionCode::PositionUnavailable, false,
+                    astu::core::increases_exposure(intent.action), 0.0, 0.0,
+                    "scale action requires reconciled position provider"};
+        }
+
         auto rules_result = InstrumentFilterEngine::validate_rules(intent, rules);
         if (!rules_result.accepted_for_simulation) {
             return rules_result;
@@ -284,6 +349,50 @@ public:
 
         const auto sized =
             PositionSizer::simulate_with_constraints(intent, risk, rules);
+        auto filter_result = InstrumentFilterEngine::validate_sized_quantity(
+            intent, rules, sized.quantity, sized.notional);
+        if (!filter_result.accepted_for_simulation) {
+            return filter_result;
+        }
+
+        return OrderManager::simulate_only(
+            intent, sized.quantity, sized.notional);
+    }
+
+    static astu::core::SimulationDecision run_with_position_and_instrument(
+        const astu::core::SignalIntent& intent,
+        const astu::core::DataStatus& data,
+        const astu::core::AccountRiskSnapshot& risk,
+        const astu::core::PositionSnapshot& position,
+        const astu::core::InstrumentConstraints& rules,
+        std::int64_t now_utc_ms) {
+        auto validation = IntentValidator::validate(intent, data, now_utc_ms);
+        if (!validation.accepted_for_simulation) {
+            return validation;
+        }
+
+        auto risk_result = AccountRiskEngine::evaluate(intent, risk);
+        if (!risk_result.accepted_for_simulation) {
+            return risk_result;
+        }
+
+        auto position_result = PositionStateEngine::evaluate(intent, position);
+        if (!position_result.accepted_for_simulation) {
+            return position_result;
+        }
+
+        auto rules_result = InstrumentFilterEngine::validate_rules(intent, rules);
+        if (!rules_result.accepted_for_simulation) {
+            return rules_result;
+        }
+
+        const double quantity_cap =
+            intent.action == astu::core::SignalAction::ScaleOut
+                ? position.quantity
+                : 0.0;
+        const auto sized = PositionSizer::simulate_with_constraints(
+            intent, risk, rules, quantity_cap);
+
         auto filter_result = InstrumentFilterEngine::validate_sized_quantity(
             intent, rules, sized.quantity, sized.notional);
         if (!filter_result.accepted_for_simulation) {
