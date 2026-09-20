@@ -10,6 +10,7 @@ int main(int argc, char** argv) {
 #ifdef _WIN32
     bool expect_duplicate = false;
     std::string case_id = "1";
+    std::string symbol = "BTCUSDT";
     auto expected = astu::core::DecisionCode::OrderRoutingDisabled;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -19,6 +20,8 @@ int main(int argc, char** argv) {
             case_id = argv[++i];
         } else if (arg == "--expect" && i + 1 < argc) {
             expected = astu::ipc::decision_from_string(argv[++i]);
+        } else if (arg == "--symbol" && i + 1 < argc) {
+            symbol = argv[++i];
         } else {
             std::cerr << "unknown argument: " << arg << "\n";
             return 2;
@@ -38,7 +41,7 @@ int main(int argc, char** argv) {
     intent.strategy_version = "1";
     intent.universe_id = "wsrtd-r2-bootstrap";
     intent.universe_version = 1;
-    intent.symbol = "BTCUSDT";
+    intent.symbol = symbol;
     intent.action = astu::core::SignalAction::Buy;
     intent.side = astu::core::PositionSide::Long;
     intent.source_periodicity = "M1";
