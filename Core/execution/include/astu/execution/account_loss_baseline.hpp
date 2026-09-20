@@ -154,14 +154,13 @@ public:
                 0.0,
                 out.high_water_margin_balance - risk.margin_balance);
         }
+        last_metrics_ = out;
         return out;
     }
 
     AccountLossBaselineMetrics snapshot() const {
         std::lock_guard<std::mutex> lock(mu_);
-        auto out = state_;
-        out.ready = loaded_;
-        return out;
+        return last_metrics_;
     }
 
     const std::filesystem::path& path() const noexcept {
@@ -319,6 +318,7 @@ private:
     std::filesystem::path path_;
     mutable std::mutex mu_;
     AccountLossBaselineMetrics state_;
+    AccountLossBaselineMetrics last_metrics_;
     bool loaded_{false};
 };
 
