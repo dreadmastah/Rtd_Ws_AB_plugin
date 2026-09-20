@@ -46,6 +46,8 @@
     "reservedAvailableBalance",
     "minimumAvailableBalanceReserve",
     "simulationMarginReservationRate",
+    "maxEffectiveLeverage",
+    "maxMarginUtilization",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -275,6 +277,15 @@
     "simulationMarginReservationRate": {
       "type": "number",
       "minimum": 0
+    },
+    "maxEffectiveLeverage": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxMarginUtilization": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
     }
   }
 }
