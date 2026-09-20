@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -64,6 +65,24 @@ public:
                 astu::ipc::require_u64(obj, "openPositions"));
             risk.max_open_positions = static_cast<std::uint32_t>(
                 astu::ipc::require_u64(obj, "maxOpenPositions"));
+
+            const auto margin_balance_it = obj.find("marginBalance");
+            const auto initial_margin_it = obj.find("initialMargin");
+            if ((margin_balance_it == obj.end()) !=
+                (initial_margin_it == obj.end())) {
+                return astu::core::AccountRiskSnapshot{};
+            }
+            if (margin_balance_it != obj.end()) {
+                risk.margin_balance =
+                    astu::ipc::require_double(obj, "marginBalance");
+                risk.initial_margin =
+                    astu::ipc::require_double(obj, "initialMargin");
+                risk.margin_metrics_reconciled =
+                    std::isfinite(risk.margin_balance) &&
+                    std::isfinite(risk.initial_margin) &&
+                    risk.margin_balance >= 0.0 &&
+                    risk.initial_margin >= 0.0;
+            }
 
             if (!risk.reconciled) {
                 risk.risk_state = astu::core::RiskState::Emergency;
