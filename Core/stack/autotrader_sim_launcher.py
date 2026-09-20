@@ -170,6 +170,12 @@ def run(args: argparse.Namespace) -> int:
         )
         return 2
 
+    if not args.realized_pnl_settlement_asset.strip():
+        print(
+            "ASTU_SIM_STACK_FATAL=realized PnL settlement asset must not be empty"
+        )
+        return 2
+
     if (
         (
             args.max_daily_realized_trade_loss > 0
