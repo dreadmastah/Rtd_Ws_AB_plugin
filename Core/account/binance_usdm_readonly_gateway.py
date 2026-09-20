@@ -113,9 +113,9 @@ def signed_get_account(
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
             payload = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")[:500]
+        # Do not echo private USER_DATA response bodies into logs.
         raise GatewayError(
-            f"Binance USER_DATA HTTP {exc.code}: {body}"
+            f"Binance USER_DATA HTTP {exc.code}"
         ) from exc
     except urllib.error.URLError as exc:
         raise GatewayError(f"Binance USER_DATA request failed: {exc}") from exc
