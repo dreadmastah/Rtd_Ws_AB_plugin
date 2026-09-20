@@ -169,6 +169,8 @@ int main(int argc, char** argv) {
         100'000);
     const auto recovered_orders_at_startup =
         journal->recovered_order_count();
+    const auto recovered_reconciliation_events_at_startup =
+        journal->reconciliation_event_count();
     auto order_lifecycle =
         std::make_shared<astu::execution::SimulationOrderLifecycle>(journal);
 
@@ -198,7 +200,9 @@ int main(int argc, char** argv) {
     execution_status->set_order_state_metrics(
         recovered_orders_at_startup,
         journal->recovered_order_count(),
-        journal->order_transition_count());
+        journal->order_transition_count(),
+        recovered_reconciliation_events_at_startup,
+        journal->reconciliation_event_count());
     execution_status->publish();
 
     astu::ipc::SimulationDispatcher dispatcher(
@@ -208,7 +212,8 @@ int main(int argc, char** argv) {
         [journal](const std::string& key) {
             return journal->accept_idempotency_key(key);
         },
-        [journal, order_lifecycle, execution_status, recovered_orders_at_startup](
+        [journal, order_lifecycle, execution_status, recovered_orders_at_startup,
+         recovered_reconciliation_events_at_startup](
             const astu::ipc::SimulationRequest& request,
             const astu::ipc::SimulationResponse& response,
             std::int64_t utc_ms) {
@@ -226,7 +231,9 @@ int main(int argc, char** argv) {
             execution_status->set_order_state_metrics(
                 recovered_orders_at_startup,
                 journal->recovered_order_count(),
-                journal->order_transition_count());
+                journal->order_transition_count(),
+                recovered_reconciliation_events_at_startup,
+                journal->reconciliation_event_count());
         },
         std::move(instrument_provider),
         std::move(position_provider));
@@ -289,6 +296,8 @@ int main(int argc, char** argv) {
               << journal->order_transition_count() << "\n";
     std::cout << "RECOVERED_SIMULATION_ORDER_INTENTS_AT_STARTUP="
               << journal->recovered_order_intent_count() << "\n";
+    std::cout << "RECOVERED_RECONCILIATION_EVENTS_AT_STARTUP="
+              << recovered_reconciliation_events_at_startup << "\n";
 
     for (;;) {
         try {
