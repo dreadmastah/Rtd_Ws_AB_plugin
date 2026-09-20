@@ -92,7 +92,7 @@ def normalize_rows(
     now_ms: int,
 ) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
-    seen: set[tuple[str, int, str, str, str]] = set()
+    seen: set[tuple[str, ...]] = set()
     for raw in rows:
         if not isinstance(raw, dict):
             raise IncomeReconcilerError("income response contains non-object row")
@@ -106,8 +106,8 @@ def normalize_rows(
         asset = str(raw.get("asset", ""))
         tran_id = str(raw.get("tranId", ""))
         trade_id = str(raw.get("tradeId", ""))
-        # Binance documents tranId as unique within incomeType. Keep additional
-        # fields in the key so fixtures and future API variants remain robust.
+        # Binance documents tranId as unique within incomeType. Prefer that
+        # stable identity; fall back to immutable row fields if it is absent.
         key = (
             (income_type, "TRAN_ID", tran_id)
             if tran_id
