@@ -71,6 +71,10 @@ add_executable(astu_position_state_tests tests/position_state_tests.cpp)
 target_link_libraries(astu_position_state_tests PRIVATE astu_core)
 add_test(NAME astu_position_state_tests COMMAND astu_position_state_tests)
 
+add_executable(astu_order_fsm_tests tests/order_fsm_tests.cpp)
+target_link_libraries(astu_order_fsm_tests PRIVATE astu_core)
+add_test(NAME astu_order_fsm_tests COMMAND astu_order_fsm_tests)
+
 if(WIN32)
     add_test(
         NAME astu_trade_amibroker_exports
