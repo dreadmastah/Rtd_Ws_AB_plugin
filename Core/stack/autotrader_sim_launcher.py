@@ -706,7 +706,7 @@ def parse_args() -> argparse.Namespace:
         "--testnet-user-data-ws-url-template",
         default=os.getenv(
             "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE",
-            "wss://fstream.binancefuture.com/private/ws/{listenKey}",
+            "",
         ),
     )
     ap.add_argument(
