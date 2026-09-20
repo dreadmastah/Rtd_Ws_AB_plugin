@@ -120,6 +120,11 @@ public:
                 false,
                 true,
                 std::string(kBinanceUsdmTestnetEnvironment));
+            journal_->release_exposure_reservation_for_terminal(
+                response.simulation_order_id,
+                utc_ms,
+                OrderState::Rejected,
+                "Binance Testnet rejection released projected exposure reservation");
             response.decision_code =
                 DecisionCode::TestnetRejected;
             response.reason = result.detail;
