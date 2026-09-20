@@ -260,6 +260,10 @@ def run(args: argparse.Namespace) -> int:
             str(args.max_risk_status_age_ms),
             "--execution-status-file",
             str(execution_status_file),
+            "--max-pending-entry-scale-in-reservations",
+            str(args.max_pending_entry_scale_in_reservations),
+            "--max-symbol-notional",
+            str(args.max_symbol_notional),
         ]
         if instrument_command is not None:
             host_command.extend([
@@ -295,6 +299,8 @@ def run(args: argparse.Namespace) -> int:
             print(f"POSITION_STATUS_DIR={position_dir}")
         print(f"EXECUTION_JOURNAL={journal}")
         print(f"EXECUTION_STATUS_FILE={execution_status_file}")
+        print(f"MAX_PENDING_ENTRY_SCALE_IN_RESERVATIONS={args.max_pending_entry_scale_in_reservations}")
+        print(f"MAX_SYMBOL_NOTIONAL={args.max_symbol_notional}")
         print(f"INSTRUMENT_MODE={args.instrument_mode}")
         if instrument_command is not None:
             print(f"INSTRUMENT_STATUS_DIR={instrument_dir}")
@@ -398,6 +404,18 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--order-reconcile-interval-ms", type=int, default=2000)
     ap.add_argument("--max-status-age-ms", type=int, default=5000)
     ap.add_argument("--max-risk-status-age-ms", type=int, default=7000)
+    ap.add_argument(
+        "--max-pending-entry-scale-in-reservations",
+        type=int,
+        default=0,
+        help="0 disables the simulation projected pending-reservation count limit.",
+    )
+    ap.add_argument(
+        "--max-symbol-notional",
+        type=float,
+        default=0.0,
+        help="0 disables the simulation per-symbol projected-notional limit.",
+    )
     ap.add_argument("--restart-delay-seconds", type=float, default=2.0)
     return ap.parse_args()
 
