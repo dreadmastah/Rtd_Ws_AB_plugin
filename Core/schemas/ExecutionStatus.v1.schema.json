@@ -70,6 +70,24 @@
     "maxDailyTotalPnlLoss",
     "maxWeeklyTotalPnlLoss",
     "maxAccountDrawdown",
+    "realizedPnlProvider",
+    "realizedPnlRequired",
+    "realizedPnlStatusFile",
+    "realizedPnlReady",
+    "dailyRealizedTradePnl",
+    "weeklyRealizedTradePnl",
+    "dailyRealizedTradeLoss",
+    "weeklyRealizedTradeLoss",
+    "dailyFundingFee",
+    "weeklyFundingFee",
+    "dailyCommission",
+    "weeklyCommission",
+    "dailyNetTradingIncome",
+    "weeklyNetTradingIncome",
+    "realizedPnlRecordsInCurrentWeek",
+    "realizedPnlIgnoredIncomeRecords",
+    "maxDailyRealizedTradeLoss",
+    "maxWeeklyRealizedTradeLoss",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -391,6 +409,69 @@
       "minimum": 0
     },
     "maxAccountDrawdown": {
+      "type": "number",
+      "minimum": 0
+    },
+    "realizedPnlProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "realizedPnlRequired": {
+      "type": "boolean"
+    },
+    "realizedPnlStatusFile": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "realizedPnlReady": {
+      "type": "boolean"
+    },
+    "dailyRealizedTradePnl": {
+      "type": "number"
+    },
+    "weeklyRealizedTradePnl": {
+      "type": "number"
+    },
+    "dailyRealizedTradeLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyRealizedTradeLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "dailyFundingFee": {
+      "type": "number"
+    },
+    "weeklyFundingFee": {
+      "type": "number"
+    },
+    "dailyCommission": {
+      "type": "number"
+    },
+    "weeklyCommission": {
+      "type": "number"
+    },
+    "dailyNetTradingIncome": {
+      "type": "number"
+    },
+    "weeklyNetTradingIncome": {
+      "type": "number"
+    },
+    "realizedPnlRecordsInCurrentWeek": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "realizedPnlIgnoredIncomeRecords": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxDailyRealizedTradeLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxWeeklyRealizedTradeLoss": {
       "type": "number",
       "minimum": 0
     }
