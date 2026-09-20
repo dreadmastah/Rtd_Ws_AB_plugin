@@ -379,9 +379,9 @@ public:
     std::vector<std::string> tracked_order_ids() const {
         std::lock_guard<std::mutex> lock(mu_);
         std::vector<std::string> out;
-        out.reserve(order_states_.size());
-        for (const auto& [order_id, state] : order_states_) {
-            (void)state;
+        out.reserve(order_intents_.size());
+        for (const auto& [order_id, intent] : order_intents_) {
+            (void)intent;
             out.push_back(order_id);
         }
         return out;
