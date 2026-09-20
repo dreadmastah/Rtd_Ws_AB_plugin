@@ -319,6 +319,9 @@ public:
                 reservation.reserved_gross_notional;
             summary.reserved_available_balance +=
                 reservation.reserved_available_balance;
+            summary.reserved_net_directional_notional +=
+                position_side_direction(reservation.side) *
+                reservation.reserved_gross_notional;
             if (reservation.reserves_position_slot &&
                 summary.reserved_position_slots <
                     std::numeric_limits<std::uint32_t>::max()) {
