@@ -227,6 +227,19 @@ add_test(
     COMMAND astu_testnet_order_snapshot_tests
 )
 
+add_executable(
+    astu_testnet_convergence_tests
+    tests/testnet_convergence_tests.cpp
+)
+target_link_libraries(
+    astu_testnet_convergence_tests
+    PRIVATE astu_core
+)
+add_test(
+    NAME astu_testnet_convergence_tests
+    COMMAND astu_testnet_convergence_tests
+)
+
 if(WIN32)
     add_executable(
         astu_named_pipe_security_tests
