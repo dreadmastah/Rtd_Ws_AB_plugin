@@ -11,6 +11,7 @@ int main(int argc, char** argv) {
     bool expect_duplicate = false;
     std::string case_id = "1";
     std::string symbol = "BTCUSDT";
+    auto side = astu::core::PositionSide::Long;
     auto expected = astu::core::DecisionCode::OrderRoutingDisabled;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -22,6 +23,8 @@ int main(int argc, char** argv) {
             expected = astu::ipc::decision_from_string(argv[++i]);
         } else if (arg == "--symbol" && i + 1 < argc) {
             symbol = argv[++i];
+        } else if (arg == "--side" && i + 1 < argc) {
+            side = astu::ipc::side_from_string(argv[++i]);
         } else {
             std::cerr << "unknown argument: " << arg << "\n";
             return 2;
@@ -43,7 +46,7 @@ int main(int argc, char** argv) {
     intent.universe_version = 1;
     intent.symbol = symbol;
     intent.action = astu::core::SignalAction::Buy;
-    intent.side = astu::core::PositionSide::Long;
+    intent.side = side;
     intent.source_periodicity = "M1";
     intent.source_bar_time_utc_ms = now - 60'000;
     intent.signal_time_utc_ms = now;
