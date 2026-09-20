@@ -208,6 +208,25 @@ add_test(
     COMMAND astu_testnet_order_router_tests
 )
 
+add_executable(
+    astu_testnet_order_snapshot_tests
+    tests/testnet_order_snapshot_tests.cpp
+)
+target_link_libraries(
+    astu_testnet_order_snapshot_tests
+    PRIVATE astu_core
+)
+if(WIN32)
+    target_link_libraries(
+        astu_testnet_order_snapshot_tests
+        PRIVATE bcrypt winhttp
+    )
+endif()
+add_test(
+    NAME astu_testnet_order_snapshot_tests
+    COMMAND astu_testnet_order_snapshot_tests
+)
+
 if(WIN32)
     add_executable(
         astu_named_pipe_security_tests
