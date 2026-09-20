@@ -731,6 +731,44 @@ A dedicated cross-platform C++ test verifies that `ExecutionStatusPublisher` ser
 
 This is an observability-only addition. The status monitor does not dispatch a signal, size an order, call a private mutation endpoint, or alter the execution decision path.
 
+## Bounded per-symbol projected exposure status
+
+The execution host now publishes a separate bounded `SymbolRiskStatus.v1` artifact for the selected bootstrap universe:
+
+```text
+Core/runtime/symbol_risk_status.v1.json
+```
+
+The universe source defaults to the tracked 12-symbol bootstrap list and is bounded to at most 64 symbols. Duplicate, invalid, empty or oversized universe input fails startup rather than silently changing the monitored risk universe.
+
+For each symbol the execution host publishes:
+
+- reconciled position readiness and mode;
+- current absolute position notional;
+- active symbol reservation count;
+- reserved symbol gross notional from the durable execution journal;
+- projected symbol notional;
+- configured `maxSymbolNotional`;
+- remaining symbol headroom when the limit is enabled;
+- explicit `DISABLED`, `UNAVAILABLE`, `HEADROOM` or `BLOCKED` status.
+
+The projection uses the same symbol-scoped reservation summary already consumed by the risk gate:
+
+```text
+projectedSymbolNotional =
+    reconciledPositionNotional
+    + activeSymbolReservedGrossNotional
+
+symbolHeadroom =
+    max(0, maxSymbolNotional - projectedSymbolNotional)
+```
+
+`AccountRiskView.v1` consumes this artifact as an independently freshness-checked read-only source and renders the bounded universe as a symbol table. Stale rows are marked `UNAVAILABLE`; a source that claims `orderRoutingEnabled=true` is rejected.
+
+Cross-platform native tests cover bounded universe loading and deterministic status publication. Python tests cover fresh, stale and routing-invalid symbol evidence. The Windows supervised-stack smoke verifies all 12 fixture symbols and then proves that an accepted BTC simulation reservation increases BTC projected notional above its reconciled position notional without enabling routing.
+
+This remains observability only. `SymbolRiskStatus.v1` cannot submit, cancel, amend, transfer, change leverage/margin state, or mutate positions.
+
 ## Current next implementation step
 
-Account-level projected headroom is now observable. The remaining risk-UI gap is **per-symbol projected exposure headroom across the selected universe**: `maxSymbolNotional` is configured globally, but the operator view does not yet have a read-only snapshot of each symbol's reconciled notional plus active symbol reservations. The next increment should publish a bounded per-symbol risk-status artifact for the bootstrap universe and surface symbol-level current/projected notional and headroom, without introducing an order or account mutation control.
+The Architecture R3.1 account-risk evidence requested by the current compatibility scope is now represented at both account and per-symbol level in the read-only operator view. Before adding another functional risk feature, the next increment should be **integration stabilization**: run the full Ubuntu/Windows Core Simulation CI against the accumulated PR head, fix any compile/schema/smoke regressions, and only then advance to another architecture requirement that is explicitly supported by the source documents.
