@@ -1,5 +1,6 @@
 #include <cmath>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -25,7 +26,8 @@ namespace {
 
 astu::ipc::SimulationRequest request(
     std::string suffix,
-    astu::core::SignalAction action = astu::core::SignalAction::Buy) {
+    astu::core::SignalAction action = astu::core::SignalAction::Buy,
+    std::string symbol = "BTCUSDT") {
     astu::ipc::SimulationRequest request;
     request.request_id = "RES-REQ-" + suffix;
     request.idempotency_key = "RES-IDEMP-" + suffix;
@@ -36,7 +38,7 @@ astu::ipc::SimulationRequest request(
     i.strategy_version = "1";
     i.universe_id = "U";
     i.universe_version = 1;
-    i.symbol = "BTCUSDT";
+    i.symbol = std::move(symbol);
     i.action = action;
     i.side = astu::core::PositionSide::Long;
     i.source_periodicity = "M1";
@@ -127,7 +129,10 @@ void persist_accepted(
 
 astu::ipc::SimulationDispatcher reservation_dispatcher(
     const std::shared_ptr<astu::execution::ExecutionJournal>& journal,
-    astu::core::AccountRiskSnapshot base) {
+    astu::core::AccountRiskSnapshot base,
+    std::uint64_t max_pending_entry_scale_in_reservations = 0,
+    double max_symbol_notional = 0.0,
+    std::function<double(const std::string&)> symbol_notional_provider = {}) {
     auto lifecycle =
         std::make_shared<astu::execution::SimulationOrderLifecycle>(
             journal);
@@ -136,10 +141,27 @@ astu::ipc::SimulationDispatcher reservation_dispatcher(
         [](const astu::core::SignalIntent& intent) {
             return ready_data(intent);
         },
-        [journal, base](const astu::core::SignalIntent&) {
+        [journal,
+         base,
+         max_pending_entry_scale_in_reservations,
+         max_symbol_notional,
+         symbol_notional_provider](
+            const astu::core::SignalIntent& intent) {
+            const bool symbol_reconciled =
+                max_symbol_notional <= 0.0 ||
+                static_cast<bool>(symbol_notional_provider);
+            const double symbol_notional =
+                symbol_notional_provider
+                    ? symbol_notional_provider(intent.symbol)
+                    : 0.0;
             return astu::execution::ExposureReservationRiskOverlay::apply(
                 base,
-                journal->exposure_reservation_summary());
+                journal->exposure_reservation_summary(
+                    intent.symbol),
+                max_pending_entry_scale_in_reservations,
+                symbol_reconciled,
+                symbol_notional,
+                max_symbol_notional);
         },
         4096,
         [journal](const std::string& key) {
@@ -315,6 +337,121 @@ int main() {
             dispatcher.dispatch(second, 2'501);
         REQUIRE(second_response.decision_code ==
                 DecisionCode::RiskBlocked);
+    }
+
+    {
+        const auto journal_path = root / "pending_limit.jsonl";
+        auto journal =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100);
+        auto dispatcher = reservation_dispatcher(
+            journal,
+            base_risk(0.0, 100'000.0, 0, 10),
+            1);
+
+        const auto first = request("PENDING-1");
+        const auto first_response =
+            dispatcher.dispatch(first, 2'700);
+        REQUIRE(first_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(journal->exposure_reservation_summary()
+                    .active_reservations == 1);
+
+        const auto second = request("PENDING-2");
+        const auto second_response =
+            dispatcher.dispatch(second, 2'701);
+        REQUIRE(second_response.decision_code ==
+                DecisionCode::RiskBlocked);
+        REQUIRE(!second_response.accepted_for_simulation);
+        REQUIRE(second_response.reason.find(
+                    "max pending entry/scale-in reservations") !=
+                std::string::npos);
+    }
+
+    {
+        const auto journal_path = root / "symbol_limit.jsonl";
+        auto journal =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100);
+        auto dispatcher = reservation_dispatcher(
+            journal,
+            base_risk(0.0, 100'000.0, 0, 10),
+            0,
+            15.0,
+            [](const std::string& symbol) {
+                return symbol == "BTCUSDT" ? 10.0 : 0.0;
+            });
+
+        const auto btc_first =
+            request("SYMBOL-BTC-1", SignalAction::Buy, "BTCUSDT");
+        const auto btc_first_response =
+            dispatcher.dispatch(btc_first, 2'800);
+        REQUIRE(btc_first_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(
+                    btc_first_response.simulated_notional -
+                    5.0) <
+                1e-12);
+
+        const auto btc_summary =
+            journal->exposure_reservation_summary("BTCUSDT");
+        REQUIRE(btc_summary.symbol_active_reservations == 1);
+        REQUIRE(std::fabs(
+                    btc_summary.symbol_reserved_gross_notional -
+                    5.0) <
+                1e-12);
+
+        const auto btc_second =
+            request("SYMBOL-BTC-2", SignalAction::Buy, "BTCUSDT");
+        const auto btc_second_response =
+            dispatcher.dispatch(btc_second, 2'801);
+        REQUIRE(btc_second_response.decision_code ==
+                DecisionCode::RiskBlocked);
+        REQUIRE(!btc_second_response.accepted_for_simulation);
+        REQUIRE(btc_second_response.reason.find(
+                    "max projected symbol notional") !=
+                std::string::npos);
+
+        const auto eth_first =
+            request("SYMBOL-ETH-1", SignalAction::Buy, "ETHUSDT");
+        const auto eth_first_response =
+            dispatcher.dispatch(eth_first, 2'802);
+        REQUIRE(eth_first_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(
+                    eth_first_response.simulated_notional -
+                    10.0) <
+                1e-12);
+        REQUIRE(
+            journal->exposure_reservation_summary("ETHUSDT")
+                .symbol_active_reservations == 1);
+        REQUIRE(
+            journal->exposure_reservation_summary()
+                .active_reservations == 2);
+    }
+
+    {
+        const auto journal_path =
+            root / "symbol_limit_unavailable.jsonl";
+        auto journal =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100);
+        auto dispatcher = reservation_dispatcher(
+            journal,
+            base_risk(0.0, 100'000.0, 0, 10),
+            0,
+            15.0);
+
+        const auto req =
+            request("SYMBOL-UNAVAILABLE");
+        const auto response =
+            dispatcher.dispatch(req, 2'900);
+        REQUIRE(response.decision_code ==
+                DecisionCode::PositionUnavailable);
+        REQUIRE(!response.accepted_for_simulation);
     }
 
     {
