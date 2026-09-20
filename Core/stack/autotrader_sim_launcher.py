@@ -216,6 +216,18 @@ def run(args: argparse.Namespace) -> int:
                 "--testnet-user-data-mode live"
             )
             return 2
+        if not (0 < args.max_symbol_notional <= 100):
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo routing acceptance requires "
+                "--max-symbol-notional in (0, 100]"
+            )
+            return 2
+        if args.max_pending_entry_scale_in_reservations != 1:
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo routing acceptance requires "
+                "--max-pending-entry-scale-in-reservations 1"
+            )
+            return 2
         if args.testnet_rest_base_url.rstrip("/") != "https://demo-fapi.binance.com":
             print(
                 "ASTU_SIM_STACK_FATAL=Demo routing requires "
