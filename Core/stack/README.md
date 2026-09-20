@@ -126,6 +126,27 @@ The limit is directional rather than gross: a SHORT projected reservation can of
 
 This control evaluates only simulation/account state; it does not submit an opposite-side hedge or otherwise mutate exchange positions.
 
+## UTC loss budgets and high-water drawdown
+
+The supervisor forwards persisted account-risk loss controls:
+
+```cmd
+python Core\stack\autotrader_sim_launcher.py ^
+  --risk-mode fixture ^
+  --max-daily-risk-capital-loss 250 ^
+  --max-weekly-risk-capital-loss 750 ^
+  --max-daily-total-pnl-loss 300 ^
+  --max-weekly-total-pnl-loss 900 ^
+  --max-account-drawdown 1000 ^
+  --account-loss-baseline-file Core\runtime\account_loss_baseline.v1.json
+```
+
+A value of `0` disables an individual limit. Daily/weekly Risk Capital consumption uses the persisted Risk Capital baseline. The optional total-PnL compatibility budgets and high-water drawdown use reconciled Margin Balance.
+
+The baseline tracker runs continuously in the execution host while any of these limits are active. Daily and weekly baselines roll on UTC boundaries; the week is Monday-aligned. The Margin Balance high-water mark persists across those period rollovers.
+
+The current account endpoint does not provide an exact historical realized-PnL ledger, so these controls must not be described as exact realized-trade-PnL limits. A separate read-only realized-income source remains required for that distinction.
+
 ## Synthetic projected-risk controls
 
 The execution host synthetic mode exposes test-only limits for projected-risk acceptance:
