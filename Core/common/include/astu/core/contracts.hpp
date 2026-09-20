@@ -26,6 +26,14 @@ enum class RiskState {
     Emergency,
 };
 
+enum class PositionMode {
+    Flat,
+    Long,
+    Short,
+    Hedged,
+    Unknown,
+};
+
 struct SignalIntent {
     std::uint32_t schema_version{1};
     std::string signal_id;
@@ -77,6 +85,17 @@ struct AccountRiskSnapshot {
     std::uint32_t max_open_positions{0};
 };
 
+struct PositionSnapshot {
+    std::uint32_t schema_version{1};
+    bool reconciled{false};
+    std::string source;
+    std::string symbol;
+    PositionMode mode{PositionMode::Unknown};
+    double quantity{0.0};
+    double notional{0.0};
+    std::string detail;
+};
+
 struct InstrumentConstraints {
     std::uint32_t schema_version{1};
     bool ready{false};
@@ -105,6 +124,8 @@ enum class DecisionCode : int {
     InstrumentUnavailable = 32,
     FilterRejected = 33,
     SizingRejected = 34,
+    PositionUnavailable = 35,
+    PositionConflict = 36,
     OrderRoutingDisabled = 100,
     DuplicateRequest = 110,
     FrameInvalid = 120,
