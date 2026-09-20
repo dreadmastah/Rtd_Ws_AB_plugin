@@ -48,6 +48,8 @@
     "simulationMarginReservationRate",
     "maxEffectiveLeverage",
     "maxMarginUtilization",
+    "reservedNetDirectionalNotional",
+    "maxNetDirectionalNotional",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -286,6 +288,13 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1
+    },
+    "reservedNetDirectionalNotional": {
+      "type": "number"
+    },
+    "maxNetDirectionalNotional": {
+      "type": "number",
+      "minimum": 0
     }
   }
 }
