@@ -94,6 +94,13 @@ public:
             return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
                     "max pending entry/scale-in reservations reached"};
         }
+        if (exposure &&
+            risk.minimum_available_balance_reserve > 0.0 &&
+            risk.available_balance <=
+                risk.minimum_available_balance_reserve) {
+            return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                    "minimum available-balance reserve reached"};
+        }
         if (exposure && risk.max_gross_notional > 0.0 &&
             risk.gross_notional >= risk.max_gross_notional) {
             return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
@@ -274,6 +281,18 @@ public:
                     risk.max_symbol_notional -
                         risk.symbol_notional));
         }
+        if (astu::core::increases_exposure(intent.action) &&
+            risk.margin_reservation_rate > 0.0) {
+            const double free_balance_headroom =
+                std::max(
+                    0.0,
+                    risk.available_balance -
+                        risk.minimum_available_balance_reserve);
+            budget = std::min(
+                budget,
+                free_balance_headroom /
+                    risk.margin_reservation_rate);
+        }
         if (!std::isfinite(budget) || budget <= 0.0) {
             return 0.0;
         }
@@ -312,6 +331,19 @@ public:
                     risk.max_symbol_notional -
                         risk.symbol_notional);
             budget = std::min(budget, symbol_headroom);
+        }
+
+        if (astu::core::increases_exposure(intent.action) &&
+            risk.margin_reservation_rate > 0.0) {
+            const double free_balance_headroom =
+                std::max(
+                    0.0,
+                    risk.available_balance -
+                        risk.minimum_available_balance_reserve);
+            budget = std::min(
+                budget,
+                free_balance_headroom /
+                    risk.margin_reservation_rate);
         }
 
         if (rules.max_notional > 0.0) {
