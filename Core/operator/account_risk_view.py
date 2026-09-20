@@ -22,6 +22,7 @@ RUNTIME = ROOT / "runtime"
 DEFAULT_STATUS = RUNTIME / "execution_status.v1.json"
 DEFAULT_JSON = RUNTIME / "account_risk_view.v1.json"
 DEFAULT_HTML = RUNTIME / "account_risk_view.html"
+DEFAULT_SYMBOL_RISK_STATUS = RUNTIME / "symbol_risk_status.v1.json"
 
 BUDGET_SPECS = (
     (
@@ -227,12 +228,108 @@ def validate_status(status: dict[str, Any]) -> None:
         _boolean(status, spec[6])
 
 
+def _symbol_risk_view(
+    obj: dict[str, Any] | None,
+    *,
+    now_ms: int,
+    source_path: str,
+    max_source_age_ms: int,
+) -> dict[str, Any]:
+    if obj is None:
+        return {
+            "sourcePath": source_path,
+            "sourceGeneratedUnixMs": 0,
+            "sourceAgeMs": 0,
+            "sourceFresh": False,
+            "maxSourceAgeMs": max_source_age_ms,
+            "ready": False,
+            "reason": "SYMBOL_RISK_STATUS_UNAVAILABLE",
+            "symbols": [],
+        }
+    if obj.get("schemaVersion") != 1:
+        raise ValueError("unsupported SymbolRiskStatus schemaVersion")
+    if obj.get("messageType") != "SymbolRiskStatus.v1":
+        raise ValueError("expected SymbolRiskStatus.v1")
+    if obj.get("orderRoutingEnabled") is not False:
+        raise ValueError("symbol risk status reports routing enabled")
+    generated = _integer(obj, "generatedUnixMs")
+    age = now_ms - generated
+    fresh = 0 <= age <= max_source_age_ms
+    raw_symbols = obj.get("symbols")
+    if not isinstance(raw_symbols, list) or not (1 <= len(raw_symbols) <= 64):
+        raise ValueError("SymbolRiskStatus symbols must contain 1..64 entries")
+
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in raw_symbols:
+        if not isinstance(raw, dict):
+            raise ValueError("SymbolRiskStatus entry must be an object")
+        symbol = _string(raw, "symbol")
+        if not symbol or symbol in seen:
+            raise ValueError("SymbolRiskStatus symbols must be unique and non-empty")
+        seen.add(symbol)
+        position_ready = _boolean(raw, "positionReady")
+        limit_enabled = _boolean(raw, "limitEnabled")
+        current = _number(raw, "currentNotional")
+        reserved = _number(raw, "reservedGrossNotional")
+        projected = _number(raw, "projectedNotional")
+        limit = _number(raw, "maxSymbolNotional")
+        headroom_raw = raw.get("headroom")
+        if headroom_raw is None:
+            headroom = None
+        else:
+            if isinstance(headroom_raw, bool) or not isinstance(headroom_raw, (int, float)):
+                raise ValueError("SymbolRiskStatus headroom must be numeric/null")
+            headroom = float(headroom_raw)
+            if not math.isfinite(headroom) or headroom < 0:
+                raise ValueError("SymbolRiskStatus headroom must be finite/non-negative")
+        active = _integer(raw, "activeReservations")
+        status_name = _string(raw, "status")
+        if status_name not in ("DISABLED", "UNAVAILABLE", "HEADROOM", "BLOCKED"):
+            raise ValueError("invalid SymbolRiskStatus status")
+        rows.append(
+            {
+                "symbol": symbol,
+                "positionReady": fresh and position_ready,
+                "positionMode": _string(raw, "positionMode"),
+                "currentNotional": current,
+                "activeReservations": active,
+                "reservedGrossNotional": reserved,
+                "projectedNotional": projected,
+                "maxSymbolNotional": limit,
+                "headroom": headroom if fresh else None,
+                "limitEnabled": limit_enabled,
+                "status": status_name if fresh else "UNAVAILABLE",
+                "detail": _string(raw, "detail"),
+            }
+        )
+
+    reason = ""
+    if age < 0:
+        reason = "SYMBOL_RISK_STATUS_CLOCK_ROLLBACK"
+    elif not fresh:
+        reason = "SYMBOL_RISK_STATUS_STALE"
+    return {
+        "sourcePath": source_path,
+        "sourceGeneratedUnixMs": generated,
+        "sourceAgeMs": age,
+        "sourceFresh": fresh,
+        "maxSourceAgeMs": max_source_age_ms,
+        "ready": fresh,
+        "reason": reason,
+        "symbols": rows,
+    }
+
+
 def build_view(
     status: dict[str, Any],
     *,
     now_ms: int,
     source_path: str,
     max_source_age_ms: int,
+    symbol_risk: dict[str, Any] | None = None,
+    symbol_risk_source_path: str = "",
+    max_symbol_risk_age_ms: int = 5000,
 ) -> dict[str, Any]:
     validate_status(status)
     if max_source_age_ms <= 0:
@@ -364,6 +461,12 @@ def build_view(
 
     day_index = _integer(status, "accountLossUtcDayIndex")
     week_index = _integer(status, "accountLossUtcWeekStartDayIndex")
+    symbol_view = _symbol_risk_view(
+        symbol_risk,
+        now_ms=now_ms,
+        source_path=symbol_risk_source_path,
+        max_source_age_ms=max_symbol_risk_age_ms,
+    )
 
     return {
         "schemaVersion": 1,
@@ -499,6 +602,7 @@ def build_view(
                 else None
             ),
         },
+        "symbolRisk": symbol_view,
         "projectedRisk": {
             "activeExposureReservations": _integer(
                 status, "activeExposureReservations"
@@ -605,6 +709,16 @@ def build_error_view(
             "longDirectionalHeadroom": None,
             "shortDirectionalHeadroom": None,
         },
+        "symbolRisk": {
+            "sourcePath": "",
+            "sourceGeneratedUnixMs": 0,
+            "sourceAgeMs": 0,
+            "sourceFresh": False,
+            "maxSourceAgeMs": 0,
+            "ready": False,
+            "reason": "SYMBOL_RISK_STATUS_UNAVAILABLE",
+            "symbols": [],
+        },
         "projectedRisk": {
             "activeExposureReservations": 0,
             "reservedGrossNotional": 0.0,
@@ -666,8 +780,28 @@ def render_html(view: dict[str, Any], refresh_seconds: float) -> str:
             '<tr><td colspan="8">No trustworthy ExecutionStatus evidence available.</td></tr>'
         )
 
+    symbol_rows = []
+    for row in symbol_risk.get("symbols", []):
+        symbol_rows.append(
+            "<tr>"
+            f"<td>{esc(str(row['symbol']))}</td>"
+            f"<td>{esc(str(row['positionMode']))}</td>"
+            f"<td>{esc(_fmt(row['currentNotional']))}</td>"
+            f"<td>{esc(_fmt(row['reservedGrossNotional']))}</td>"
+            f"<td>{esc(_fmt(row['projectedNotional']))}</td>"
+            f"<td>{esc(_fmt(row['maxSymbolNotional']))}</td>"
+            f"<td>{esc(_fmt(row['headroom']))}</td>"
+            f"<td>{esc(str(row['status']))}</td>"
+            "</tr>"
+        )
+    if not symbol_rows:
+        symbol_rows.append(
+            '<tr><td colspan="8">Per-symbol risk evidence unavailable.</td></tr>'
+        )
+
     evidence = view["realizedPnlEvidence"]
     account = view["accountRiskObservation"]
+    symbol_risk = view["symbolRisk"]
     projected = view["projectedRisk"]
     periods = view["periods"]
 
@@ -786,6 +920,16 @@ orderRoutingEnabled=false. This page only renders local ExecutionStatus.v1 evide
 </dl></div>
 </div>
 
+<h2>Per-symbol projected exposure</h2>
+<p><small>Source fresh: {esc(_fmt(symbol_risk['sourceFresh']))}. {esc(str(symbol_risk.get('reason') or ''))}</small></p>
+<table>
+<thead><tr>
+<th>Symbol</th><th>Position</th><th>Current</th><th>Reserved</th>
+<th>Projected</th><th>Limit</th><th>Headroom</th><th>Status</th>
+</tr></thead>
+<tbody>{''.join(symbol_rows)}</tbody>
+</table>
+
 <h2>Projected exposure context</h2>
 <div class="grid">
 <div class="card"><dl>
@@ -827,17 +971,35 @@ def publish_once(
     *,
     max_source_age_ms: int,
     refresh_seconds: float,
+    symbol_risk_status_path: Path | None = None,
+    max_symbol_risk_age_ms: int = 5000,
 ) -> dict[str, Any]:
     now_ms = int(time.time() * 1000)
     try:
         status = json.loads(status_path.read_text(encoding="utf-8"))
         if not isinstance(status, dict):
             raise ValueError("ExecutionStatus root must be an object")
+        symbol_risk = None
+        symbol_risk_source_path = ""
+        if symbol_risk_status_path is not None:
+            symbol_risk_source_path = str(symbol_risk_status_path)
+            try:
+                raw_symbol_risk = json.loads(
+                    symbol_risk_status_path.read_text(encoding="utf-8")
+                )
+                if not isinstance(raw_symbol_risk, dict):
+                    raise ValueError("SymbolRiskStatus root must be an object")
+                symbol_risk = raw_symbol_risk
+            except FileNotFoundError:
+                symbol_risk = None
         view = build_view(
             status,
             now_ms=now_ms,
             source_path=str(status_path),
             max_source_age_ms=max_source_age_ms,
+            symbol_risk=symbol_risk,
+            symbol_risk_source_path=symbol_risk_source_path,
+            max_symbol_risk_age_ms=max_symbol_risk_age_ms,
         )
     except Exception as exc:
         view = build_error_view(
@@ -860,7 +1022,12 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--execution-status-file", default=str(DEFAULT_STATUS))
     ap.add_argument("--output-json", default=str(DEFAULT_JSON))
     ap.add_argument("--output-html", default=str(DEFAULT_HTML))
+    ap.add_argument(
+        "--symbol-risk-status-file",
+        default=str(DEFAULT_SYMBOL_RISK_STATUS),
+    )
     ap.add_argument("--max-source-age-ms", type=int, default=5000)
+    ap.add_argument("--max-symbol-risk-age-ms", type=int, default=5000)
     ap.add_argument("--poll-seconds", type=float, default=1.0)
     ap.add_argument("--watch", action="store_true")
     return ap.parse_args()
@@ -868,13 +1035,18 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    if args.max_source_age_ms <= 0 or args.poll_seconds <= 0:
+    if (
+        args.max_source_age_ms <= 0
+        or args.max_symbol_risk_age_ms <= 0
+        or args.poll_seconds <= 0
+    ):
         print("ACCOUNT_RISK_VIEW_FATAL=invalid freshness/poll settings")
         return 2
 
     status_path = Path(args.execution_status_file).resolve()
     output_json = Path(args.output_json).resolve()
     output_html = Path(args.output_html).resolve()
+    symbol_risk_status_path = Path(args.symbol_risk_status_file).resolve()
 
     while True:
         view = publish_once(
@@ -883,6 +1055,8 @@ def main() -> int:
             output_html,
             max_source_age_ms=args.max_source_age_ms,
             refresh_seconds=args.poll_seconds,
+            symbol_risk_status_path=symbol_risk_status_path,
+            max_symbol_risk_age_ms=args.max_symbol_risk_age_ms,
         )
         print(
             "ACCOUNT_RISK_VIEW_STATE="
