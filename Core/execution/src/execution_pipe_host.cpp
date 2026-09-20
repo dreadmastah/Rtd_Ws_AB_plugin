@@ -221,6 +221,11 @@ int main(int argc, char** argv) {
         env && *env) {
         realized_pnl_status_file = env;
     }
+    if (const char* env = std::getenv(
+            "ASTU_MAX_REALIZED_PNL_STATUS_AGE_MS");
+        env && *env) {
+        max_realized_pnl_status_age_ms = std::stoull(env);
+    }
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
