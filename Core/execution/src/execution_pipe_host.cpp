@@ -12,6 +12,7 @@
 #include "astu/execution/execution_journal.hpp"
 #include "astu/execution/execution_pipe_server.hpp"
 #include "astu/execution/execution_status.hpp"
+#include "astu/execution/reconciliation_pipe_server.hpp"
 #include "astu/execution/simulation_order_lifecycle.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
 #include "astu/instrument/live_instrument_provider.hpp"
@@ -205,6 +206,44 @@ int main(int argc, char** argv) {
         journal->reconciliation_event_count());
     execution_status->publish();
 
+    auto reconciliation_server =
+        std::make_shared<astu::execution::ReconciliationPipeServer>(
+            astu::ipc::SimulationReconciliationDispatcher{journal});
+
+    std::jthread reconciliation_thread(
+        [reconciliation_server,
+         journal,
+         execution_status,
+         recovered_orders_at_startup,
+         recovered_reconciliation_events_at_startup](
+            std::stop_token stop) {
+            while (!stop.stop_requested()) {
+                try {
+                    reconciliation_server->serve_once();
+                    execution_status->set_order_state_metrics(
+                        recovered_orders_at_startup,
+                        journal->recovered_order_count(),
+                        journal->order_transition_count(),
+                        recovered_reconciliation_events_at_startup,
+                        journal->reconciliation_event_count());
+                    execution_status->publish();
+                } catch (const std::exception& exc) {
+                    execution_status->set_degraded(
+                        std::string(
+                            "reconciliation pipe request failed: ") +
+                        exc.what());
+                    try {
+                        execution_status->publish();
+                    } catch (...) {
+                    }
+                    std::cerr
+                        << "reconciliation pipe request failed: "
+                        << exc.what() << "\n";
+                    execution_status->set_ready(true, true);
+                }
+            }
+        });
+
     astu::ipc::SimulationDispatcher dispatcher(
         std::move(data_provider),
         std::move(risk_provider),
@@ -258,6 +297,8 @@ int main(int argc, char** argv) {
     astu::execution::ExecutionPipeServer server(std::move(dispatcher));
     std::wcout << L"Execution simulation pipe host listening on "
                << astu::ipc::kExecutionPipeName << L"\n";
+    std::wcout << L"Simulation reconciliation pipe listening on "
+               << astu::ipc::kReconciliationPipeName << L"\n";
     std::cout << "ORDER_ROUTING_ENABLED=false\n";
     std::cout << "DATA_PROVIDER=" << data_provider_name << "\n";
     if (!synthetic) {
