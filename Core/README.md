@@ -671,6 +671,23 @@ The Windows acceptance test creates both canonical pipe names, validates the gen
 
 This change only narrows local IPC access. It does not introduce order submission, cancellation, transfer, leverage/margin mutation, hedge mutation or automatic `SUBMITTING`.
 
+## Read-only Account Risk operator view
+
+`Core/operator/account_risk_view.py` now derives `AccountRiskView.v1` and a local auto-refreshing HTML page from `ExecutionStatus.v1`. The projection surfaces the R3.1 account-risk evidence already owned by the execution process:
+
+- persisted UTC daily/weekly Risk Capital and Margin Balance baselines;
+- high-water Margin Balance and current account drawdown;
+- compatibility daily/weekly loss consumption;
+- exact realized-trade daily/weekly loss consumption;
+- configured limits, consumed ratios and remaining headroom;
+- realized trade PnL, funding, commission and classified net income;
+- projected exposure reservations and configured projected-risk limits;
+- fail-closed source readiness and explicit current `ACCOUNT_NOT_RECONCILED` / `RISK_BLOCKED` reasons.
+
+The view refuses any `ExecutionStatus.v1` that reports `orderRoutingEnabled=true`. Missing, malformed, stale, or clock-regressed source evidence is published as `ACCOUNT_NOT_RECONCILED` rather than rendered as healthy. The HTML contains no order/cancel/account controls and the generator opens no network or trading endpoint.
+
+The simulation supervisor starts this read-only projection by default as a separately supervised child. Cross-platform tests cover clear/headroom, threshold blocking, missing realized evidence, stale evidence, clock rollback, disabled budgets and routing-invariant rejection. The Windows supervised-stack smoke requires the JSON and HTML views before continuing through the normal simulation-only request path.
+
 ## Current next implementation step
 
-The remaining Architecture R3.1 account-risk data is now available through `ExecutionStatus.v1`, including daily/weekly baselines, realized-loss consumption, configured limits, headroom inputs and block reasons. The next increment should surface that evidence in a read-only Account Risk operator view, without adding any control that can submit orders or mutate exchange/account state.
+The operator view can show projected reservations and configured limits, but `ExecutionStatus.v1` does not yet publish all current reconciled account values needed to display live headroom for effective leverage, margin utilization, free balance, gross notional and signed net exposure in the same deterministic way as the loss budgets. The next increment should add those read-only account/exposure observations to `ExecutionStatus.v1` and extend `AccountRiskView.v1` with their current/projected values and headroom, without adding any exchange mutation or routing capability.
