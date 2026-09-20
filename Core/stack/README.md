@@ -145,7 +145,38 @@ A value of `0` disables an individual limit. Daily/weekly Risk Capital consumpti
 
 The baseline tracker runs continuously in the execution host while any of these limits are active. Daily and weekly baselines roll on UTC boundaries; the week is Monday-aligned. The Margin Balance high-water mark persists across those period rollovers.
 
-The current account endpoint does not provide an exact historical realized-PnL ledger, so these controls must not be described as exact realized-trade-PnL limits. A separate read-only realized-income source remains required for that distinction.
+These Risk Capital / Margin Balance controls are separate from exact realized-trade-loss evidence.
+
+## Realized income mode
+
+The supervisor can run the dedicated USD-M income reconciler independently of the account snapshot process:
+
+- `disabled` — default; no income-history process;
+- `fixture` — CI/development using the checked-in income fixture;
+- `readonly` — signed read-only `GET /fapi/v1/income`, still gated by `ASTU_BINANCE_PRIVATE_READONLY_ENABLED=1` and environment-only credentials.
+
+Example:
+
+```cmd
+python Core\stack\autotrader_sim_launcher.py ^
+  --risk-mode readonly ^
+  --realized-pnl-mode readonly ^
+  --max-daily-realized-trade-loss 250 ^
+  --max-weekly-realized-trade-loss 750
+```
+
+The supervisor refuses a positive exact realized-loss limit when `--realized-pnl-mode disabled` is selected.
+
+The reconciler writes:
+
+```text
+Core/runtime/realized_pnl_status.v1.json
+Core/runtime/realized_pnl_accumulator.v1.json
+```
+
+and classifies `REALIZED_PNL`, `FUNDING_FEE` and `COMMISSION` separately. Transfers/other flow types are excluded from the realized-trade-loss gate. The persisted accumulator keeps the maximum realized-loss consumption reached inside each UTC day/week so later profits cannot silently reopen a consumed loss budget.
+
+The default settlement asset is `USDT`. Tracked income in another asset fails reconciliation closed until an explicit conversion policy exists.
 
 ## Synthetic projected-risk controls
 
