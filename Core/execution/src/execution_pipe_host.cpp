@@ -689,7 +689,7 @@ int main(int argc, char** argv) {
         realized_pnl_required,
         realized_pnl_status_file.string(),
         false,
-        "",
+        "UNKNOWN",
         0.0,
         0.0,
         0.0,
@@ -735,7 +735,9 @@ int main(int argc, char** argv) {
                         true,
                         realized_pnl_status_file.string(),
                         realized.reconciled,
-                        realized.settlement_asset,
+                        realized.settlement_asset.empty()
+                            ? "UNKNOWN"
+                            : realized.settlement_asset,
                         realized.daily_realized_trade_pnl,
                         realized.weekly_realized_trade_pnl,
                         realized.daily_realized_trade_loss,
