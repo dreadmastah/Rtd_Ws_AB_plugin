@@ -793,6 +793,214 @@ int main() {
     }
 
     {
+        const auto journal_path =
+            root / "net_directional.jsonl";
+        auto journal =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100);
+        auto risk =
+            base_risk(0.0, 100'000.0, 0, 10);
+        risk.net_directional_reconciled = true;
+        risk.net_directional_notional = 0.0;
+
+        auto dispatcher = reservation_dispatcher(
+            journal,
+            risk,
+            0,
+            0.0,
+            {},
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            10.0);
+
+        const auto long_first =
+            request(
+                "NET-LONG-1",
+                SignalAction::Buy,
+                "BTCUSDT",
+                astu::core::PositionSide::Long);
+        const auto long_first_response =
+            dispatcher.dispatch(long_first, 3'800);
+        REQUIRE(long_first_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(
+                    long_first_response.simulated_notional -
+                    10.0) <
+                1e-12);
+        auto summary =
+            journal->exposure_reservation_summary();
+        REQUIRE(summary.active_reservations == 1);
+        REQUIRE(std::fabs(
+                    summary.reserved_net_directional_notional -
+                    10.0) <
+                1e-12);
+
+        const auto long_second =
+            request(
+                "NET-LONG-2",
+                SignalAction::Buy,
+                "ETHUSDT",
+                astu::core::PositionSide::Long);
+        const auto long_second_response =
+            dispatcher.dispatch(long_second, 3'801);
+        REQUIRE(long_second_response.decision_code ==
+                DecisionCode::RiskBlocked);
+        REQUIRE(long_second_response.reason.find(
+                    "maximum net directional exposure") !=
+                std::string::npos);
+
+        const auto short_first =
+            request(
+                "NET-SHORT-1",
+                SignalAction::Buy,
+                "SOLUSDT",
+                astu::core::PositionSide::Short);
+        const auto short_first_response =
+            dispatcher.dispatch(short_first, 3'802);
+        REQUIRE(short_first_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(
+                    short_first_response.simulated_notional -
+                    10.0) <
+                1e-12);
+
+        summary = journal->exposure_reservation_summary();
+        REQUIRE(summary.active_reservations == 2);
+        REQUIRE(std::fabs(
+                    summary.reserved_net_directional_notional) <
+                1e-12);
+
+        const auto long_third =
+            request(
+                "NET-LONG-3",
+                SignalAction::Buy,
+                "BNBUSDT",
+                astu::core::PositionSide::Long);
+        const auto long_third_response =
+            dispatcher.dispatch(long_third, 3'803);
+        REQUIRE(long_third_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+
+        summary = journal->exposure_reservation_summary();
+        REQUIRE(summary.active_reservations == 3);
+        REQUIRE(std::fabs(
+                    summary.reserved_net_directional_notional -
+                    10.0) <
+                1e-12);
+
+        auto replayed =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100);
+        const auto replayed_summary =
+            replayed->exposure_reservation_summary();
+        REQUIRE(replayed_summary.active_reservations == 3);
+        REQUIRE(std::fabs(
+                    replayed_summary.reserved_net_directional_notional -
+                    10.0) <
+                1e-12);
+    }
+
+    {
+        const auto req =
+            request(
+                "STRICT-NET-LONG",
+                SignalAction::Buy,
+                "BTCUSDT",
+                astu::core::PositionSide::Long);
+        auto risk =
+            base_risk(0.0, 100'000.0, 0, 10);
+        risk.net_directional_reconciled = true;
+        risk.net_directional_notional = 8.0;
+        risk.max_net_directional_notional = 10.0;
+
+        astu::core::InstrumentConstraints rules;
+        rules.ready = true;
+        rules.source = "STRICT-NET-LONG-TEST";
+        rules.symbol = "BTCUSDT";
+        rules.price_tick = 0.1;
+        rules.quantity_step = 0.01;
+        rules.min_quantity = 0.01;
+        rules.max_quantity = 1000.0;
+        rules.min_notional = 1.0;
+        rules.max_notional = 100'000.0;
+
+        const auto decision =
+            astu::execution::SimulationEngine::run_with_instrument(
+                req.intent,
+                ready_data(req.intent),
+                risk,
+                rules,
+                3'900);
+        REQUIRE(decision.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(decision.simulated_notional - 2.0) <
+                1e-12);
+    }
+
+    {
+        const auto req =
+            request(
+                "STRICT-NET-SHORT",
+                SignalAction::Buy,
+                "BTCUSDT",
+                astu::core::PositionSide::Short);
+        auto risk =
+            base_risk(0.0, 100'000.0, 0, 10);
+        risk.net_directional_reconciled = true;
+        risk.net_directional_notional = -8.0;
+        risk.max_net_directional_notional = 10.0;
+
+        astu::core::InstrumentConstraints rules;
+        rules.ready = true;
+        rules.source = "STRICT-NET-SHORT-TEST";
+        rules.symbol = "BTCUSDT";
+        rules.price_tick = 0.1;
+        rules.quantity_step = 0.01;
+        rules.min_quantity = 0.01;
+        rules.max_quantity = 1000.0;
+        rules.min_notional = 1.0;
+        rules.max_notional = 100'000.0;
+
+        const auto decision =
+            astu::execution::SimulationEngine::run_with_instrument(
+                req.intent,
+                ready_data(req.intent),
+                risk,
+                rules,
+                3'901);
+        REQUIRE(decision.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(decision.simulated_notional - 2.0) <
+                1e-12);
+    }
+
+    {
+        const auto req =
+            request(
+                "NET-MISSING",
+                SignalAction::Buy,
+                "BTCUSDT",
+                astu::core::PositionSide::Long);
+        auto risk =
+            base_risk(0.0, 100'000.0, 0, 10);
+        risk.max_net_directional_notional = 10.0;
+
+        const auto decision =
+            astu::execution::SimulationEngine::run(
+                req.intent,
+                ready_data(req.intent),
+                risk,
+                3'902);
+        REQUIRE(decision.decision_code ==
+                DecisionCode::AccountNotReconciled);
+        REQUIRE(!decision.accepted_for_simulation);
+    }
+
+    {
         const auto journal_path = root / "positions.jsonl";
         auto journal =
             std::make_shared<astu::execution::ExecutionJournal>(
