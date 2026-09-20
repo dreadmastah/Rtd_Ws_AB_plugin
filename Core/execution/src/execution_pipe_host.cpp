@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "astu/account/live_position_provider.hpp"
+#include "astu/account/live_realized_pnl_provider.hpp"
 #include "astu/account/live_risk_provider.hpp"
 #include "astu/core/contracts.hpp"
 #include "astu/execution/account_loss_baseline.hpp"
@@ -105,6 +106,11 @@ int main(int argc, char** argv) {
     double max_account_drawdown = 0.0;
     std::filesystem::path account_loss_baseline_file =
         "Core/runtime/account_loss_baseline.v1.json";
+    double max_daily_realized_trade_loss = 0.0;
+    double max_weekly_realized_trade_loss = 0.0;
+    std::filesystem::path realized_pnl_status_file =
+        "Core/runtime/realized_pnl_status.v1.json";
+    std::uint64_t max_realized_pnl_status_age_ms = 90'000;
     std::uint64_t max_status_age_ms = 5'000;
     std::filesystem::path journal_path =
         "Core/runtime/execution_journal.v1.jsonl";
@@ -203,6 +209,18 @@ int main(int argc, char** argv) {
         env && *env) {
         account_loss_baseline_file = env;
     }
+    if (const char* env = std::getenv("ASTU_MAX_DAILY_REALIZED_TRADE_LOSS");
+        env && *env) {
+        max_daily_realized_trade_loss = std::stod(env);
+    }
+    if (const char* env = std::getenv("ASTU_MAX_WEEKLY_REALIZED_TRADE_LOSS");
+        env && *env) {
+        max_weekly_realized_trade_loss = std::stod(env);
+    }
+    if (const char* env = std::getenv("ASTU_REALIZED_PNL_STATUS_FILE");
+        env && *env) {
+        realized_pnl_status_file = env;
+    }
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -261,6 +279,18 @@ int main(int argc, char** argv) {
         } else if (arg == "--account-loss-baseline-file" &&
                    i + 1 < argc) {
             account_loss_baseline_file = argv[++i];
+        } else if (arg == "--max-daily-realized-trade-loss" &&
+                   i + 1 < argc) {
+            max_daily_realized_trade_loss = std::stod(argv[++i]);
+        } else if (arg == "--max-weekly-realized-trade-loss" &&
+                   i + 1 < argc) {
+            max_weekly_realized_trade_loss = std::stod(argv[++i]);
+        } else if (arg == "--realized-pnl-status-file" &&
+                   i + 1 < argc) {
+            realized_pnl_status_file = argv[++i];
+        } else if (arg == "--max-realized-pnl-status-age-ms" &&
+                   i + 1 < argc) {
+            max_realized_pnl_status_age_ms = std::stoull(argv[++i]);
         } else if (arg == "--status-dir" && i + 1 < argc) {
             status_dir = argv[++i];
         } else if (arg == "--max-status-age-ms" && i + 1 < argc) {
@@ -324,7 +354,11 @@ int main(int argc, char** argv) {
         !std::isfinite(max_weekly_total_pnl_loss) ||
         max_weekly_total_pnl_loss < 0.0 ||
         !std::isfinite(max_account_drawdown) ||
-        max_account_drawdown < 0.0) {
+        max_account_drawdown < 0.0 ||
+        !std::isfinite(max_daily_realized_trade_loss) ||
+        max_daily_realized_trade_loss < 0.0 ||
+        !std::isfinite(max_weekly_realized_trade_loss) ||
+        max_weekly_realized_trade_loss < 0.0) {
         std::cerr
             << "projected risk numeric settings must be finite and non-negative\n";
         return 2;
@@ -437,6 +471,18 @@ int main(int argc, char** argv) {
                 journal->recovered_order_count());
     }
 
+    const bool realized_pnl_required =
+        max_daily_realized_trade_loss > 0.0 ||
+        max_weekly_realized_trade_loss > 0.0;
+    std::shared_ptr<astu::account::LiveRealizedPnlProvider>
+        realized_pnl_provider;
+    if (realized_pnl_required) {
+        realized_pnl_provider = std::make_shared<
+            astu::account::LiveRealizedPnlProvider>(
+                realized_pnl_status_file,
+                max_realized_pnl_status_age_ms);
+    }
+
     const bool account_loss_limits_enabled =
         max_daily_risk_capital_loss > 0.0 ||
         max_weekly_risk_capital_loss > 0.0 ||
@@ -464,6 +510,7 @@ int main(int argc, char** argv) {
         [base_risk_provider,
          account_loss_tracker,
          account_loss_requires_margin,
+         realized_pnl_provider,
          journal,
          projected_position_provider,
          synthetic,
@@ -478,7 +525,9 @@ int main(int argc, char** argv) {
          max_weekly_risk_capital_loss,
          max_daily_total_pnl_loss,
          max_weekly_total_pnl_loss,
-         max_account_drawdown](
+         max_account_drawdown,
+         max_daily_realized_trade_loss,
+         max_weekly_realized_trade_loss](
             const astu::core::SignalIntent& intent) mutable {
             auto risk = (*base_risk_provider)(intent);
 
@@ -492,6 +541,20 @@ int main(int argc, char** argv) {
                 max_weekly_total_pnl_loss;
             risk.max_account_drawdown =
                 max_account_drawdown;
+            risk.max_daily_realized_trade_loss =
+                max_daily_realized_trade_loss;
+            risk.max_weekly_realized_trade_loss =
+                max_weekly_realized_trade_loss;
+
+            if (realized_pnl_provider) {
+                const auto realized = (*realized_pnl_provider)();
+                risk.realized_pnl_evidence_reconciled =
+                    realized.reconciled;
+                risk.daily_realized_trade_loss =
+                    realized.daily_realized_trade_loss;
+                risk.weekly_realized_trade_loss =
+                    realized.weekly_realized_trade_loss;
+            }
 
             if (account_loss_tracker) {
                 const auto metrics =
@@ -614,6 +677,27 @@ int main(int argc, char** argv) {
         max_daily_total_pnl_loss,
         max_weekly_total_pnl_loss,
         max_account_drawdown);
+    execution_status->set_realized_pnl_status(
+        realized_pnl_required
+            ? "FILE_BACKED_BINANCE_INCOME_V1"
+            : "DISABLED",
+        realized_pnl_required,
+        realized_pnl_status_file.string(),
+        false,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0,
+        0,
+        max_daily_realized_trade_loss,
+        max_weekly_realized_trade_loss);
     execution_status->set_runtime_order_reconciliation(
         startup_order_snapshot_required,
         0,
@@ -627,6 +711,51 @@ int main(int argc, char** argv) {
         0,
         0);
     execution_status->publish();
+
+    std::jthread realized_pnl_monitor_thread;
+    if (realized_pnl_provider) {
+        realized_pnl_monitor_thread = std::jthread(
+            [realized_pnl_provider,
+             execution_status,
+             realized_pnl_status_file,
+             max_daily_realized_trade_loss,
+             max_weekly_realized_trade_loss](
+                std::stop_token stop) {
+                while (!stop.stop_requested()) {
+                    const auto realized =
+                        (*realized_pnl_provider)();
+                    execution_status->set_realized_pnl_status(
+                        "FILE_BACKED_BINANCE_INCOME_V1",
+                        true,
+                        realized_pnl_status_file.string(),
+                        realized.reconciled,
+                        realized.daily_realized_trade_pnl,
+                        realized.weekly_realized_trade_pnl,
+                        realized.daily_realized_trade_loss,
+                        realized.weekly_realized_trade_loss,
+                        realized.daily_funding_fee,
+                        realized.weekly_funding_fee,
+                        realized.daily_commission,
+                        realized.weekly_commission,
+                        realized.daily_net_trading_income,
+                        realized.weekly_net_trading_income,
+                        realized.records_in_current_week,
+                        realized.ignored_income_records,
+                        max_daily_realized_trade_loss,
+                        max_weekly_realized_trade_loss);
+                    try {
+                        execution_status->publish();
+                    } catch (...) {
+                    }
+                    for (int i = 0;
+                         i < 10 && !stop.stop_requested();
+                         ++i) {
+                        std::this_thread::sleep_for(
+                            std::chrono::milliseconds(100));
+                    }
+                }
+            });
+    }
 
     std::jthread account_loss_monitor_thread;
     if (account_loss_tracker) {
@@ -955,6 +1084,19 @@ int main(int argc, char** argv) {
               << max_weekly_total_pnl_loss << "\n";
     std::cout << "MAX_ACCOUNT_DRAWDOWN="
               << max_account_drawdown << "\n";
+    std::cout << "REALIZED_PNL_PROVIDER="
+              << (realized_pnl_required
+                      ? "FILE_BACKED_BINANCE_INCOME_V1"
+                      : "DISABLED")
+              << "\n";
+    std::cout << "REALIZED_PNL_STATUS_FILE="
+              << realized_pnl_status_file.string() << "\n";
+    std::cout << "MAX_REALIZED_PNL_STATUS_AGE_MS="
+              << max_realized_pnl_status_age_ms << "\n";
+    std::cout << "MAX_DAILY_REALIZED_TRADE_LOSS="
+              << max_daily_realized_trade_loss << "\n";
+    std::cout << "MAX_WEEKLY_REALIZED_TRADE_LOSS="
+              << max_weekly_realized_trade_loss << "\n";
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
     if (!instrument_status_dir.empty()) {
