@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -9,11 +10,13 @@
 #include "astu/account/live_position_provider.hpp"
 #include "astu/account/live_risk_provider.hpp"
 #include "astu/core/contracts.hpp"
+#include "astu/execution/authoritative_order_snapshot.hpp"
 #include "astu/execution/execution_journal.hpp"
 #include "astu/execution/execution_pipe_server.hpp"
 #include "astu/execution/execution_status.hpp"
 #include "astu/execution/reconciliation_pipe_server.hpp"
 #include "astu/execution/simulation_order_lifecycle.hpp"
+#include "astu/execution/startup_order_reconciler.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
 #include "astu/instrument/live_instrument_provider.hpp"
 #include "astu/wsrtd/live_status_provider.hpp"
@@ -32,6 +35,11 @@ astu::core::AccountRiskSnapshot synthetic_risk(
     risk.open_positions = 0;
     risk.max_open_positions = 10;
     return risk;
+}
+
+std::int64_t utc_now_ms() {
+    const auto now = std::chrono::system_clock::now().time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
 }
 
 astu::core::DataStatus synthetic_data(
@@ -71,6 +79,8 @@ int main(int argc, char** argv) {
     std::uint64_t max_instrument_status_age_ms = 86'400'000;
     std::filesystem::path position_status_dir;
     std::uint64_t max_position_status_age_ms = 7'000;
+    std::filesystem::path order_snapshot_dir;
+    std::uint64_t max_order_snapshot_age_ms = 7'000;
 
     if (const char* env = std::getenv("ASTU_STATUS_DIR"); env && *env) {
         status_dir = env;
@@ -89,6 +99,9 @@ int main(int argc, char** argv) {
     }
     if (const char* env = std::getenv("ASTU_POSITION_STATUS_DIR"); env && *env) {
         position_status_dir = env;
+    }
+    if (const char* env = std::getenv("ASTU_ORDER_SNAPSHOT_DIR"); env && *env) {
+        order_snapshot_dir = env;
     }
 
     for (int i = 1; i < argc; ++i) {
@@ -115,6 +128,10 @@ int main(int argc, char** argv) {
             position_status_dir = argv[++i];
         } else if (arg == "--max-position-status-age-ms" && i + 1 < argc) {
             max_position_status_age_ms = std::stoull(argv[++i]);
+        } else if (arg == "--order-snapshot-dir" && i + 1 < argc) {
+            order_snapshot_dir = argv[++i];
+        } else if (arg == "--max-order-snapshot-age-ms" && i + 1 < argc) {
+            max_order_snapshot_age_ms = std::stoull(argv[++i]);
         } else {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
@@ -172,6 +189,31 @@ int main(int argc, char** argv) {
         journal->recovered_order_count();
     const auto recovered_reconciliation_events_at_startup =
         journal->reconciliation_event_count();
+
+    astu::execution::StartupOrderReconciliationReport
+        startup_order_report;
+    const bool startup_order_snapshot_required =
+        !order_snapshot_dir.empty();
+    const std::string startup_order_snapshot_provider_name =
+        startup_order_snapshot_required
+            ? "FILE_BACKED_AUTHORITATIVE_SIMULATION_ORDER_STATE"
+            : "DISABLED";
+    if (startup_order_snapshot_required) {
+        astu::execution::FileBackedSimulationOrderSnapshotProvider
+            snapshot_provider(
+                order_snapshot_dir,
+                max_order_snapshot_age_ms);
+        startup_order_report =
+            astu::execution::StartupOrderReconciler::reconcile(
+                journal,
+                snapshot_provider,
+                utc_now_ms());
+    } else {
+        startup_order_report.tracked_orders =
+            static_cast<std::uint64_t>(
+                journal->recovered_order_count());
+    }
+
     auto order_lifecycle =
         std::make_shared<astu::execution::SimulationOrderLifecycle>(journal);
 
@@ -204,6 +246,13 @@ int main(int argc, char** argv) {
         journal->order_transition_count(),
         recovered_reconciliation_events_at_startup,
         journal->reconciliation_event_count());
+    execution_status->set_startup_order_reconciliation(
+        startup_order_snapshot_provider_name,
+        startup_order_snapshot_required,
+        startup_order_report.tracked_orders,
+        startup_order_report.matched_orders,
+        startup_order_report.marked_unknown,
+        startup_order_report.unresolved_orders);
     execution_status->publish();
 
     auto reconciliation_server =
@@ -339,6 +388,22 @@ int main(int argc, char** argv) {
               << journal->recovered_order_intent_count() << "\n";
     std::cout << "RECOVERED_RECONCILIATION_EVENTS_AT_STARTUP="
               << recovered_reconciliation_events_at_startup << "\n";
+    std::cout << "STARTUP_ORDER_SNAPSHOT_PROVIDER="
+              << startup_order_snapshot_provider_name << "\n";
+    if (startup_order_snapshot_required) {
+        std::cout << "ORDER_SNAPSHOT_DIR="
+                  << order_snapshot_dir.string() << "\n";
+        std::cout << "MAX_ORDER_SNAPSHOT_AGE_MS="
+                  << max_order_snapshot_age_ms << "\n";
+    }
+    std::cout << "STARTUP_ORDER_TRACKED="
+              << startup_order_report.tracked_orders << "\n";
+    std::cout << "STARTUP_ORDER_MATCHED="
+              << startup_order_report.matched_orders << "\n";
+    std::cout << "STARTUP_ORDER_MARKED_UNKNOWN="
+              << startup_order_report.marked_unknown << "\n";
+    std::cout << "STARTUP_ORDER_UNRESOLVED="
+              << startup_order_report.unresolved_orders << "\n";
 
     for (;;) {
         try {
