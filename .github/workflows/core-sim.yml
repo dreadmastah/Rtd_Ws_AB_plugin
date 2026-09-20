@@ -260,3 +260,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_reconciliation_fsm_smoke.cmd
+
+      - name: Windows live reconciliation Named Pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_reconciliation_pipe_smoke.cmd
