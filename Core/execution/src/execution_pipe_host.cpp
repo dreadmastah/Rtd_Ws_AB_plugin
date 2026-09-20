@@ -911,6 +911,8 @@ int main(int argc, char** argv) {
         std::cout << "RISK_STATUS_FILE=" << risk_status_file.string() << "\n";
         std::cout << "MAX_RISK_STATUS_AGE_MS=" << max_risk_status_age_ms << "\n";
     } else {
+        std::cout << "SYNTHETIC_RISK_CAPITAL="
+                  << synthetic_risk_capital << "\n";
         std::cout << "SYNTHETIC_AVAILABLE_BALANCE="
                   << synthetic_available_balance << "\n";
         std::cout << "SYNTHETIC_MARGIN_BALANCE="
