@@ -11,6 +11,7 @@
 #include "astu/execution/order_fsm.hpp"
 #include "astu/execution/simulation_order_lifecycle.hpp"
 #include "astu/execution/simulation_reconciliation.hpp"
+#include "astu/ipc/reconciliation_protocol.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
 
 #define REQUIRE(...) do { \
@@ -101,14 +102,52 @@ int main() {
         astu::execution::SimulationReconciliationService reconciliation(
             journal);
 
-        REQUIRE(reconciliation.apply(
-                    "EV-UNKNOWN",
-                    order_id,
-                    SimulationReconciliationType::MarkUnknown,
-                    0.0,
-                    2'100,
-                    "simulated acknowledgement state uncertain") ==
-                OrderState::UnknownReconcileRequired);
+        astu::ipc::SimulationReconciliationRequest wire_request;
+        wire_request.request_id = "WIRE-REQ-1";
+        wire_request.event_id = "EV-UNKNOWN";
+        wire_request.simulation_order_id = order_id;
+        wire_request.reconciliation_type =
+            SimulationReconciliationType::MarkUnknown;
+        wire_request.cumulative_filled_quantity = 0.0;
+        wire_request.detail =
+            "simulated acknowledgement state uncertain";
+
+        const auto encoded =
+            astu::ipc::encode_reconciliation_request_json(
+                wire_request);
+        const auto decoded =
+            astu::ipc::decode_reconciliation_request_json(encoded);
+        REQUIRE(decoded.request_id == wire_request.request_id);
+        REQUIRE(decoded.event_id == wire_request.event_id);
+        REQUIRE(decoded.simulation_order_id == order_id);
+        REQUIRE(decoded.reconciliation_type ==
+                SimulationReconciliationType::MarkUnknown);
+
+        astu::ipc::SimulationReconciliationDispatcher wire_dispatcher(
+            journal);
+        const auto wire_response =
+            wire_dispatcher.dispatch_json(encoded, 2'100);
+        REQUIRE(wire_response.accepted);
+        REQUIRE(wire_response.state ==
+                "UNKNOWN_RECONCILE_REQUIRED");
+        REQUIRE(!wire_response.exchange_submission_attempted);
+        REQUIRE(wire_response.reconciliation_event_count == 1);
+        REQUIRE(wire_response.order_transition_count == 5);
+
+        const auto response_json =
+            astu::ipc::encode_reconciliation_response_json(
+                wire_response);
+        const auto response_roundtrip =
+            astu::ipc::decode_reconciliation_response_json(
+                response_json);
+        REQUIRE(response_roundtrip.accepted);
+        REQUIRE(response_roundtrip.state ==
+                "UNKNOWN_RECONCILE_REQUIRED");
+
+        const auto malformed =
+            wire_dispatcher.dispatch_json("not-json", 2'101);
+        REQUIRE(!malformed.accepted);
+        REQUIRE(!malformed.exchange_submission_attempted);
 
         REQUIRE(reconciliation.apply(
                     "EV-ACK",
