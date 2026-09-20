@@ -789,8 +789,43 @@ The next architecture milestone is Binance Testnet order execution. The first M1
 
 The host currently refuses `--enable-testnet-order-routing` even when armed and credentialed. This is intentional: the existing authoritative order snapshot source is simulation-only, while Architecture R3.1 requires Binance to remain authoritative for actual order/fill/position state.
 
+## Binance Testnet user-data authority and convergence gate
+
+The M13 authority layer now includes a supervised Testnet user-data sidecar plus a C++ activation gate.
+
+The sidecar:
+
+- acquires and keeps alive a Testnet user-data listen key in live mode;
+- maintains a TLS WebSocket connection using a bounded RFC6455 client with ping/pong support and a configurable URL template;
+- ingests `ORDER_TRADE_UPDATE`, `ACCOUNT_UPDATE`, listen-key expiry, and transport liveness;
+- rejects per-event-type event-time regression;
+- binds ASTU-owned order updates to durable `TESTNET_ORDER_SUBMISSION_ATTEMPT` client IDs;
+- writes `AuthoritativeSimulationOrderSnapshot.v1` for owned order updates only;
+- maps NEW / PARTIALLY_FILLED / FILLED / CANCELED / EXPIRED / REJECTED through the same persistent order vocabulary;
+- treats `ACCOUNT_UPDATE` as delta evidence and requires a fresh read-only REST account/position snapshot at or after the event before declaring account/position convergence;
+- reports unresolved ASTU orders as requiring REST fallback rather than assuming stream silence means absence;
+- publishes bounded `TestnetUserDataState.v1` liveness/convergence evidence.
+
+The C++ `FileBackedTestnetConvergenceProvider` requires all of the following before a Testnet-enabled host can progress:
+
+```text
+fresh convergence artifact
+streamAlive=true
+orderingOk=true
+expired=false
+accountConverged=true
+positionsConverged=true
+ordersConverged=true
+restFallbackRequired=false
+unresolvedAstuOrders=0
+```
+
+The supervisor can manage the live sidecar with `--testnet-user-data-mode live`; default remains disabled. Live authority additionally requires `--risk-mode readonly` so account/position convergence is tied to the existing signed REST reconciler.
+
+`Execution.exe` is now wired to read and enforce this convergence state whenever Testnet routing is requested. **The final administrative activation lock remains in place even when convergence is ready.** CI/default runtime therefore still cannot submit an exchange order.
+
+Cross-platform CI covers stream-event normalization, ASTU order ownership, event-time regression, liveness expiry, account/position REST convergence, order convergence, schema shape, and the C++ freshness/convergence gate.
+
 ## Current next implementation step
 
-The deterministic **authoritative Binance USD-M Testnet REST order-query recovery path** is now implemented: persistent internal order IDs map to deterministic `origClientOrderId` lookups, exchange status/cumulative fills are validated against the journaled symbol/quantity, ambiguous submissions can converge from `UNKNOWN_RECONCILE_REQUIRED` to authoritative WORKING/PARTIAL/FILLED/CANCELED/REJECTED states, and that Testnet reconciliation evidence survives journal replay. A REST "order not found" result deliberately does not prove an ambiguous submission never reached the exchange.
-
-The next M13 increment is the **Testnet user-data stream authority and convergence gate**: ingest `ORDER_TRADE_UPDATE` plus account/position updates, bind them to deterministic client-order IDs, maintain stream liveness/recovery, reconcile REST fallback against stream state, and prove account + position + order convergence before removing the host's explicit Testnet activation refusal. Mainnet private routing remains a separate later governance decision.
+Run a **credentialed manual Binance USD-M Testnet acceptance** outside default CI: verify the current Testnet user-data WebSocket endpoint, listen-key lifecycle/reconnect behavior, live `ORDER_TRADE_UPDATE` delivery, REST fallback after an intentionally ambiguous submission, and account + position + order convergence after a real Testnet MARKET order. Only after that acceptance is reproducible should the final administrative activation refusal be removed for explicit Testnet-only arming. Mainnet private routing remains out of scope.
