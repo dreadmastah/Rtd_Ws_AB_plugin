@@ -143,6 +143,19 @@ add_test(
     COMMAND astu_account_loss_baseline_tests
 )
 
+add_executable(
+    astu_realized_pnl_provider_tests
+    tests/realized_pnl_provider_tests.cpp
+)
+target_link_libraries(
+    astu_realized_pnl_provider_tests
+    PRIVATE astu_core
+)
+add_test(
+    NAME astu_realized_pnl_provider_tests
+    COMMAND astu_realized_pnl_provider_tests
+)
+
 if(WIN32)
     add_test(
         NAME astu_trade_amibroker_exports
