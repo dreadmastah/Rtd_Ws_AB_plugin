@@ -325,3 +325,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_leverage_margin_risk_smoke.cmd
+
+      - name: Windows net directional exposure smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_net_directional_risk_smoke.cmd
