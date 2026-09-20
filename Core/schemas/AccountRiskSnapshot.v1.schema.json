@@ -20,11 +20,24 @@
     "detail"
   ],
   "properties": {
-    "schemaVersion": {"const": 1},
-    "messageType": {"const": "AccountRiskSnapshot.v1"},
-    "generatedUnixMs": {"type": "integer", "minimum": 1},
-    "source": {"type": "string", "minLength": 1, "maxLength": 64},
-    "reconciled": {"type": "boolean"},
+    "schemaVersion": {
+      "const": 1
+    },
+    "messageType": {
+      "const": "AccountRiskSnapshot.v1"
+    },
+    "generatedUnixMs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "reconciled": {
+      "type": "boolean"
+    },
     "riskState": {
       "enum": [
         "NORMAL",
@@ -34,12 +47,41 @@
         "EMERGENCY"
       ]
     },
-    "riskCapital": {"type": "number", "minimum": 0},
-    "availableBalance": {"type": "number", "minimum": 0},
-    "grossNotional": {"type": "number", "minimum": 0},
-    "maxGrossNotional": {"type": "number", "minimum": 0},
-    "openPositions": {"type": "integer", "minimum": 0},
-    "maxOpenPositions": {"type": "integer", "minimum": 0},
-    "detail": {"type": "string", "maxLength": 512}
+    "riskCapital": {
+      "type": "number",
+      "minimum": 0
+    },
+    "availableBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "grossNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxGrossNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "openPositions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxOpenPositions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "marginBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "initialMargin": {
+      "type": "number",
+      "minimum": 0
+    }
   }
 }
