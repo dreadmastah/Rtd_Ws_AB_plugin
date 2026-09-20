@@ -31,7 +31,10 @@ target_link_libraries(astu_sim_reconcile PRIVATE astu_core)
 
 if(WIN32)
     add_executable(astu_execution_pipe_host execution/src/execution_pipe_host.cpp)
-    target_link_libraries(astu_execution_pipe_host PRIVATE astu_core)
+    target_link_libraries(
+        astu_execution_pipe_host
+        PRIVATE astu_core bcrypt winhttp
+    )
 
     add_executable(astu_trade_pipe_smoke trade_plugin/src/execution_pipe_client_smoke.cpp)
     target_link_libraries(astu_trade_pipe_smoke PRIVATE astu_core)
