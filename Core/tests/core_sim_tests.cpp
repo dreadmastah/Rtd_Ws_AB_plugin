@@ -390,6 +390,7 @@ int main() {
             << "\"marginBalance\":10250,"
             << "\"initialMargin\":100,"
             << "\"grossNotional\":1000,"
+            << "\"netDirectionalNotional\":1000,"
             << "\"maxGrossNotional\":50000,"
             << "\"openPositions\":1,"
             << "\"maxOpenPositions\":10,"
@@ -407,6 +408,8 @@ int main() {
         REQUIRE(risk.margin_balance == 10'250.0);
         REQUIRE(risk.initial_margin == 100.0);
         REQUIRE(risk.gross_notional == 1'000.0);
+        REQUIRE(risk.net_directional_reconciled);
+        REQUIRE(risk.net_directional_notional == 1'000.0);
         REQUIRE(risk.max_gross_notional == 50'000.0);
         REQUIRE(risk.open_positions == 1);
         REQUIRE(risk.max_open_positions == 10);
