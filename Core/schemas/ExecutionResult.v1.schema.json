@@ -9,6 +9,7 @@
     "messageType",
     "requestId",
     "signalId",
+    "simulationOrderId",
     "decisionCode",
     "acceptedForSimulation",
     "wouldIncreaseExposure",
@@ -76,6 +77,10 @@
     "reason": {
       "type": "string",
       "maxLength": 512
+    },
+    "simulationOrderId": {
+      "type": "string",
+      "maxLength": 64
     }
   }
 }
