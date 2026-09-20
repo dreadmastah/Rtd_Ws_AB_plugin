@@ -265,7 +265,7 @@ public:
     using IdempotencyAcceptor = std::function<bool(const std::string&)>;
     using ResponseObserver = std::function<void(
         const SimulationRequest&,
-        const SimulationResponse&,
+        SimulationResponse&,
         std::int64_t)>;
 
     SimulationDispatcher(
@@ -382,7 +382,7 @@ private:
 
     void observe(
         const SimulationRequest& request,
-        const SimulationResponse& response,
+        SimulationResponse& response,
         std::int64_t now_utc_ms) const {
         if (response_observer_) {
             response_observer_(request, response, now_utc_ms);
