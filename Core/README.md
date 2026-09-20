@@ -53,7 +53,7 @@ The execution host now writes an append-only `ExecutionJournalEvent.v1` JSONL jo
 
 On host startup the journal is replayed to rebuild the in-memory duplicate guard. A previously reserved key is rejected after restart as `DUPLICATE_REQUEST`. Malformed journal replay is a startup failure rather than silently discarding ambiguous state.
 
-Windows uses `FILE_FLAG_WRITE_THROUGH` plus `FlushFileBuffers` for journal appends. The journal path defaults to:
+Windows appends each journal record through a write-only append descriptor and calls `_commit` before closing the descriptor. The journal path defaults to:
 
 ```text
 Core/runtime/execution_journal.v1.jsonl
