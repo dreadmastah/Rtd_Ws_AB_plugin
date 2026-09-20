@@ -31,12 +31,14 @@ public:
         std::string risk_provider,
         std::string instrument_provider,
         bool instrument_rules_required,
+        std::string position_provider,
         std::string journal_path)
         : path_(std::move(path)),
           data_provider_(std::move(data_provider)),
           risk_provider_(std::move(risk_provider)),
           instrument_provider_(std::move(instrument_provider)),
           instrument_rules_required_(instrument_rules_required),
+          position_provider_(std::move(position_provider)),
           journal_path_(std::move(journal_path)) {}
 
     void set_ready(bool journal_ready, bool pipe_ready) {
@@ -89,6 +91,8 @@ public:
             << ",\"riskProvider\":\"" << astu::ipc::json_escape(risk_provider_) << "\""
             << ",\"instrumentProvider\":\"" << astu::ipc::json_escape(instrument_provider_) << "\""
             << ",\"instrumentRulesRequired\":" << (instrument_rules_required_ ? "true" : "false")
+            << ",\"positionProvider\":\"" << astu::ipc::json_escape(position_provider_) << "\""
+            << ",\"positionStateRequiredForScaleActions\":true"
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -162,6 +166,7 @@ private:
     std::string risk_provider_;
     std::string instrument_provider_;
     bool instrument_rules_required_{false};
+    std::string position_provider_;
     std::string journal_path_;
     mutable std::mutex mu_;
     std::string lifecycle_state_{"STARTING"};
