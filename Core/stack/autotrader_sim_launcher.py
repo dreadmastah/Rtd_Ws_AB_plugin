@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Supervisor for the simulation-only auto-trader runtime.
+"""Supervisor for the auto-trader runtime.
 
-Processes:
-- astu_execution_pipe_host.exe
-- optional read-only Binance account reconciler
-
-This launcher never enables exchange order routing. It only supervises the
-simulation execution host and the read-only account snapshot producer.
+Default behavior is simulation-only. Binance USD-M Demo Trading routing can be
+activated only with explicit dual arming plus live read-only account,
+instrument, user-data, and authoritative order-state evidence. Mainnet routing
+is not supported by this launcher.
 """
 from __future__ import annotations
 
@@ -190,6 +188,64 @@ def run(args: argparse.Namespace) -> int:
         )
         return 2
 
+    if args.arm_testnet_order_routing and not args.enable_testnet_order_routing:
+        print(
+            "ASTU_SIM_STACK_FATAL=--arm-testnet-order-routing requires "
+            "--enable-testnet-order-routing"
+        )
+        return 2
+
+    routing_active = (
+        args.enable_testnet_order_routing
+        and args.arm_testnet_order_routing
+    )
+    if routing_active:
+        if args.risk_mode != "readonly":
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo routing requires --risk-mode readonly"
+            )
+            return 2
+        if args.instrument_mode != "public":
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo routing requires --instrument-mode public"
+            )
+            return 2
+        if args.testnet_user_data_mode != "live":
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo routing requires "
+                "--testnet-user-data-mode live"
+            )
+            return 2
+        if args.testnet_rest_base_url.rstrip("/") != "https://demo-fapi.binance.com":
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo routing requires "
+                "https://demo-fapi.binance.com"
+            )
+            return 2
+        if not args.testnet_user_data_ws_url_template.strip():
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo routing requires explicit "
+                "user-stream WebSocket template"
+            )
+            return 2
+        if (
+            not os.getenv("ASTU_BINANCE_TESTNET_API_KEY", "").strip()
+            or not os.getenv("ASTU_BINANCE_TESTNET_API_SECRET", "").strip()
+        ):
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo routing credentials unavailable"
+            )
+            return 2
+        if os.getenv("ASTU_BINANCE_TESTNET_USER_DATA_ENABLED", "").strip() != "1":
+            print(
+                "ASTU_SIM_STACK_FATAL=Demo routing requires "
+                "ASTU_BINANCE_TESTNET_USER_DATA_ENABLED=1"
+            )
+            return 2
+        # In active Demo mode, authoritative order snapshots are produced by
+        # the live user-data authority sidecar.
+        order_snapshot_dir = testnet_order_authority_dir
+
     if not args.realized_pnl_settlement_asset.strip():
         print(
             "ASTU_SIM_STACK_FATAL=realized PnL settlement asset must not be empty"
@@ -238,7 +294,13 @@ def run(args: argparse.Namespace) -> int:
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, on_signal)
 
-    def start_child(name: str, command: list[str]) -> subprocess.Popen:
+    child_env_overrides: dict[str, dict[str, str]] = {}
+
+    def start_child(
+        name: str,
+        command: list[str],
+        env_overrides: dict[str, str] | None = None,
+    ) -> subprocess.Popen:
         log_path = LOGS / f"{name}.log"
         fh = open(log_path, "a", encoding="utf-8", buffering=1)
         logs[name] = fh
@@ -248,9 +310,15 @@ def run(args: argparse.Namespace) -> int:
             cwd=REPO,
             stdout=fh,
             stderr=subprocess.STDOUT,
-            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            env={
+                **os.environ,
+                "PYTHONUNBUFFERED": "1",
+                **(env_overrides or {}),
+            },
             creationflags=flags,
         )
+        if env_overrides:
+            child_env_overrides[name] = dict(env_overrides)
         print(f"STARTED_{name.upper()}_PID={proc.pid}")
         return proc
 
@@ -285,6 +353,11 @@ def run(args: argparse.Namespace) -> int:
             "--poll-seconds",
             str(args.risk_poll_seconds),
         ]
+        if routing_active:
+            risk_command.extend([
+                "--base-url",
+                str(args.testnet_rest_base_url),
+            ])
 
     realized_pnl_command: list[str] | None = None
     if args.realized_pnl_mode == "fixture":
@@ -380,7 +453,22 @@ def run(args: argparse.Namespace) -> int:
 
     try:
         if risk_command is not None:
-            children["risk"] = start_child("risk", risk_command)
+            risk_env = None
+            if routing_active and args.risk_mode == "readonly":
+                risk_env = {
+                    "ASTU_BINANCE_PRIVATE_READONLY_ENABLED": "1",
+                    "BINANCE_API_KEY": os.environ[
+                        "ASTU_BINANCE_TESTNET_API_KEY"
+                    ],
+                    "BINANCE_API_SECRET": os.environ[
+                        "ASTU_BINANCE_TESTNET_API_SECRET"
+                    ],
+                }
+            children["risk"] = start_child(
+                "risk",
+                risk_command,
+                risk_env,
+            )
             time.sleep(0.5)
         if realized_pnl_command is not None:
             children["realized_pnl"] = start_child(
@@ -454,7 +542,13 @@ def run(args: argparse.Namespace) -> int:
             str(testnet_user_data_status),
             "--max-testnet-convergence-age-ms",
             str(args.testnet_user_data_max_state_age_ms),
+            "--testnet-rest-host",
+            "demo-fapi.binance.com",
         ]
+        if args.enable_testnet_order_routing:
+            host_command.append("--enable-testnet-order-routing")
+        if args.arm_testnet_order_routing:
+            host_command.append("--arm-testnet-order-routing")
         if instrument_command is not None:
             host_command.extend([
                 "--instrument-status-dir",
@@ -553,7 +647,10 @@ def run(args: argparse.Namespace) -> int:
             print("ORDER_SNAPSHOT_PROVIDER=FILE_BACKED_AUTHORITATIVE_SIMULATION_ORDER_STATE")
         else:
             print("ORDER_SNAPSHOT_PROVIDER=DISABLED")
-        print("ORDER_ROUTING_ENABLED=false")
+        print(
+            "ORDER_ROUTING_ENABLED="
+            f"{str(routing_active).lower()}"
+        )
 
         while not stop_requested:
             time.sleep(1.0)
@@ -585,7 +682,11 @@ def run(args: argparse.Namespace) -> int:
                     command = host_command
                 if command is None:
                     continue
-                children[name] = start_child(name, command)
+                children[name] = start_child(
+                    name,
+                    command,
+                    child_env_overrides.get(name),
+                )
                 save_pids(children)
     finally:
         for proc in reversed(list(children.values())):
@@ -662,12 +763,28 @@ def parse_args() -> argparse.Namespace:
         default=1.0,
     )
     ap.add_argument(
+        "--enable-testnet-order-routing",
+        action="store_true",
+        help=(
+            "Stage Binance USD-M Demo Trading routing. No routing occurs "
+            "unless --arm-testnet-order-routing is also supplied."
+        ),
+    )
+    ap.add_argument(
+        "--arm-testnet-order-routing",
+        action="store_true",
+        help=(
+            "Second explicit activation gate for Demo Trading routing. "
+            "Requires --enable-testnet-order-routing and live convergence."
+        ),
+    )
+    ap.add_argument(
         "--testnet-user-data-mode",
         choices=("disabled", "live"),
         default="disabled",
         help=(
-            "Supervise the Binance USD-M Testnet user-data authority sidecar. "
-            "This does not enable order routing."
+            "Supervise the Binance USD-M Demo Trading user-data authority sidecar. "
+            "This alone does not enable order routing."
         ),
     )
     ap.add_argument(
