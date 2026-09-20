@@ -281,6 +281,8 @@ def run(args: argparse.Namespace) -> int:
                 str(order_snapshot_dir),
                 "--max-order-snapshot-age-ms",
                 str(args.max_order_snapshot_age_ms),
+                "--order-reconcile-interval-ms",
+                str(args.order_reconcile_interval_ms),
             ])
         children["execution"] = start_child("execution", host_command)
         save_pids(children)
@@ -393,6 +395,7 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     ap.add_argument("--max-order-snapshot-age-ms", type=int, default=7000)
+    ap.add_argument("--order-reconcile-interval-ms", type=int, default=2000)
     ap.add_argument("--max-status-age-ms", type=int, default=5000)
     ap.add_argument("--max-risk-status-age-ms", type=int, default=7000)
     ap.add_argument("--restart-delay-seconds", type=float, default=2.0)
