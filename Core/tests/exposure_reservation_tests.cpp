@@ -73,12 +73,13 @@ astu::core::AccountRiskSnapshot base_risk(
     double gross_notional,
     double max_gross_notional,
     std::uint32_t open_positions,
-    std::uint32_t max_open_positions) {
+    std::uint32_t max_open_positions,
+    double available_balance = 10'000.0) {
     astu::core::AccountRiskSnapshot risk;
     risk.reconciled = true;
     risk.risk_state = astu::core::RiskState::Normal;
     risk.risk_capital = 10'000.0;
-    risk.available_balance = 10'000.0;
+    risk.available_balance = available_balance;
     risk.gross_notional = gross_notional;
     risk.max_gross_notional = max_gross_notional;
     risk.open_positions = open_positions;
@@ -133,7 +134,9 @@ astu::ipc::SimulationDispatcher reservation_dispatcher(
     astu::core::AccountRiskSnapshot base,
     std::uint64_t max_pending_entry_scale_in_reservations = 0,
     double max_symbol_notional = 0.0,
-    std::function<double(const std::string&)> symbol_notional_provider = {}) {
+    std::function<double(const std::string&)> symbol_notional_provider = {},
+    double minimum_available_balance_reserve = 0.0,
+    double margin_reservation_rate = 0.0) {
     auto lifecycle =
         std::make_shared<astu::execution::SimulationOrderLifecycle>(
             journal);
@@ -162,7 +165,9 @@ astu::ipc::SimulationDispatcher reservation_dispatcher(
                 max_pending_entry_scale_in_reservations,
                 symbol_reconciled,
                 symbol_notional,
-                max_symbol_notional);
+                max_symbol_notional,
+                minimum_available_balance_reserve,
+                margin_reservation_rate);
         },
         4096,
         [journal](const std::string& key) {
@@ -488,6 +493,147 @@ int main() {
         REQUIRE(std::fabs(decision.simulated_notional - 3.0) <
                 1e-12);
         REQUIRE(std::fabs(decision.simulated_quantity - 0.03) <
+                1e-12);
+    }
+
+    {
+        const auto journal_path =
+            root / "available_balance_margin.jsonl";
+        auto journal =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100,
+                0.5);
+        auto dispatcher = reservation_dispatcher(
+            journal,
+            base_risk(0.0, 100'000.0, 0, 10, 12.0),
+            0,
+            0.0,
+            {},
+            2.0,
+            0.5);
+
+        const auto first =
+            request("BALANCE-1", SignalAction::Buy, "BTCUSDT");
+        const auto first_response =
+            dispatcher.dispatch(first, 2'950);
+        REQUIRE(first_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(first_response.simulated_notional - 10.0) <
+                1e-12);
+
+        auto summary =
+            journal->exposure_reservation_summary();
+        REQUIRE(summary.active_reservations == 1);
+        REQUIRE(std::fabs(
+                    summary.reserved_available_balance - 5.0) <
+                1e-12);
+
+        const auto second =
+            request("BALANCE-2", SignalAction::Buy, "ETHUSDT");
+        const auto second_response =
+            dispatcher.dispatch(second, 2'951);
+        REQUIRE(second_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+
+        summary = journal->exposure_reservation_summary();
+        REQUIRE(summary.active_reservations == 2);
+        REQUIRE(std::fabs(
+                    summary.reserved_available_balance - 10.0) <
+                1e-12);
+
+        const auto third =
+            request("BALANCE-3", SignalAction::Buy, "SOLUSDT");
+        const auto third_response =
+            dispatcher.dispatch(third, 2'952);
+        REQUIRE(third_response.decision_code ==
+                DecisionCode::RiskBlocked);
+        REQUIRE(!third_response.accepted_for_simulation);
+        REQUIRE(third_response.reason.find(
+                    "minimum available-balance reserve") !=
+                std::string::npos);
+
+        auto replayed =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100);
+        const auto replayed_summary =
+            replayed->exposure_reservation_summary();
+        REQUIRE(replayed_summary.active_reservations == 2);
+        REQUIRE(std::fabs(
+                    replayed_summary.reserved_available_balance -
+                    10.0) <
+                1e-12);
+
+        SimulationReconciliationService reconciliation(replayed);
+        REQUIRE(
+            reconciliation.apply(
+                "BALANCE-UNKNOWN",
+                first_response.simulation_order_id,
+                SimulationReconciliationType::MarkUnknown,
+                0.0,
+                3'000,
+                "available balance reservation unknown") ==
+            OrderState::UnknownReconcileRequired);
+        REQUIRE(
+            reconciliation.apply(
+                "BALANCE-WORKING",
+                first_response.simulation_order_id,
+                SimulationReconciliationType::Working,
+                0.0,
+                3'100,
+                "available balance reservation working") ==
+            OrderState::Working);
+        REQUIRE(
+            reconciliation.apply(
+                "BALANCE-FILLED",
+                first_response.simulation_order_id,
+                SimulationReconciliationType::Filled,
+                first_response.simulated_quantity,
+                3'200,
+                "available balance reservation filled") ==
+            OrderState::Filled);
+
+        const auto after_release =
+            replayed->exposure_reservation_summary();
+        REQUIRE(after_release.active_reservations == 1);
+        REQUIRE(std::fabs(
+                    after_release.reserved_available_balance - 5.0) <
+                1e-12);
+    }
+
+    {
+        const auto req =
+            request("STRICT-BALANCE", SignalAction::Buy, "BTCUSDT");
+        auto risk =
+            base_risk(0.0, 100'000.0, 0, 10, 5.0);
+        risk.minimum_available_balance_reserve = 2.0;
+        risk.margin_reservation_rate = 0.5;
+
+        astu::core::InstrumentConstraints rules;
+        rules.ready = true;
+        rules.source = "STRICT-BALANCE-TEST";
+        rules.symbol = "BTCUSDT";
+        rules.price_tick = 0.1;
+        rules.quantity_step = 0.01;
+        rules.min_quantity = 0.01;
+        rules.max_quantity = 1000.0;
+        rules.min_notional = 1.0;
+        rules.max_notional = 100'000.0;
+
+        const auto decision =
+            astu::execution::SimulationEngine::run_with_instrument(
+                req.intent,
+                ready_data(req.intent),
+                risk,
+                rules,
+                3'300);
+        REQUIRE(decision.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(decision.accepted_for_simulation);
+        REQUIRE(std::fabs(decision.simulated_notional - 6.0) <
+                1e-12);
+        REQUIRE(std::fabs(decision.simulated_quantity - 0.06) <
                 1e-12);
     }
 
