@@ -12,6 +12,7 @@
 #include "astu/account/live_position_provider.hpp"
 #include "astu/account/live_risk_provider.hpp"
 #include "astu/core/contracts.hpp"
+#include "astu/execution/account_loss_baseline.hpp"
 #include "astu/execution/authoritative_order_snapshot.hpp"
 #include "astu/execution/execution_journal.hpp"
 #include "astu/execution/execution_pipe_server.hpp"
@@ -95,6 +96,13 @@ int main(int argc, char** argv) {
     double max_effective_leverage = 0.0;
     double max_margin_utilization = 0.0;
     double max_net_directional_notional = 0.0;
+    double max_daily_risk_capital_loss = 0.0;
+    double max_weekly_risk_capital_loss = 0.0;
+    double max_daily_total_pnl_loss = 0.0;
+    double max_weekly_total_pnl_loss = 0.0;
+    double max_account_drawdown = 0.0;
+    std::filesystem::path account_loss_baseline_file =
+        "Core/runtime/account_loss_baseline.v1.json";
     std::uint64_t max_status_age_ms = 5'000;
     std::filesystem::path journal_path =
         "Core/runtime/execution_journal.v1.jsonl";
@@ -169,6 +177,30 @@ int main(int argc, char** argv) {
         env && *env) {
         max_net_directional_notional = std::stod(env);
     }
+    if (const char* env = std::getenv("ASTU_MAX_DAILY_RISK_CAPITAL_LOSS");
+        env && *env) {
+        max_daily_risk_capital_loss = std::stod(env);
+    }
+    if (const char* env = std::getenv("ASTU_MAX_WEEKLY_RISK_CAPITAL_LOSS");
+        env && *env) {
+        max_weekly_risk_capital_loss = std::stod(env);
+    }
+    if (const char* env = std::getenv("ASTU_MAX_DAILY_TOTAL_PNL_LOSS");
+        env && *env) {
+        max_daily_total_pnl_loss = std::stod(env);
+    }
+    if (const char* env = std::getenv("ASTU_MAX_WEEKLY_TOTAL_PNL_LOSS");
+        env && *env) {
+        max_weekly_total_pnl_loss = std::stod(env);
+    }
+    if (const char* env = std::getenv("ASTU_MAX_ACCOUNT_DRAWDOWN");
+        env && *env) {
+        max_account_drawdown = std::stod(env);
+    }
+    if (const char* env = std::getenv("ASTU_ACCOUNT_LOSS_BASELINE_FILE");
+        env && *env) {
+        account_loss_baseline_file = env;
+    }
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -207,6 +239,24 @@ int main(int argc, char** argv) {
             max_margin_utilization = std::stod(argv[++i]);
         } else if (arg == "--max-net-directional-notional" && i + 1 < argc) {
             max_net_directional_notional = std::stod(argv[++i]);
+        } else if (arg == "--max-daily-risk-capital-loss" &&
+                   i + 1 < argc) {
+            max_daily_risk_capital_loss = std::stod(argv[++i]);
+        } else if (arg == "--max-weekly-risk-capital-loss" &&
+                   i + 1 < argc) {
+            max_weekly_risk_capital_loss = std::stod(argv[++i]);
+        } else if (arg == "--max-daily-total-pnl-loss" &&
+                   i + 1 < argc) {
+            max_daily_total_pnl_loss = std::stod(argv[++i]);
+        } else if (arg == "--max-weekly-total-pnl-loss" &&
+                   i + 1 < argc) {
+            max_weekly_total_pnl_loss = std::stod(argv[++i]);
+        } else if (arg == "--max-account-drawdown" &&
+                   i + 1 < argc) {
+            max_account_drawdown = std::stod(argv[++i]);
+        } else if (arg == "--account-loss-baseline-file" &&
+                   i + 1 < argc) {
+            account_loss_baseline_file = argv[++i];
         } else if (arg == "--status-dir" && i + 1 < argc) {
             status_dir = argv[++i];
         } else if (arg == "--max-status-age-ms" && i + 1 < argc) {
@@ -258,7 +308,17 @@ int main(int argc, char** argv) {
         max_margin_utilization < 0.0 ||
         max_margin_utilization > 1.0 ||
         !std::isfinite(max_net_directional_notional) ||
-        max_net_directional_notional < 0.0) {
+        max_net_directional_notional < 0.0 ||
+        !std::isfinite(max_daily_risk_capital_loss) ||
+        max_daily_risk_capital_loss < 0.0 ||
+        !std::isfinite(max_weekly_risk_capital_loss) ||
+        max_weekly_risk_capital_loss < 0.0 ||
+        !std::isfinite(max_daily_total_pnl_loss) ||
+        max_daily_total_pnl_loss < 0.0 ||
+        !std::isfinite(max_weekly_total_pnl_loss) ||
+        max_weekly_total_pnl_loss < 0.0 ||
+        !std::isfinite(max_account_drawdown) ||
+        max_account_drawdown < 0.0) {
         std::cerr
             << "projected risk numeric settings must be finite and non-negative\n";
         return 2;
