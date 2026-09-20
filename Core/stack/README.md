@@ -185,6 +185,7 @@ The supervisor now starts a local read-only Account Risk view by default. It doe
 ```text
 Core/runtime/account_risk_view.v1.json
 Core/runtime/account_risk_view.html
+Core/runtime/symbol_risk_status.v1.json
 ```
 
 The projection reports:
@@ -194,6 +195,7 @@ The projection reports:
 - each configured limit, remaining headroom, consumed ratio, readiness and block status;
 - realized PnL, funding, commission, classified net trading income, settlement asset and record counts;
 - projected exposure reservations and configured projected-risk limits;
+- per-symbol current/reconciled notional, active symbol reservations, projected notional and max-symbol headroom for the bounded bootstrap universe;
 - current/projected available balance, gross notional and open-position counts;
 - current Margin Balance / initial margin plus projected effective leverage and margin utilization;
 - current/projected signed net-directional exposure with LONG and SHORT headroom;
