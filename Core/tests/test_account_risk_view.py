@@ -69,6 +69,27 @@ def base_status() -> dict:
         "maxEffectiveLeverage": 3.0,
         "maxMarginUtilization": 0.6,
         "maxNetDirectionalNotional": 5000.0,
+        "accountRiskObservationReady": True,
+        "accountRiskObservedUnixMs": 999_900,
+        "accountRiskState": "NORMAL",
+        "currentRiskCapital": 1000.0,
+        "currentAvailableBalance": 700.0,
+        "projectedAvailableBalance": 670.0,
+        "currentGrossNotional": 1000.0,
+        "projectedGrossNotional": 1300.0,
+        "currentMaxGrossNotional": 5000.0,
+        "currentOpenPositions": 2,
+        "projectedOpenPositions": 3,
+        "currentMaxOpenPositions": 10,
+        "accountMarginMetricsReady": True,
+        "currentMarginBalance": 2000.0,
+        "currentInitialMargin": 200.0,
+        "projectedInitialMargin": 230.0,
+        "projectedEffectiveLeverage": 0.65,
+        "projectedMarginUtilization": 0.115,
+        "accountNetDirectionalReady": True,
+        "currentNetDirectionalNotional": 400.0,
+        "projectedNetDirectionalNotional": 500.0,
         "lastDecisionCode": "ORDER_ROUTING_DISABLED",
         "detail": "simulation execution host ready",
     }
@@ -94,6 +115,29 @@ def main() -> int:
     assert daily["status"] == "HEADROOM"
     assert abs(daily["headroom"] - 75.0) < 1e-12
     assert abs(daily["consumedRatio"] - 0.25) < 1e-12
+    account = view["accountRiskObservation"]
+    assert account["ready"] is True
+    assert abs(account["availableBalanceHeadroom"] - 570.0) < 1e-12
+    assert abs(account["grossNotionalHeadroom"] - 3700.0) < 1e-12
+    assert account["openPositionHeadroom"] == 7
+    assert abs(account["effectiveLeverageHeadroom"] - 2.35) < 1e-12
+    assert abs(account["marginUtilizationHeadroom"] - 0.485) < 1e-12
+    assert abs(account["longDirectionalHeadroom"] - 4500.0) < 1e-12
+    assert abs(account["shortDirectionalHeadroom"] - 5500.0) < 1e-12
+
+    observation_missing = base_status()
+    observation_missing["accountRiskObservationReady"] = False
+    view = mod.build_view(
+        observation_missing,
+        now_ms=1_001_000,
+        source_path="execution_status.v1.json",
+        max_source_age_ms=5_000,
+    )
+    assert view["gateState"] == "ACCOUNT_NOT_RECONCILED"
+    assert (
+        "ACCOUNT_NOT_RECONCILED:ACCOUNT_RISK_OBSERVATION_UNAVAILABLE"
+        in view["blockReasons"]
+    )
 
     blocked = base_status()
     blocked["dailyRealizedTradeLoss"] = 50.0
