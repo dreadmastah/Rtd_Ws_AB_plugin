@@ -161,6 +161,7 @@ def account_to_risk_snapshot(
         raise GatewayError("account positions is not a list")
 
     gross_notional = 0.0
+    net_directional_notional = 0.0
     open_positions = 0
     for raw in positions:
         if not isinstance(raw, dict):
@@ -173,7 +174,20 @@ def account_to_risk_snapshot(
             raise GatewayError(
                 "non-zero account position missing notional; cannot reconcile gross exposure"
             )
-        gross_notional += abs(as_position_float(raw, "notional"))
+        absolute_notional = abs(as_position_float(raw, "notional"))
+        gross_notional += absolute_notional
+        position_side = str(raw.get("positionSide", "BOTH")).upper()
+        if position_side == "LONG":
+            direction = 1.0
+        elif position_side == "SHORT":
+            direction = -1.0
+        elif position_side == "BOTH":
+            direction = 1.0 if position_amt > 0.0 else -1.0
+        else:
+            raise GatewayError(
+                f"unsupported positionSide={position_side} for directional exposure"
+            )
+        net_directional_notional += direction * absolute_notional
 
     if max_gross_notional <= 0.0:
         raise GatewayError("max_gross_notional must be positive")
@@ -201,6 +215,7 @@ def account_to_risk_snapshot(
         "marginBalance": max(0.0, margin_balance),
         "initialMargin": max(0.0, initial_margin),
         "grossNotional": max(0.0, gross_notional),
+        "netDirectionalNotional": float(net_directional_notional),
         "maxGrossNotional": float(max_gross_notional),
         "openPositions": int(open_positions),
         "maxOpenPositions": int(max_open_positions),
@@ -332,6 +347,7 @@ def fail_closed_snapshot(
         "marginBalance": 0.0,
         "initialMargin": 0.0,
         "grossNotional": 0.0,
+        "netDirectionalNotional": 0.0,
         "maxGrossNotional": max(0.0, float(max_gross_notional)),
         "openPositions": 0,
         "maxOpenPositions": max(0, int(max_open_positions)),
