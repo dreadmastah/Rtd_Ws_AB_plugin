@@ -26,6 +26,7 @@ RUNTIME = ROOT / "runtime"
 LOGS = RUNTIME / "logs"
 PID_FILE = RUNTIME / "autotrader_sim_pids.json"
 RISK_FILE = RUNTIME / "account_risk_status.v1.json"
+POSITION_DIR = RUNTIME / "position_status"
 EXECUTION_STATUS_FILE = RUNTIME / "execution_status.v1.json"
 DEFAULT_STATUS_DIR = REPO / "CleanRoomR2" / "stack" / "runtime" / "autotrader_status"
 DEFAULT_HOST = REPO / "build" / "core" / "Release" / "astu_execution_pipe_host.exe"
@@ -123,6 +124,7 @@ def run(args: argparse.Namespace) -> int:
     host = Path(args.host).resolve()
     status_dir = Path(args.status_dir).resolve()
     risk_file = Path(args.risk_file).resolve()
+    position_dir = Path(args.position_dir).resolve()
     journal = Path(args.journal).resolve()
     execution_status_file = Path(args.execution_status_file).resolve()
     instrument_dir = Path(args.instrument_dir).resolve()
@@ -182,6 +184,10 @@ def run(args: argparse.Namespace) -> int:
             str(FIXTURE),
             "--output",
             str(risk_file),
+            "--positions-output-dir",
+            str(position_dir),
+            "--symbols-file",
+            str(REPO / "CleanRoomR2" / "stack" / "bootstrap_symbols.tls"),
             "--poll-seconds",
             str(args.risk_poll_seconds),
         ]
@@ -192,6 +198,10 @@ def run(args: argparse.Namespace) -> int:
             str(GATEWAY),
             "--output",
             str(risk_file),
+            "--positions-output-dir",
+            str(position_dir),
+            "--symbols-file",
+            str(REPO / "CleanRoomR2" / "stack" / "bootstrap_symbols.tls"),
             "--poll-seconds",
             str(args.risk_poll_seconds),
         ]
@@ -252,6 +262,13 @@ def run(args: argparse.Namespace) -> int:
                 "--max-instrument-status-age-ms",
                 str(args.max_instrument_status_age_ms),
             ])
+        if risk_command is not None:
+            host_command.extend([
+                "--position-status-dir",
+                str(position_dir),
+                "--max-position-status-age-ms",
+                str(args.max_position_status_age_ms),
+            ])
         children["execution"] = start_child("execution", host_command)
         save_pids(children)
 
@@ -259,6 +276,8 @@ def run(args: argparse.Namespace) -> int:
         print(f"RISK_MODE={args.risk_mode}")
         print(f"STATUS_DIR={status_dir}")
         print(f"RISK_STATUS_FILE={risk_file}")
+        if risk_command is not None:
+            print(f"POSITION_STATUS_DIR={position_dir}")
         print(f"EXECUTION_JOURNAL={journal}")
         print(f"EXECUTION_STATUS_FILE={execution_status_file}")
         print(f"INSTRUMENT_MODE={args.instrument_mode}")
@@ -337,6 +356,8 @@ def parse_args() -> argparse.Namespace:
         default="disabled",
     )
     ap.add_argument("--risk-poll-seconds", type=float, default=5.0)
+    ap.add_argument("--position-dir", default=str(POSITION_DIR))
+    ap.add_argument("--max-position-status-age-ms", type=int, default=7000)
     ap.add_argument(
         "--instrument-mode",
         choices=("disabled", "fixture", "public"),
