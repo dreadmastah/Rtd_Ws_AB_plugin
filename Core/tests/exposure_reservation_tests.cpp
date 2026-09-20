@@ -149,7 +149,9 @@ astu::ipc::SimulationDispatcher reservation_dispatcher(
          base,
          max_pending_entry_scale_in_reservations,
          max_symbol_notional,
-         symbol_notional_provider](
+         symbol_notional_provider,
+         minimum_available_balance_reserve,
+         margin_reservation_rate](
             const astu::core::SignalIntent& intent) {
             const bool symbol_reconciled =
                 max_symbol_notional <= 0.0 ||
