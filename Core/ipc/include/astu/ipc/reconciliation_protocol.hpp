@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -41,6 +42,7 @@ struct SimulationReconciliationResponse {
 inline std::string encode_reconciliation_request_json(
     const SimulationReconciliationRequest& request) {
     std::ostringstream out;
+    out << std::setprecision(17);
     out
         << "{"
         << "\"schemaVersion\":" << request.schema_version
@@ -92,6 +94,7 @@ inline SimulationReconciliationRequest decode_reconciliation_request_json(
 inline std::string encode_reconciliation_response_json(
     const SimulationReconciliationResponse& response) {
     std::ostringstream out;
+    out << std::setprecision(17);
     out
         << "{"
         << "\"schemaVersion\":" << response.schema_version
