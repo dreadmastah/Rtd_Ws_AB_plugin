@@ -21,8 +21,9 @@
     "pipeReady",
     "orderRoutingEnabled",
     "requestsSeen",
+    "trackedOrders",
+    "recoveredOrdersAtStartup",
     "orderTransitionCount",
-    "recoveredOrders",
     "lastDecisionCode",
     "detail"
   ],
@@ -104,11 +105,15 @@
     "positionStateRequiredForScaleActions": {
       "const": true
     },
-    "recoveredOrders": {
+    "orderTransitionCount": {
       "type": "integer",
       "minimum": 0
     },
-    "orderTransitionCount": {
+    "recoveredOrdersAtStartup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "trackedOrders": {
       "type": "integer",
       "minimum": 0
     }
