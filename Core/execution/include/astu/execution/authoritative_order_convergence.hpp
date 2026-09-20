@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 #include "astu/execution/authoritative_order_snapshot.hpp"
