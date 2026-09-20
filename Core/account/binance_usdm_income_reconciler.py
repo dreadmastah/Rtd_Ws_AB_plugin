@@ -342,6 +342,14 @@ def load_accumulator_state(
         raise IncomeReconcilerError(
             "persisted realized PnL accumulator settlement asset mismatch"
         )
+    numeric_finite = [
+        "dailyRealizedTradePnl",
+        "weeklyRealizedTradePnl",
+        "dailyFundingFee",
+        "weeklyFundingFee",
+        "dailyCommission",
+        "weeklyCommission",
+    ]
     numeric_nonnegative = [
         "dailyRealizedTradeLossConsumed",
         "weeklyRealizedTradeLossConsumed",
@@ -353,6 +361,17 @@ def load_accumulator_state(
         "recordsInCurrentWeek",
         "ignoredIncomeRecords",
     ]
+    for key in numeric_finite:
+        try:
+            value = float(obj[key])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise IncomeReconcilerError(
+                f"persisted realized PnL accumulator invalid {key}"
+            ) from exc
+        if not math.isfinite(value):
+            raise IncomeReconcilerError(
+                f"persisted realized PnL accumulator invalid {key}"
+            )
     for key in numeric_nonnegative:
         try:
             value = float(obj[key])
@@ -364,6 +383,7 @@ def load_accumulator_state(
             raise IncomeReconcilerError(
                 f"persisted realized PnL accumulator invalid {key}"
             )
+    parsed_ints: dict[str, int] = {}
     for key in integer_nonnegative:
         try:
             value = int(obj[key])
@@ -375,6 +395,22 @@ def load_accumulator_state(
             raise IncomeReconcilerError(
                 f"persisted realized PnL accumulator invalid {key}"
             )
+        parsed_ints[key] = value
+
+    day_start = parsed_ints["utcDayStartUnixMs"]
+    week_start = parsed_ints["utcWeekStartUnixMs"]
+    if day_start % 86_400_000 != 0:
+        raise IncomeReconcilerError(
+            "persisted realized PnL day start is not UTC-day aligned"
+        )
+    if week_start % 86_400_000 != 0 or utc_week_start_ms(day_start) != week_start:
+        raise IncomeReconcilerError(
+            "persisted realized PnL week start is not Monday-aligned UTC"
+        )
+    if parsed_ints["updatedUnixMs"] <= 0:
+        raise IncomeReconcilerError(
+            "persisted realized PnL updatedUnixMs must be positive"
+        )
     return obj
 
 
