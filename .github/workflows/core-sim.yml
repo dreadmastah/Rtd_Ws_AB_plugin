@@ -302,3 +302,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_runtime_order_reconciliation_smoke.cmd
+
+      - name: Windows projected exposure reservation smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_exposure_reservation_smoke.cmd
