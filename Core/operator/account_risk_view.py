@@ -194,6 +194,33 @@ def validate_status(status: dict[str, Any]) -> None:
     _string(status, "lifecycleState")
     _string(status, "riskProvider")
     _string(status, "realizedPnlProvider")
+    _boolean(status, "accountRiskObservationReady")
+    _integer(status, "accountRiskObservedUnixMs")
+    _string(status, "accountRiskState")
+    for key in (
+        "currentRiskCapital",
+        "currentAvailableBalance",
+        "projectedAvailableBalance",
+        "currentGrossNotional",
+        "projectedGrossNotional",
+        "currentMaxGrossNotional",
+        "currentMarginBalance",
+        "currentInitialMargin",
+        "projectedInitialMargin",
+        "projectedEffectiveLeverage",
+        "projectedMarginUtilization",
+        "currentNetDirectionalNotional",
+        "projectedNetDirectionalNotional",
+    ):
+        _number(status, key)
+    for key in (
+        "currentOpenPositions",
+        "projectedOpenPositions",
+        "currentMaxOpenPositions",
+    ):
+        _integer(status, key)
+    _boolean(status, "accountMarginMetricsReady")
+    _boolean(status, "accountNetDirectionalReady")
     for spec in BUDGET_SPECS:
         _number(status, spec[4])
         _number(status, spec[5])
@@ -264,6 +291,64 @@ def build_view(
     )
     if source_fresh and not account_observation_ready:
         reasons.append("ACCOUNT_NOT_RECONCILED:ACCOUNT_RISK_OBSERVATION_UNAVAILABLE")
+
+    if account_observation_ready:
+        risk_state = _string(status, "accountRiskState")
+        if risk_state in ("BLOCK_NEW_ENTRIES", "EMERGENCY"):
+            reasons.append(f"RISK_BLOCKED:ACCOUNT_RISK_STATE_{risk_state}")
+
+        max_open_positions = _integer(status, "currentMaxOpenPositions")
+        projected_open_positions = _integer(status, "projectedOpenPositions")
+        if (
+            max_open_positions > 0
+            and projected_open_positions >= max_open_positions
+        ):
+            reasons.append("RISK_BLOCKED:MAX_OPEN_POSITIONS")
+
+        max_pending = _integer(status, "maxPendingEntryScaleInReservations")
+        active_pending = _integer(status, "activeExposureReservations")
+        if max_pending > 0 and active_pending >= max_pending:
+            reasons.append("RISK_BLOCKED:MAX_PENDING_ENTRY_SCALE_IN_RESERVATIONS")
+
+        max_gross = _number(status, "currentMaxGrossNotional")
+        projected_gross = _number(status, "projectedGrossNotional")
+        if max_gross > 0 and projected_gross >= max_gross:
+            reasons.append("RISK_BLOCKED:MAX_GROSS_NOTIONAL")
+
+        min_available = _number(status, "minimumAvailableBalanceReserve")
+        projected_available = _number(status, "projectedAvailableBalance")
+        if min_available > 0 and projected_available <= min_available:
+            reasons.append("RISK_BLOCKED:MINIMUM_AVAILABLE_BALANCE_RESERVE")
+
+        leverage_limit = _number(status, "maxEffectiveLeverage")
+        margin_limit = _number(status, "maxMarginUtilization")
+        margin_ready = _boolean(status, "accountMarginMetricsReady")
+        if (leverage_limit > 0 or margin_limit > 0) and not margin_ready:
+            reasons.append("ACCOUNT_NOT_RECONCILED:MARGIN_METRICS_UNAVAILABLE")
+        elif margin_ready:
+            if (
+                leverage_limit > 0
+                and _number(status, "projectedEffectiveLeverage")
+                >= leverage_limit
+            ):
+                reasons.append("RISK_BLOCKED:MAX_EFFECTIVE_LEVERAGE")
+            if (
+                margin_limit > 0
+                and _number(status, "projectedMarginUtilization")
+                >= margin_limit
+            ):
+                reasons.append("RISK_BLOCKED:MAX_MARGIN_UTILIZATION")
+
+        directional_limit = _number(status, "maxNetDirectionalNotional")
+        directional_ready = _boolean(status, "accountNetDirectionalReady")
+        if directional_limit > 0 and not directional_ready:
+            reasons.append("ACCOUNT_NOT_RECONCILED:NET_DIRECTIONAL_EXPOSURE_UNAVAILABLE")
+        elif directional_limit > 0:
+            projected_net = _number(status, "projectedNetDirectionalNotional")
+            if projected_net >= directional_limit:
+                reasons.append("RISK_BLOCKED:LONG_NET_DIRECTIONAL_LIMIT")
+            if projected_net <= -directional_limit:
+                reasons.append("RISK_BLOCKED:SHORT_NET_DIRECTIONAL_LIMIT")
 
     if not any(reason.startswith("ACCOUNT_NOT_RECONCILED:") for reason in reasons):
         for row in budgets:
