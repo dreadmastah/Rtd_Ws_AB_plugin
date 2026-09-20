@@ -45,6 +45,9 @@ ORDER_SNAPSHOT_DIR = RUNTIME / "authoritative_order_snapshots"
 ACCOUNT_RISK_VIEW = ROOT / "operator" / "account_risk_view.py"
 ACCOUNT_RISK_VIEW_JSON = RUNTIME / "account_risk_view.v1.json"
 ACCOUNT_RISK_VIEW_HTML = RUNTIME / "account_risk_view.html"
+TESTNET_USER_DATA = ROOT / "account" / "binance_usdm_testnet_user_data.py"
+TESTNET_USER_DATA_STATUS = RUNTIME / "testnet_user_data_status.v1.json"
+TESTNET_ORDER_AUTHORITY_DIR = RUNTIME / "testnet_order_authority"
 
 RUNTIME.mkdir(parents=True, exist_ok=True)
 LOGS.mkdir(parents=True, exist_ok=True)
@@ -143,6 +146,8 @@ def run(args: argparse.Namespace) -> int:
     symbol_risk_universe_file = Path(args.symbol_risk_universe_file).resolve()
     account_risk_view_json = Path(args.account_risk_view_json).resolve()
     account_risk_view_html = Path(args.account_risk_view_html).resolve()
+    testnet_user_data_status = Path(args.testnet_user_data_status).resolve()
+    testnet_order_authority_dir = Path(args.testnet_order_authority_dir).resolve()
     instrument_dir = Path(args.instrument_dir).resolve()
     order_snapshot_dir = (
         Path(args.order_snapshot_dir).resolve()
@@ -166,6 +171,10 @@ def run(args: argparse.Namespace) -> int:
         or args.max_weekly_realized_trade_loss < 0
         or args.account_risk_view_max_source_age_ms <= 0
         or args.account_risk_view_poll_seconds <= 0
+        or args.testnet_user_data_max_liveness_ms <= 0
+        or args.testnet_user_data_max_state_age_ms <= 0
+        or args.testnet_user_data_keepalive_seconds <= 0
+        or args.testnet_user_data_reconnect_seconds <= 0
         or (
             (
                 args.minimum_available_balance_reserve > 0
@@ -309,6 +318,40 @@ def run(args: argparse.Namespace) -> int:
             str(args.realized_pnl_poll_seconds),
         ]
 
+    testnet_user_data_command: list[str] | None = None
+    if args.testnet_user_data_mode == "live":
+        if args.risk_mode != "readonly":
+            print(
+                "ASTU_SIM_STACK_FATAL=live Testnet user-data authority "
+                "requires --risk-mode readonly for REST account/position convergence"
+            )
+            return 2
+        testnet_user_data_command = [
+            sys.executable,
+            "-u",
+            str(TESTNET_USER_DATA),
+            "--status",
+            str(testnet_user_data_status),
+            "--order-output-dir",
+            str(testnet_order_authority_dir),
+            "--journal",
+            str(journal),
+            "--account-snapshot",
+            str(risk_file),
+            "--position-dir",
+            str(position_dir),
+            "--max-liveness-ms",
+            str(args.testnet_user_data_max_liveness_ms),
+            "--rest-base-url",
+            str(args.testnet_rest_base_url),
+            "--ws-url-template",
+            str(args.testnet_user_data_ws_url_template),
+            "--keepalive-seconds",
+            str(args.testnet_user_data_keepalive_seconds),
+            "--reconnect-seconds",
+            str(args.testnet_user_data_reconnect_seconds),
+        ]
+
     instrument_command: list[str] | None = None
     if args.instrument_mode == "fixture":
         instrument_command = [
@@ -347,6 +390,12 @@ def run(args: argparse.Namespace) -> int:
             time.sleep(0.5)
         if instrument_command is not None:
             children["instrument"] = start_child("instrument", instrument_command)
+            time.sleep(0.5)
+        if testnet_user_data_command is not None:
+            children["testnet_user_data"] = start_child(
+                "testnet_user_data",
+                testnet_user_data_command,
+            )
             time.sleep(0.5)
 
         host_command = [
@@ -401,6 +450,10 @@ def run(args: argparse.Namespace) -> int:
             str(args.max_daily_realized_trade_loss),
             "--max-weekly-realized-trade-loss",
             str(args.max_weekly_realized_trade_loss),
+            "--testnet-convergence-status-file",
+            str(testnet_user_data_status),
+            "--max-testnet-convergence-age-ms",
+            str(args.testnet_user_data_max_state_age_ms),
         ]
         if instrument_command is not None:
             host_command.extend([
@@ -471,6 +524,9 @@ def run(args: argparse.Namespace) -> int:
         print(f"SYMBOL_RISK_STATUS_FILE={symbol_risk_status_file}")
         print(f"SYMBOL_RISK_UNIVERSE_FILE={symbol_risk_universe_file}")
         print(f"ACCOUNT_RISK_VIEW_MODE={args.account_risk_view_mode}")
+        print(f"TESTNET_USER_DATA_MODE={args.testnet_user_data_mode}")
+        print(f"TESTNET_USER_DATA_STATUS={testnet_user_data_status}")
+        print(f"TESTNET_ORDER_AUTHORITY_DIR={testnet_order_authority_dir}")
         if args.account_risk_view_mode == "local":
             print(f"ACCOUNT_RISK_VIEW_JSON={account_risk_view_json}")
             print(f"ACCOUNT_RISK_VIEW_HTML={account_risk_view_html}")
@@ -521,6 +577,8 @@ def run(args: argparse.Namespace) -> int:
                     command = realized_pnl_command
                 elif name == "instrument":
                     command = instrument_command
+                elif name == "testnet_user_data":
+                    command = testnet_user_data_command
                 elif name == "account_risk_view":
                     command = account_risk_view_command
                 else:
@@ -602,6 +660,54 @@ def parse_args() -> argparse.Namespace:
         "--account-risk-view-poll-seconds",
         type=float,
         default=1.0,
+    )
+    ap.add_argument(
+        "--testnet-user-data-mode",
+        choices=("disabled", "live"),
+        default="disabled",
+        help=(
+            "Supervise the Binance USD-M Testnet user-data authority sidecar. "
+            "This does not enable order routing."
+        ),
+    )
+    ap.add_argument(
+        "--testnet-user-data-status",
+        default=str(TESTNET_USER_DATA_STATUS),
+    )
+    ap.add_argument(
+        "--testnet-order-authority-dir",
+        default=str(TESTNET_ORDER_AUTHORITY_DIR),
+    )
+    ap.add_argument(
+        "--testnet-user-data-max-liveness-ms",
+        type=int,
+        default=15000,
+    )
+    ap.add_argument(
+        "--testnet-user-data-max-state-age-ms",
+        type=int,
+        default=7000,
+    )
+    ap.add_argument(
+        "--testnet-user-data-keepalive-seconds",
+        type=float,
+        default=1800.0,
+    )
+    ap.add_argument(
+        "--testnet-user-data-reconnect-seconds",
+        type=float,
+        default=2.0,
+    )
+    ap.add_argument(
+        "--testnet-rest-base-url",
+        default="https://testnet.binancefuture.com",
+    )
+    ap.add_argument(
+        "--testnet-user-data-ws-url-template",
+        default=os.getenv(
+            "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE",
+            "wss://fstream.binancefuture.com/private/ws/{listenKey}",
+        ),
     )
     ap.add_argument(
         "--risk-mode",
