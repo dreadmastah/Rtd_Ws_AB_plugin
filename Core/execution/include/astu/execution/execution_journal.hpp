@@ -202,6 +202,11 @@ public:
             throw std::invalid_argument(
                 "duplicate reconciliation event id");
         }
+        if (reconciliation_target_from_type_unlocked(
+                reconciliation_type) != to_state) {
+            throw std::invalid_argument(
+                "reconciliation type/toState mismatch");
+        }
 
         const auto intent_it = order_intents_.find(simulation_order_id);
         if (intent_it == order_intents_.end()) {
