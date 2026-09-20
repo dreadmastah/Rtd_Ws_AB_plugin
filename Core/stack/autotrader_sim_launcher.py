@@ -700,7 +700,7 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument(
         "--testnet-rest-base-url",
-        default="https://testnet.binancefuture.com",
+        default="https://demo-fapi.binance.com",
     )
     ap.add_argument(
         "--testnet-user-data-ws-url-template",
