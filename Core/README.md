@@ -168,6 +168,41 @@ The Windows restart acceptance test additionally proves that:
 - the deterministic `simulationOrderId` remains stable on that retry;
 - no `SUBMITTING` transition or exchange-submission flag appears.
 
+## Simulation reconciliation around UNKNOWN_RECONCILE_REQUIRED
+
+The simulation journal now accepts explicit reconciliation evidence for a previously normalized simulation order. This is deliberately separate from exchange submission.
+
+Supported simulation reconciliation event types are:
+
+- `MARK_UNKNOWN` -> `UNKNOWN_RECONCILE_REQUIRED`
+- `ACKNOWLEDGED` -> `ACKNOWLEDGED`
+- `WORKING` -> `WORKING`
+- `PARTIAL_FILL` -> `PARTIAL`
+- `FILLED` -> `FILLED`
+- `CANCELED` -> `CANCELED`
+- `REJECTED` -> `REJECTED`
+
+Each `SIMULATION_RECONCILIATION_EVENT` is a single durable state transition with both a per-order transition sequence and a reconciliation-event sequence. Replay verifies the from-state, target state, reconciliation type, order quantity, event sequence, transition sequence, simulation-only marker, and no-exchange-submission marker.
+
+Fill reconciliation is cumulative and monotonic. A partial fill must be greater than zero and strictly below the normalized simulation order quantity. A filled event must reconcile exactly to the normalized order quantity. Decreasing fills, overfills, duplicate event IDs, invalid state jumps, and terminal-state mutation fail closed.
+
+`astu_sim_reconcile` is currently an **offline simulation/recovery tool**. Stop the execution host before applying events to its journal, then restart the host to verify reconstruction. It does not call Binance or any other exchange endpoint.
+
+Example:
+
+```cmd
+astu_sim_reconcile.exe --journal execution_journal.v1.jsonl ^
+  --order-id SIMORD-... ^
+  --event-id EV-001 ^
+  --event MARK_UNKNOWN
+```
+
+The reconciliation restart acceptance follows this simulation path:
+
+`SIZING -> UNKNOWN_RECONCILE_REQUIRED -> ACKNOWLEDGED -> WORKING -> PARTIAL -> FILLED`
+
+It then restarts the execution host and verifies the final state, cumulative fill evidence, duplicate guard, transition count, reconciliation count, and the invariant that no `SUBMITTING` transition or exchange-submission attempt occurred.
+
 ## Current next implementation step
 
-Once the new order-FSM head is validated by CI, the next simulation-only increment is reconciliation-oriented FSM behavior around `UNKNOWN_RECONCILE_REQUIRED`: simulated acknowledgement/fill event inputs, legal recovery transitions, and durable reconciliation evidence. No exchange order-submission endpoint should be added in that increment.
+After this reconciliation head is validated, the next simulation-only increment should move reconciliation ingestion into the running execution service itself using a bounded local IPC contract, so external simulated account/order events do not write the journal concurrently. That service-side ingress should preserve the same journal/FSM validation and still contain no exchange submission endpoint.
