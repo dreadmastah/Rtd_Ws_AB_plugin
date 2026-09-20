@@ -87,10 +87,28 @@ public:
             return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
                     "max open positions reached"};
         }
+        if (exposure &&
+            risk.max_pending_entry_scale_in_reservations > 0 &&
+            risk.pending_entry_scale_in_reservations >=
+                risk.max_pending_entry_scale_in_reservations) {
+            return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                    "max pending entry/scale-in reservations reached"};
+        }
         if (exposure && risk.max_gross_notional > 0.0 &&
             risk.gross_notional >= risk.max_gross_notional) {
             return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
                     "max gross notional reached"};
+        }
+        if (exposure && risk.max_symbol_notional > 0.0) {
+            if (!risk.symbol_exposure_reconciled) {
+                return {DecisionCode::PositionUnavailable, false, exposure,
+                        0.0, 0.0,
+                        "per-symbol risk limit requires reconciled symbol exposure"};
+            }
+            if (risk.symbol_notional >= risk.max_symbol_notional) {
+                return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                        "max projected symbol notional reached"};
+            }
         }
         return {DecisionCode::SimulatedAccepted, true, exposure, 0.0, 0.0,
                 "risk gate passed for simulation"};
@@ -244,6 +262,18 @@ public:
                     risk.max_gross_notional -
                         risk.gross_notional));
         }
+        if (astu::core::increases_exposure(intent.action) &&
+            risk.max_symbol_notional > 0.0) {
+            if (!risk.symbol_exposure_reconciled) {
+                return 0.0;
+            }
+            budget = std::min(
+                budget,
+                std::max(
+                    0.0,
+                    risk.max_symbol_notional -
+                        risk.symbol_notional));
+        }
         if (!std::isfinite(budget) || budget <= 0.0) {
             return 0.0;
         }
@@ -269,6 +299,19 @@ public:
             const double headroom =
                 std::max(0.0, risk.max_gross_notional - risk.gross_notional);
             budget = std::min(budget, headroom);
+        }
+
+        if (astu::core::increases_exposure(intent.action) &&
+            risk.max_symbol_notional > 0.0) {
+            if (!risk.symbol_exposure_reconciled) {
+                return out;
+            }
+            const double symbol_headroom =
+                std::max(
+                    0.0,
+                    risk.max_symbol_notional -
+                        risk.symbol_notional);
+            budget = std::min(budget, symbol_headroom);
         }
 
         if (rules.max_notional > 0.0) {
