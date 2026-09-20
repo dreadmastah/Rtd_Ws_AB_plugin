@@ -439,6 +439,70 @@ The deterministic acceptance coverage proves effective-leverage blocking, margin
 
 No Binance leverage-setting, margin-mode mutation, order submission, cancel request, transfer, or automatic `SUBMITTING` transition is added.
 
+## Maximum net directional exposure
+
+The read-only account reconciler now publishes signed `netDirectionalNotional` in addition to gross notional.
+
+The sign convention is explicit:
+
+- LONG position notional contributes positively;
+- SHORT position notional contributes negatively;
+- one-way/BOTH positions use the sign of `positionAmt`;
+- flat positions contribute zero.
+
+Active exposure reservations use the `SignalIntent.side` field in the same way. A LONG BUY/SCALE_IN reservation adds its full simulated notional to projected net exposure; a SHORT BUY/SCALE_IN reservation subtracts it. The execution journal already persists side + reserved notional, so signed reservation exposure is reconstructed after restart without a new mutable state source.
+
+The configured symmetric limit is:
+
+```text
+--max-net-directional-notional VALUE
+ASTU_MAX_NET_DIRECTIONAL_NOTIONAL
+```
+
+A value of `0` disables this check.
+
+The projected risk baseline is:
+
+```text
+projectedNetDirectionalNotional =
+    reconciledNetDirectionalNotional
+    + signedActiveExposureReservations
+```
+
+For a new LONG exposure-increasing intent, remaining directional headroom is:
+
+```text
+maxNetDirectionalNotional
+- projectedNetDirectionalNotional
+```
+
+For a new SHORT intent, it is:
+
+```text
+maxNetDirectionalNotional
++ projectedNetDirectionalNotional
+```
+
+This deliberately allows an opposite-side intent to reduce an already one-sided portfolio. Reaching the positive limit blocks additional LONG exposure but does not block a SHORT intent solely because the absolute current net equals the limit; the inverse applies at the negative limit.
+
+Both the legacy and strict instrument sizing paths cap candidate notional by that side-specific remaining headroom. If the limit is configured but signed reconciled exposure is unavailable, new exposure fails closed as `ACCOUNT_NOT_RECONCILED`.
+
+`ExecutionStatus.v1` now publishes:
+
+- `maxNetDirectionalNotional`;
+- `reservedNetDirectionalNotional`, the signed sum of active projected exposure reservations.
+
+Deterministic coverage proves:
+
+- a LONG reservation reaching the positive cap blocks another LONG;
+- an equal SHORT reservation offsets the signed projected net and restores LONG directional headroom;
+- signed reservation projection survives restart;
+- strict LONG sizing is reduced to remaining positive directional headroom;
+- strict SHORT sizing is reduced symmetrically at the negative boundary;
+- missing reconciled signed exposure fails closed.
+
+No exchange order, position, leverage, margin-mode, or routing mutation is introduced.
+
 ## Current next implementation step
 
-After this leverage/margin-health layer is validated, the next simulation-only portfolio-risk increment should add maximum net directional exposure. The read-only account snapshot should publish reconciled signed net notional, active exposure reservations should contribute a deterministic signed projection from SignalIntent side, and sizing should be capped by remaining long/short directional headroom without changing the current no-submission boundary.
+After this directional-exposure layer is validated, the next simulation-only account-risk increment should add daily/weekly loss-budget and high-water drawdown controls using explicitly reconciled account metrics and persisted UTC baselines. Those controls should fail closed when the required baseline or PnL evidence is unavailable and remain entirely pre-submission.
