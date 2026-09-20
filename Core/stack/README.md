@@ -79,6 +79,21 @@ When `--max-symbol-notional` is enabled in fixture/read-only mode, the execution
 
 The pending-entry/scale-in limit counts active simulation exposure reservations. It does not claim to be an exchange open-order count; exchange private-order reconciliation remains outside this no-submission increment.
 
+## Available-balance reservation controls
+
+The supervisor also forwards the simulation-only free-balance policy:
+
+```cmd
+python Core\stack\autotrader_sim_launcher.py ^
+  --risk-mode fixture ^
+  --minimum-available-balance-reserve 100 ^
+  --simulation-margin-reservation-rate 0.10
+```
+
+The rate is deliberately configurable rather than inferred from Binance leverage. A rate of `0.10` means the simulator reserves 0.10 units of reconciled available balance for each unit of accepted simulated notional. No exchange leverage or margin setting is changed.
+
+A positive `--minimum-available-balance-reserve` requires a positive `--simulation-margin-reservation-rate`. Active balance reservations survive restart through the execution journal and are released only after terminal simulated reconciliation.
+
 ## Synthetic projected-risk controls
 
 The execution host synthetic mode exposes test-only limits for projected-risk acceptance:
