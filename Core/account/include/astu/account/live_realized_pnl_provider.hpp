@@ -65,6 +65,11 @@ public:
                 astu::ipc::require_bool(obj, "reconciled");
             out.source =
                 astu::ipc::require_string(obj, "source");
+            out.settlement_asset =
+                astu::ipc::require_string(obj, "settlementAsset");
+            if (out.settlement_asset.empty()) {
+                return astu::core::RealizedPnlSnapshot{};
+            }
             out.utc_day_start_unix_ms = day_start;
             out.utc_week_start_unix_ms = week_start;
             out.daily_realized_trade_pnl =
