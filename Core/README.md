@@ -233,6 +233,35 @@ The order remains unresolved until `WORKING` evidence is supplied through `\\.\p
 
 `ExecutionStatus.v1` now exposes the startup snapshot provider plus tracked, matched, marked-unknown, and unresolved counts.
 
+## Periodic in-process authoritative reconciliation
+
+When an authoritative simulation order snapshot directory is configured, the execution host now runs a bounded periodic reconciliation sweep in-process. The interval defaults to 2000 ms and is configurable with `--order-reconcile-interval-ms` or `ASTU_ORDER_RECONCILE_INTERVAL_MS`.
+
+Each sweep examines normalized non-terminal simulation orders only:
+
+- exact journal state + cumulative-fill agreement is reported as matched;
+- stale, missing, malformed or non-ready source state is surfaced through `runtimeOrderSourceUnavailable`;
+- any non-terminal state/fill disagreement moves the order to `UNKNOWN_RECONCILE_REQUIRED`;
+- an already-unknown order remains unresolved even if the source later becomes healthy;
+- resolution still requires explicit reconciliation evidence through `\\.\pipe\AstuExecutionReconcileSim.v1`;
+- terminal orders are skipped by the periodic sweep and are never rewritten.
+
+`ExecutionStatus.v1` now reports whether runtime reconciliation is enabled, last sweep time, sweep count, non-terminal orders examined, matches, orders marked unknown, unresolved orders, unavailable-source count, terminal orders skipped, concurrent state changes and sweep errors.
+
+The Windows runtime acceptance proves this sequence while `Execution.exe` remains running:
+
+`SIZING + authoritative SIZING -> MATCHED`
+
+`SIZING + authoritative WORKING -> UNKNOWN_RECONCILE_REQUIRED`
+
+`UNKNOWN + explicit WORKING evidence -> WORKING / MATCHED`
+
+`WORKING + missing authoritative snapshot -> UNKNOWN_RECONCILE_REQUIRED`
+
+Restoring the snapshot alone does not clear UNKNOWN; a second explicit evidence event is required before the order becomes matched again.
+
+No `SUBMITTING` transition, exchange credential, private order request or exchange-submission path is introduced.
+
 ## Current next implementation step
 
-After this startup-authority layer is validated, the next simulation-only increment should add a periodic in-process reconciliation sweep for already-running non-terminal orders. The sweep should compare fresh authoritative simulation snapshots against journal state, mark runtime disagreements as `UNKNOWN_RECONCILE_REQUIRED`, surface stale/missing-source health, and require explicit reconciliation evidence for resolution. It should remain read-only with respect to exchange connectivity and must not add an order-submission endpoint.
+After this periodic reconciliation layer is validated, the next simulation-only increment should introduce per-symbol/order exposure reservations tied to normalized simulation order intents. The goal is to prevent concurrent accepted intents from independently consuming the same remaining gross-notional or position capacity before reconciliation catches up. Reservations should be journaled, rebuilt on restart, released on rejection/cancel/fill policy, and remain entirely simulation-only with no exchange submission endpoint.
