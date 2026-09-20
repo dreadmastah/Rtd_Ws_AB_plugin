@@ -232,7 +232,7 @@ private:
     };
 
     void replay_order_transition_unlocked(
-        const astu::ipc::FlatObject& obj) {
+        const astu::ipc::JsonObject& obj) {
         const auto order_id =
             astu::ipc::require_string(obj, "simulationOrderId");
         const auto from_state =
