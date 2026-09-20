@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <deque>
 #include <filesystem>
@@ -29,6 +30,18 @@ namespace astu::execution {
 
 class ExecutionJournal {
 public:
+    struct SimulationOrderIntentRecord {
+        std::string request_id;
+        std::string idempotency_key;
+        std::string signal_id;
+        std::string symbol;
+        astu::core::SignalAction action{astu::core::SignalAction::Buy};
+        astu::core::PositionSide side{astu::core::PositionSide::Long};
+        double quantity{0.0};
+        double reference_price{0.0};
+        double notional{0.0};
+    };
+
     explicit ExecutionJournal(
         std::filesystem::path path,
         std::size_t replay_capacity = 100'000)
@@ -141,12 +154,139 @@ public:
             << "}\n";
 
         append_durable(out.str());
-        order_intents_.insert(response.simulation_order_id);
+        order_intents_.emplace(
+            response.simulation_order_id,
+            SimulationOrderIntentRecord{
+                request.request_id,
+                request.idempotency_key,
+                request.intent.signal_id,
+                request.intent.symbol,
+                request.intent.action,
+                request.intent.side,
+                response.simulated_quantity,
+                request.intent.trigger_price,
+                response.simulated_notional,
+            });
+    }
+
+    std::optional<SimulationOrderIntentRecord> simulation_order_intent(
+        const std::string& simulation_order_id) const {
+        std::lock_guard<std::mutex> lock(mu_);
+        const auto it = order_intents_.find(simulation_order_id);
+        if (it == order_intents_.end()) {
+            return std::nullopt;
+        }
+        return it->second;
     }
 
     std::size_t recovered_order_intent_count() const {
         std::lock_guard<std::mutex> lock(mu_);
         return order_intents_.size();
+    }
+
+    void append_reconciliation_event(
+        const std::string& event_id,
+        const std::string& simulation_order_id,
+        const std::string& reconciliation_type,
+        astu::execution::OrderState to_state,
+        double cumulative_filled_quantity,
+        std::int64_t utc_ms,
+        std::string detail) {
+        std::lock_guard<std::mutex> lock(mu_);
+        if (event_id.empty() || simulation_order_id.empty() ||
+            reconciliation_type.empty()) {
+            throw std::invalid_argument(
+                "reconciliation event identity/type is required");
+        }
+        if (reconciliation_event_ids_.contains(event_id)) {
+            throw std::invalid_argument(
+                "duplicate reconciliation event id");
+        }
+
+        const auto intent_it = order_intents_.find(simulation_order_id);
+        if (intent_it == order_intents_.end()) {
+            throw std::invalid_argument(
+                "simulation order intent unavailable for reconciliation");
+        }
+        const auto state_it = order_states_.find(simulation_order_id);
+        if (state_it == order_states_.end()) {
+            throw std::invalid_argument(
+                "simulation order state unavailable for reconciliation");
+        }
+
+        const auto& intent = intent_it->second;
+        const auto previous_progress =
+            reconciliation_progress_.find(simulation_order_id);
+        const double previous_filled =
+            previous_progress == reconciliation_progress_.end()
+                ? 0.0
+                : previous_progress->second.cumulative_filled_quantity;
+        const std::uint64_t reconciliation_sequence =
+            previous_progress == reconciliation_progress_.end()
+                ? 1
+                : previous_progress->second.sequence + 1;
+
+        validate_reconciliation_quantity_unlocked(
+            intent.quantity,
+            previous_filled,
+            cumulative_filled_quantity,
+            to_state);
+
+        astu::execution::OrderStateMachine::require_transition(
+            state_it->second.state,
+            to_state);
+        const auto transition_sequence = state_it->second.sequence + 1;
+
+        std::ostringstream out;
+        out
+            << "{"
+            << "\"schemaVersion\":1"
+            << ",\"eventType\":\"SIMULATION_RECONCILIATION_EVENT\""
+            << ",\"utcMs\":" << utc_ms
+            << ",\"eventId\":\"" << astu::ipc::json_escape(event_id) << "\""
+            << ",\"simulationOrderId\":\""
+            << astu::ipc::json_escape(simulation_order_id) << "\""
+            << ",\"reconciliationType\":\""
+            << astu::ipc::json_escape(reconciliation_type) << "\""
+            << ",\"fromState\":\""
+            << astu::execution::order_state_to_string(state_it->second.state)
+            << "\""
+            << ",\"toState\":\""
+            << astu::execution::order_state_to_string(to_state) << "\""
+            << ",\"transitionSequence\":" << transition_sequence
+            << ",\"reconciliationSequence\":" << reconciliation_sequence
+            << ",\"orderQuantity\":" << intent.quantity
+            << ",\"cumulativeFilledQuantity\":" << cumulative_filled_quantity
+            << ",\"simulationOnly\":true"
+            << ",\"exchangeSubmissionAttempted\":false"
+            << ",\"detail\":\"" << astu::ipc::json_escape(detail) << "\""
+            << "}\n";
+
+        append_durable(out.str());
+        order_states_[simulation_order_id] =
+            OrderRecoveryState{to_state, transition_sequence};
+        reconciliation_progress_[simulation_order_id] =
+            ReconciliationRecoveryState{
+                reconciliation_sequence,
+                cumulative_filled_quantity,
+            };
+        reconciliation_event_ids_.insert(event_id);
+        ++order_transition_count_;
+        ++reconciliation_event_count_;
+    }
+
+    double reconciled_filled_quantity(
+        const std::string& simulation_order_id) const {
+        std::lock_guard<std::mutex> lock(mu_);
+        const auto it = reconciliation_progress_.find(simulation_order_id);
+        return it == reconciliation_progress_.end()
+            ? 0.0
+            : it->second.cumulative_filled_quantity;
+    }
+
+    std::uint64_t reconciliation_event_count() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        return reconciliation_event_count_;
     }
 
     void append_order_transition(
@@ -263,6 +403,10 @@ private:
                     replay_simulation_order_intent_unlocked(obj);
                     continue;
                 }
+                if (event_type == "SIMULATION_RECONCILIATION_EVENT") {
+                    replay_reconciliation_event_unlocked(obj);
+                    continue;
+                }
                 if (event_type != "IDEMPOTENCY_RESERVATION" &&
                     event_type != "SIMULATION_DECISION") {
                     continue;
@@ -284,6 +428,39 @@ private:
         std::uint64_t sequence{0};
     };
 
+    struct ReconciliationRecoveryState {
+        std::uint64_t sequence{0};
+        double cumulative_filled_quantity{0.0};
+    };
+
+    static void validate_reconciliation_quantity_unlocked(
+        double order_quantity,
+        double previous_filled,
+        double cumulative_filled,
+        astu::execution::OrderState to_state) {
+        constexpr double kEpsilon = 1e-12;
+        if (!std::isfinite(order_quantity) || order_quantity <= 0.0 ||
+            !std::isfinite(cumulative_filled) ||
+            cumulative_filled < -kEpsilon ||
+            cumulative_filled + kEpsilon < previous_filled ||
+            cumulative_filled > order_quantity + kEpsilon) {
+            throw std::invalid_argument(
+                "invalid reconciliation cumulative fill quantity");
+        }
+
+        if (to_state == astu::execution::OrderState::Partial &&
+            (cumulative_filled <= kEpsilon ||
+             cumulative_filled >= order_quantity - kEpsilon)) {
+            throw std::invalid_argument(
+                "PARTIAL requires cumulative fill strictly between zero and order quantity");
+        }
+        if (to_state == astu::execution::OrderState::Filled &&
+            std::fabs(cumulative_filled - order_quantity) > kEpsilon) {
+            throw std::invalid_argument(
+                "FILLED requires cumulative fill equal to order quantity");
+        }
+    }
+
     void replay_simulation_order_intent_unlocked(
         const astu::ipc::JsonObject& obj) {
         const auto order_id =
@@ -298,14 +475,121 @@ private:
             throw std::runtime_error(
                 "execution journal invalid simulation order intent");
         }
-        (void)astu::ipc::action_from_string(
+        const auto action = astu::ipc::action_from_string(
             astu::ipc::require_string(obj, "action"));
-        (void)astu::ipc::side_from_string(
+        const auto side = astu::ipc::side_from_string(
             astu::ipc::require_string(obj, "side"));
-        if (!order_intents_.insert(order_id).second) {
+        const SimulationOrderIntentRecord record{
+            astu::ipc::require_string(obj, "requestId"),
+            astu::ipc::require_string(obj, "idempotencyKey"),
+            astu::ipc::require_string(obj, "signalId"),
+            astu::ipc::require_string(obj, "symbol"),
+            action,
+            side,
+            astu::ipc::require_double(obj, "quantity"),
+            astu::ipc::require_double(obj, "referencePrice"),
+            astu::ipc::require_double(obj, "notional"),
+        };
+        if (!order_intents_.emplace(order_id, record).second) {
             throw std::runtime_error(
                 "execution journal duplicate simulation order intent");
         }
+    }
+
+    void replay_reconciliation_event_unlocked(
+        const astu::ipc::JsonObject& obj) {
+        const auto event_id =
+            astu::ipc::require_string(obj, "eventId");
+        const auto order_id =
+            astu::ipc::require_string(obj, "simulationOrderId");
+        const auto from_state =
+            astu::ipc::require_string(obj, "fromState");
+        const auto to_state = astu::execution::order_state_from_string(
+            astu::ipc::require_string(obj, "toState"));
+        const auto transition_sequence =
+            astu::ipc::require_u64(obj, "transitionSequence");
+        const auto reconciliation_sequence =
+            astu::ipc::require_u64(obj, "reconciliationSequence");
+        const auto cumulative_filled =
+            astu::ipc::require_double(obj, "cumulativeFilledQuantity");
+        const auto recorded_order_quantity =
+            astu::ipc::require_double(obj, "orderQuantity");
+
+        if (event_id.empty() || order_id.empty() ||
+            astu::ipc::require_string(obj, "reconciliationType").empty() ||
+            !astu::ipc::require_bool(obj, "simulationOnly") ||
+            astu::ipc::require_bool(obj, "exchangeSubmissionAttempted")) {
+            throw std::runtime_error(
+                "execution journal invalid reconciliation event");
+        }
+        if (!reconciliation_event_ids_.insert(event_id).second) {
+            throw std::runtime_error(
+                "execution journal duplicate reconciliation event id");
+        }
+
+        const auto intent_it = order_intents_.find(order_id);
+        if (intent_it == order_intents_.end()) {
+            throw std::runtime_error(
+                "reconciliation event missing simulation order intent");
+        }
+        if (std::fabs(
+                recorded_order_quantity - intent_it->second.quantity) >
+            1e-12) {
+            throw std::runtime_error(
+                "reconciliation event order quantity mismatch");
+        }
+
+        const auto state_it = order_states_.find(order_id);
+        if (state_it == order_states_.end()) {
+            throw std::runtime_error(
+                "reconciliation event missing order state");
+        }
+        if (transition_sequence != state_it->second.sequence + 1 ||
+            from_state != astu::execution::order_state_to_string(
+                state_it->second.state)) {
+            throw std::runtime_error(
+                "reconciliation transition sequence/from-state mismatch");
+        }
+        astu::execution::OrderStateMachine::require_transition(
+            state_it->second.state,
+            to_state);
+
+        const auto previous_progress =
+            reconciliation_progress_.find(order_id);
+        const double previous_filled =
+            previous_progress == reconciliation_progress_.end()
+                ? 0.0
+                : previous_progress->second.cumulative_filled_quantity;
+        const std::uint64_t expected_reconciliation_sequence =
+            previous_progress == reconciliation_progress_.end()
+                ? 1
+                : previous_progress->second.sequence + 1;
+        if (reconciliation_sequence != expected_reconciliation_sequence) {
+            throw std::runtime_error(
+                "reconciliation event sequence gap");
+        }
+
+        try {
+            validate_reconciliation_quantity_unlocked(
+                intent_it->second.quantity,
+                previous_filled,
+                cumulative_filled,
+                to_state);
+        } catch (const std::exception& exc) {
+            throw std::runtime_error(
+                "invalid reconciliation event quantity: " +
+                std::string(exc.what()));
+        }
+
+        order_states_[order_id] =
+            OrderRecoveryState{to_state, transition_sequence};
+        reconciliation_progress_[order_id] =
+            ReconciliationRecoveryState{
+                reconciliation_sequence,
+                cumulative_filled,
+            };
+        ++order_transition_count_;
+        ++reconciliation_event_count_;
     }
 
     void replay_order_transition_unlocked(
@@ -426,8 +710,12 @@ private:
     std::deque<std::string> order_;
     std::unordered_set<std::string> seen_;
     std::unordered_map<std::string, OrderRecoveryState> order_states_;
-    std::unordered_set<std::string> order_intents_;
+    std::unordered_map<std::string, SimulationOrderIntentRecord> order_intents_;
+    std::unordered_map<std::string, ReconciliationRecoveryState>
+        reconciliation_progress_;
+    std::unordered_set<std::string> reconciliation_event_ids_;
     std::uint64_t order_transition_count_{0};
+    std::uint64_t reconciliation_event_count_{0};
 };
 
 }  // namespace astu::execution
