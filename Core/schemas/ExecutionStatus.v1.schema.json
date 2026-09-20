@@ -16,6 +16,12 @@
     "instrumentRulesRequired",
     "positionProvider",
     "positionStateRequiredForScaleActions",
+    "startupOrderSnapshotProvider",
+    "startupOrderSnapshotRequired",
+    "startupOrderTracked",
+    "startupOrderMatched",
+    "startupOrderMarkedUnknown",
+    "startupOrderUnresolved",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -124,6 +130,30 @@
       "minimum": 0
     },
     "reconciliationEventCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "startupOrderSnapshotProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "startupOrderSnapshotRequired": {
+      "type": "boolean"
+    },
+    "startupOrderTracked": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "startupOrderMatched": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "startupOrderMarkedUnknown": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "startupOrderUnresolved": {
       "type": "integer",
       "minimum": 0
     }
