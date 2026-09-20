@@ -13,6 +13,8 @@
     "utcWeekStartUnixMs",
     "dailyRealizedTradePnl",
     "weeklyRealizedTradePnl",
+    "dailyRealizedTradeLossConsumed",
+    "weeklyRealizedTradeLossConsumed",
     "dailyFundingFee",
     "weeklyFundingFee",
     "dailyCommission",
@@ -69,6 +71,14 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 16
+    },
+    "dailyRealizedTradeLossConsumed": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyRealizedTradeLossConsumed": {
+      "type": "number",
+      "minimum": 0
     }
   }
 }
