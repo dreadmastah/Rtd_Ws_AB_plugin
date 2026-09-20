@@ -12,6 +12,8 @@ struct ExposureReservationSummary {
     std::uint64_t active_reservations{0};
     double reserved_gross_notional{0.0};
     std::uint32_t reserved_position_slots{0};
+    std::uint64_t symbol_active_reservations{0};
+    double symbol_reserved_gross_notional{0.0};
 };
 
 class ExposureReservationRiskOverlay {
