@@ -30,6 +30,7 @@ namespace {
 
 astu::core::AccountRiskSnapshot synthetic_risk(
     const astu::core::SignalIntent&,
+    double risk_capital,
     double available_balance,
     double margin_balance,
     double initial_margin,
@@ -39,7 +40,7 @@ astu::core::AccountRiskSnapshot synthetic_risk(
     astu::core::AccountRiskSnapshot risk;
     risk.reconciled = true;
     risk.risk_state = astu::core::RiskState::Normal;
-    risk.risk_capital = 10'000.0;
+    risk.risk_capital = risk_capital;
     risk.available_balance = available_balance;
     risk.gross_notional = 0.0;
     risk.max_gross_notional = max_gross_notional;
@@ -83,6 +84,7 @@ int main(int argc, char** argv) {
     bool synthetic = false;
     std::filesystem::path status_dir =
         "CleanRoomR2/stack/runtime/autotrader_status";
+    double synthetic_risk_capital = 10'000.0;
     double synthetic_available_balance = 10'000.0;
     double synthetic_margin_balance = 10'000.0;
     double synthetic_initial_margin = 0.0;
@@ -206,6 +208,8 @@ int main(int argc, char** argv) {
         const std::string arg = argv[i];
         if (arg == "--synthetic") {
             synthetic = true;
+        } else if (arg == "--synthetic-risk-capital" && i + 1 < argc) {
+            synthetic_risk_capital = std::stod(argv[++i]);
         } else if (arg == "--synthetic-available-balance" && i + 1 < argc) {
             synthetic_available_balance = std::stod(argv[++i]);
         } else if (arg == "--synthetic-margin-balance" && i + 1 < argc) {
@@ -289,7 +293,9 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (!std::isfinite(synthetic_available_balance) ||
+    if (!std::isfinite(synthetic_risk_capital) ||
+        synthetic_risk_capital < 0.0 ||
+        !std::isfinite(synthetic_available_balance) ||
         synthetic_available_balance < 0.0 ||
         !std::isfinite(synthetic_margin_balance) ||
         synthetic_margin_balance < 0.0 ||
@@ -344,7 +350,8 @@ int main(int argc, char** argv) {
     astu::ipc::SimulationDispatcher::RiskProvider risk_provider;
     if (synthetic) {
         risk_provider =
-            [synthetic_available_balance,
+            [synthetic_risk_capital,
+             synthetic_available_balance,
              synthetic_margin_balance,
              synthetic_initial_margin,
              synthetic_net_directional_notional,
@@ -353,6 +360,7 @@ int main(int argc, char** argv) {
                 const astu::core::SignalIntent& intent) {
                 return synthetic_risk(
                     intent,
+                    synthetic_risk_capital,
                     synthetic_available_balance,
                     synthetic_margin_balance,
                     synthetic_initial_margin,
