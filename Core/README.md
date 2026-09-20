@@ -262,6 +262,42 @@ Restoring the snapshot alone does not clear UNKNOWN; a second explicit evidence 
 
 No `SUBMITTING` transition, exchange credential, private order request or exchange-submission path is introduced.
 
+## Projected exposure reservations
+
+Accepted exposure-increasing simulation orders now create a durable projected-risk reservation before the response path completes.
+
+The reservation policy follows the current architecture semantics where `BUY` and `SCALE_IN` increase exposure:
+
+- every accepted BUY/SCALE_IN reserves the full normalized simulated notional;
+- BUY additionally reserves one projected open-position slot;
+- SCALE_IN reserves gross-notional headroom but not a new position slot because reconciled position state is already required;
+- SELL and SCALE_OUT do not create projected exposure reservations.
+
+Before every later risk evaluation, the current reconciled `AccountRiskSnapshot.v1` is overlaid with all active reservations. This means concurrent/sequential accepted intents cannot independently reuse the same gross-notional or open-position headroom before account/order reconciliation catches up.
+
+The legacy synthetic sizing path now also caps its notional budget by remaining projected `maxGrossNotional - grossNotional` headroom and fails closed when no positive quantity remains.
+
+Reservation evidence is persisted in the execution journal as:
+
+- `EXPOSURE_RESERVATION_CREATED`
+- `EXPOSURE_RESERVATION_RELEASED`
+
+Active reservations are reconstructed on restart. For compatibility with journals produced immediately before this increment, a non-terminal exposure-increasing `SimulationOrderIntent.v1` that has no explicit reservation event is conservatively reconstructed in memory so projected headroom is not silently lost.
+
+Reservations remain active through `UNKNOWN_RECONCILE_REQUIRED`, `ACKNOWLEDGED`, `WORKING`, and `PARTIAL`. They are released only when the simulated order reaches terminal `FILLED`, `CANCELED`, or `REJECTED` state. Partial fills deliberately keep the full reservation as a conservative policy.
+
+`ExecutionStatus.v1` now exposes:
+
+- recovered active reservations at startup;
+- current active reservation count;
+- total reserved gross notional;
+- reserved position slots;
+- create/release counts;
+- implicit terminal releases recovered after an interrupted journal sequence;
+- compatibility reservations reconstructed from pre-reservation journal history.
+
+The Windows acceptance uses a synthetic account with only 10 notional units of gross headroom. The first BUY reserves the full 10, the second independent BUY is rejected as `RISK_BLOCKED`, restart reconstructs the reservation and still blocks new exposure, terminal FILLED reconciliation releases it, and a later BUY can use the restored headroom. The journal assertion continues to require `exchangeSubmissionAttempted=false` and no `SUBMITTING` transition.
+
 ## Current next implementation step
 
-After this periodic reconciliation layer is validated, the next simulation-only increment should introduce per-symbol/order exposure reservations tied to normalized simulation order intents. The goal is to prevent concurrent accepted intents from independently consuming the same remaining gross-notional or position capacity before reconciliation catches up. Reservations should be journaled, rebuilt on restart, released on rejection/cancel/fill policy, and remain entirely simulation-only with no exchange submission endpoint.
+After this reservation layer is validated, the next simulation-only risk increment should add explicit limits for maximum pending entry/scale-in reservations and per-symbol projected notional. Those limits should evaluate reconciled account/position state plus active reservations together, so projected portfolio and symbol exposure remain bounded before any Testnet submission work begins.
