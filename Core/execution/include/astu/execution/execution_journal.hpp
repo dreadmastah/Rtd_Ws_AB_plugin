@@ -478,6 +478,19 @@ public:
         }
     }
 
+    bool release_exposure_reservation_for_terminal(
+        const std::string& simulation_order_id,
+        std::int64_t utc_ms,
+        astu::execution::OrderState terminal_state,
+        const std::string& reason) {
+        std::lock_guard<std::mutex> lock(mu_);
+        return release_exposure_reservation_unlocked(
+            simulation_order_id,
+            utc_ms,
+            terminal_state,
+            reason);
+    }
+
     double reconciled_filled_quantity(
         const std::string& simulation_order_id) const {
         std::lock_guard<std::mutex> lock(mu_);
