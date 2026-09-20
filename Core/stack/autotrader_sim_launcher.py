@@ -272,6 +272,8 @@ def run(args: argparse.Namespace) -> int:
             str(realized_pnl_file),
             "--state",
             str(realized_pnl_state),
+            "--settlement-asset",
+            str(args.realized_pnl_settlement_asset),
             "--poll-seconds",
             str(args.realized_pnl_poll_seconds),
         ]
@@ -284,6 +286,8 @@ def run(args: argparse.Namespace) -> int:
             str(realized_pnl_file),
             "--state",
             str(realized_pnl_state),
+            "--settlement-asset",
+            str(args.realized_pnl_settlement_asset),
             "--poll-seconds",
             str(args.realized_pnl_poll_seconds),
         ]
@@ -410,6 +414,7 @@ def run(args: argparse.Namespace) -> int:
         print(f"REALIZED_PNL_MODE={args.realized_pnl_mode}")
         print(f"REALIZED_PNL_STATUS_FILE={realized_pnl_file}")
         print(f"REALIZED_PNL_STATE={realized_pnl_state}")
+        print(f"REALIZED_PNL_SETTLEMENT_ASSET={args.realized_pnl_settlement_asset}")
         if risk_command is not None:
             print(f"POSITION_STATUS_DIR={position_dir}")
         print(f"EXECUTION_JOURNAL={journal}")
@@ -529,6 +534,10 @@ def parse_args() -> argparse.Namespace:
         "--realized-pnl-poll-seconds",
         type=float,
         default=30.0,
+    )
+    ap.add_argument(
+        "--realized-pnl-settlement-asset",
+        default="USDT",
     )
     ap.add_argument(
         "--max-realized-pnl-status-age-ms",
