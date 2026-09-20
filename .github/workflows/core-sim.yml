@@ -255,3 +255,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_order_fsm_restart_smoke.cmd
+
+      - name: Windows unknown-state reconciliation restart smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_reconciliation_fsm_smoke.cmd
