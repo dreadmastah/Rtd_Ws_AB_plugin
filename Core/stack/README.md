@@ -12,6 +12,8 @@ It never enables order routing.
 
 The read-only gateway has no order, cancel, leverage, margin-mode, or transfer methods.
 
+When `risk-mode` is `fixture` or `readonly`, the same account reconciliation process also publishes per-symbol `PositionSnapshot.v1` files under `Core/runtime/position_status`. The execution host consumes them for SCALE_IN/SCALE_OUT validation and fails closed on missing, stale, flat, hedged, or side-conflicting state.
+
 ## Instrument modes
 
 - `disabled` — default. The execution host uses the legacy simulation sizing path and does not require an instrument snapshot.
