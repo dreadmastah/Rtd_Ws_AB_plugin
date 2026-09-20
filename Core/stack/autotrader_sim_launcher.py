@@ -40,6 +40,9 @@ INSTRUMENT_PUBLISHER = ROOT / "instrument" / "binance_usdm_instrument_rules.py"
 INSTRUMENT_FIXTURE = ROOT / "instrument" / "tests" / "fixtures" / "binance_usdm_exchange_info_bootstrap12.json"
 INSTRUMENT_DIR = RUNTIME / "instrument_constraints"
 ORDER_SNAPSHOT_DIR = RUNTIME / "authoritative_order_snapshots"
+ACCOUNT_RISK_VIEW = ROOT / "operator" / "account_risk_view.py"
+ACCOUNT_RISK_VIEW_JSON = RUNTIME / "account_risk_view.v1.json"
+ACCOUNT_RISK_VIEW_HTML = RUNTIME / "account_risk_view.html"
 
 RUNTIME.mkdir(parents=True, exist_ok=True)
 LOGS.mkdir(parents=True, exist_ok=True)
@@ -134,6 +137,8 @@ def run(args: argparse.Namespace) -> int:
     position_dir = Path(args.position_dir).resolve()
     journal = Path(args.journal).resolve()
     execution_status_file = Path(args.execution_status_file).resolve()
+    account_risk_view_json = Path(args.account_risk_view_json).resolve()
+    account_risk_view_html = Path(args.account_risk_view_html).resolve()
     instrument_dir = Path(args.instrument_dir).resolve()
     order_snapshot_dir = (
         Path(args.order_snapshot_dir).resolve()
@@ -155,6 +160,8 @@ def run(args: argparse.Namespace) -> int:
         or args.max_account_drawdown < 0
         or args.max_daily_realized_trade_loss < 0
         or args.max_weekly_realized_trade_loss < 0
+        or args.account_risk_view_max_source_age_ms <= 0
+        or args.account_risk_view_poll_seconds <= 0
         or (
             (
                 args.minimum_available_balance_reserve > 0
@@ -411,6 +418,30 @@ def run(args: argparse.Namespace) -> int:
                 str(args.order_reconcile_interval_ms),
             ])
         children["execution"] = start_child("execution", host_command)
+
+        account_risk_view_command: list[str] | None = None
+        if args.account_risk_view_mode == "local":
+            account_risk_view_command = [
+                sys.executable,
+                "-u",
+                str(ACCOUNT_RISK_VIEW),
+                "--execution-status-file",
+                str(execution_status_file),
+                "--output-json",
+                str(account_risk_view_json),
+                "--output-html",
+                str(account_risk_view_html),
+                "--max-source-age-ms",
+                str(args.account_risk_view_max_source_age_ms),
+                "--poll-seconds",
+                str(args.account_risk_view_poll_seconds),
+                "--watch",
+            ]
+            children["account_risk_view"] = start_child(
+                "account_risk_view",
+                account_risk_view_command,
+            )
+
         save_pids(children)
 
         print("ASTU_SIM_STACK_STATUS=RUNNING")
@@ -425,6 +456,10 @@ def run(args: argparse.Namespace) -> int:
             print(f"POSITION_STATUS_DIR={position_dir}")
         print(f"EXECUTION_JOURNAL={journal}")
         print(f"EXECUTION_STATUS_FILE={execution_status_file}")
+        print(f"ACCOUNT_RISK_VIEW_MODE={args.account_risk_view_mode}")
+        if args.account_risk_view_mode == "local":
+            print(f"ACCOUNT_RISK_VIEW_JSON={account_risk_view_json}")
+            print(f"ACCOUNT_RISK_VIEW_HTML={account_risk_view_html}")
         print(f"MAX_PENDING_ENTRY_SCALE_IN_RESERVATIONS={args.max_pending_entry_scale_in_reservations}")
         print(f"MAX_SYMBOL_NOTIONAL={args.max_symbol_notional}")
         print(f"MINIMUM_AVAILABLE_BALANCE_RESERVE={args.minimum_available_balance_reserve}")
@@ -472,6 +507,8 @@ def run(args: argparse.Namespace) -> int:
                     command = realized_pnl_command
                 elif name == "instrument":
                     command = instrument_command
+                elif name == "account_risk_view":
+                    command = account_risk_view_command
                 else:
                     command = host_command
                 if command is None:
@@ -516,6 +553,33 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--execution-status-file",
         default=str(EXECUTION_STATUS_FILE),
+    )
+    ap.add_argument(
+        "--account-risk-view-mode",
+        choices=("disabled", "local"),
+        default="local",
+        help=(
+            "Generate a read-only local Account Risk JSON/HTML projection from "
+            "ExecutionStatus.v1; this never opens a trading endpoint."
+        ),
+    )
+    ap.add_argument(
+        "--account-risk-view-json",
+        default=str(ACCOUNT_RISK_VIEW_JSON),
+    )
+    ap.add_argument(
+        "--account-risk-view-html",
+        default=str(ACCOUNT_RISK_VIEW_HTML),
+    )
+    ap.add_argument(
+        "--account-risk-view-max-source-age-ms",
+        type=int,
+        default=5000,
+    )
+    ap.add_argument(
+        "--account-risk-view-poll-seconds",
+        type=float,
+        default=1.0,
     )
     ap.add_argument(
         "--risk-mode",
