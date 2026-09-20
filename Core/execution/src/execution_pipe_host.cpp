@@ -32,6 +32,7 @@ astu::core::AccountRiskSnapshot synthetic_risk(
     double available_balance,
     double margin_balance,
     double initial_margin,
+    double net_directional_notional,
     double max_gross_notional,
     std::uint32_t max_open_positions) {
     astu::core::AccountRiskSnapshot risk;
@@ -46,6 +47,8 @@ astu::core::AccountRiskSnapshot synthetic_risk(
     risk.margin_metrics_reconciled = true;
     risk.margin_balance = margin_balance;
     risk.initial_margin = initial_margin;
+    risk.net_directional_reconciled = true;
+    risk.net_directional_notional = net_directional_notional;
     return risk;
 }
 
@@ -82,6 +85,7 @@ int main(int argc, char** argv) {
     double synthetic_available_balance = 10'000.0;
     double synthetic_margin_balance = 10'000.0;
     double synthetic_initial_margin = 0.0;
+    double synthetic_net_directional_notional = 0.0;
     double synthetic_max_gross_notional = 100'000.0;
     std::uint32_t synthetic_max_open_positions = 10;
     std::uint64_t max_pending_entry_scale_in_reservations = 0;
@@ -90,6 +94,7 @@ int main(int argc, char** argv) {
     double margin_reservation_rate = 0.0;
     double max_effective_leverage = 0.0;
     double max_margin_utilization = 0.0;
+    double max_net_directional_notional = 0.0;
     std::uint64_t max_status_age_ms = 5'000;
     std::filesystem::path journal_path =
         "Core/runtime/execution_journal.v1.jsonl";
@@ -160,6 +165,10 @@ int main(int argc, char** argv) {
         env && *env) {
         max_margin_utilization = std::stod(env);
     }
+    if (const char* env = std::getenv("ASTU_MAX_NET_DIRECTIONAL_NOTIONAL");
+        env && *env) {
+        max_net_directional_notional = std::stod(env);
+    }
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -171,6 +180,9 @@ int main(int argc, char** argv) {
             synthetic_margin_balance = std::stod(argv[++i]);
         } else if (arg == "--synthetic-initial-margin" && i + 1 < argc) {
             synthetic_initial_margin = std::stod(argv[++i]);
+        } else if (arg == "--synthetic-net-directional-notional" &&
+                   i + 1 < argc) {
+            synthetic_net_directional_notional = std::stod(argv[++i]);
         } else if (arg == "--synthetic-max-gross-notional" && i + 1 < argc) {
             synthetic_max_gross_notional = std::stod(argv[++i]);
         } else if (arg == "--synthetic-max-open-positions" && i + 1 < argc) {
@@ -193,6 +205,8 @@ int main(int argc, char** argv) {
             max_effective_leverage = std::stod(argv[++i]);
         } else if (arg == "--max-margin-utilization" && i + 1 < argc) {
             max_margin_utilization = std::stod(argv[++i]);
+        } else if (arg == "--max-net-directional-notional" && i + 1 < argc) {
+            max_net_directional_notional = std::stod(argv[++i]);
         } else if (arg == "--status-dir" && i + 1 < argc) {
             status_dir = argv[++i];
         } else if (arg == "--max-status-age-ms" && i + 1 < argc) {
@@ -231,6 +245,7 @@ int main(int argc, char** argv) {
         synthetic_margin_balance < 0.0 ||
         !std::isfinite(synthetic_initial_margin) ||
         synthetic_initial_margin < 0.0 ||
+        !std::isfinite(synthetic_net_directional_notional) ||
         !std::isfinite(max_symbol_notional) ||
         max_symbol_notional < 0.0 ||
         !std::isfinite(minimum_available_balance_reserve) ||
@@ -241,7 +256,9 @@ int main(int argc, char** argv) {
         max_effective_leverage < 0.0 ||
         !std::isfinite(max_margin_utilization) ||
         max_margin_utilization < 0.0 ||
-        max_margin_utilization > 1.0) {
+        max_margin_utilization > 1.0 ||
+        !std::isfinite(max_net_directional_notional) ||
+        max_net_directional_notional < 0.0) {
         std::cerr
             << "projected risk numeric settings must be finite and non-negative\n";
         return 2;
@@ -270,6 +287,7 @@ int main(int argc, char** argv) {
             [synthetic_available_balance,
              synthetic_margin_balance,
              synthetic_initial_margin,
+             synthetic_net_directional_notional,
              synthetic_max_gross_notional,
              synthetic_max_open_positions](
                 const astu::core::SignalIntent& intent) {
@@ -278,6 +296,7 @@ int main(int argc, char** argv) {
                     synthetic_available_balance,
                     synthetic_margin_balance,
                     synthetic_initial_margin,
+                    synthetic_net_directional_notional,
                     synthetic_max_gross_notional,
                     synthetic_max_open_positions);
             };
@@ -362,7 +381,8 @@ int main(int argc, char** argv) {
          minimum_available_balance_reserve,
          margin_reservation_rate,
          max_effective_leverage,
-         max_margin_utilization](
+         max_margin_utilization,
+         max_net_directional_notional](
             const astu::core::SignalIntent& intent) mutable {
             auto risk = base_risk_provider(intent);
 
@@ -397,7 +417,8 @@ int main(int argc, char** argv) {
                 minimum_available_balance_reserve,
                 margin_reservation_rate,
                 max_effective_leverage,
-                max_margin_utilization);
+                max_margin_utilization,
+                max_net_directional_notional);
         };
 
     auto order_lifecycle =
@@ -444,6 +465,7 @@ int main(int argc, char** argv) {
         recovered_reservation_summary.active_reservations,
         recovered_reservation_summary.reserved_gross_notional,
         recovered_reservation_summary.reserved_available_balance,
+        recovered_reservation_summary.reserved_net_directional_notional,
         recovered_reservation_summary.reserved_position_slots,
         journal->exposure_reservation_create_count(),
         journal->exposure_reservation_release_count(),
@@ -455,7 +477,8 @@ int main(int argc, char** argv) {
         minimum_available_balance_reserve,
         margin_reservation_rate,
         max_effective_leverage,
-        max_margin_utilization);
+        max_margin_utilization,
+        max_net_directional_notional);
     execution_status->set_runtime_order_reconciliation(
         startup_order_snapshot_required,
         0,
@@ -589,6 +612,7 @@ int main(int argc, char** argv) {
                         reservations.active_reservations,
                         reservations.reserved_gross_notional,
                         reservations.reserved_available_balance,
+                        reservations.reserved_net_directional_notional,
                         reservations.reserved_position_slots,
                         journal->exposure_reservation_create_count(),
                         journal->exposure_reservation_release_count(),
@@ -653,6 +677,7 @@ int main(int argc, char** argv) {
                 reservations.active_reservations,
                 reservations.reserved_gross_notional,
                 reservations.reserved_available_balance,
+                reservations.reserved_net_directional_notional,
                 reservations.reserved_position_slots,
                 journal->exposure_reservation_create_count(),
                 journal->exposure_reservation_release_count(),
@@ -701,6 +726,8 @@ int main(int argc, char** argv) {
                   << synthetic_margin_balance << "\n";
         std::cout << "SYNTHETIC_INITIAL_MARGIN="
                   << synthetic_initial_margin << "\n";
+        std::cout << "SYNTHETIC_NET_DIRECTIONAL_NOTIONAL="
+                  << synthetic_net_directional_notional << "\n";
         std::cout << "SYNTHETIC_MAX_GROSS_NOTIONAL="
                   << synthetic_max_gross_notional << "\n";
         std::cout << "SYNTHETIC_MAX_OPEN_POSITIONS="
@@ -718,6 +745,8 @@ int main(int argc, char** argv) {
               << max_effective_leverage << "\n";
     std::cout << "MAX_MARGIN_UTILIZATION="
               << max_margin_utilization << "\n";
+    std::cout << "MAX_NET_DIRECTIONAL_NOTIONAL="
+              << max_net_directional_notional << "\n";
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
     if (!instrument_status_dir.empty()) {
