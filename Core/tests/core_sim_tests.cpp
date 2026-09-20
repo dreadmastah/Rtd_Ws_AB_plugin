@@ -226,12 +226,16 @@ int main() {
         const auto response1 = dispatcher.dispatch(request, 2'000);
         REQUIRE(response1.decision_code == DecisionCode::OrderRoutingDisabled);
         REQUIRE(response1.accepted_for_simulation);
+        REQUIRE(!response1.simulation_order_id.empty());
+        REQUIRE(response1.simulation_order_id.rfind("SIMORD-", 0) == 0);
         REQUIRE(!response1.order_routing_enabled);
 
         const std::string response_json = astu::ipc::encode_response_json(response1);
         const auto response_roundtrip = astu::ipc::decode_response_json(response_json);
         REQUIRE(response_roundtrip.request_id == request.request_id);
         REQUIRE(response_roundtrip.signal_id == request.intent.signal_id);
+        REQUIRE(response_roundtrip.simulation_order_id ==
+                response1.simulation_order_id);
         REQUIRE(response_roundtrip.decision_code == DecisionCode::OrderRoutingDisabled);
         REQUIRE(!response_roundtrip.order_routing_enabled);
 
