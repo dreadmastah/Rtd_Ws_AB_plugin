@@ -395,6 +395,51 @@ int main() {
         REQUIRE(
             replayed->exposure_reservation_reconstructed_count() ==
             1);
+
+        SimulationReconciliationService reconciliation(replayed);
+        REQUIRE(
+            reconciliation.apply(
+                "RES-RECONSTRUCT-UNKNOWN",
+                response.simulation_order_id,
+                SimulationReconciliationType::MarkUnknown,
+                0.0,
+                5'100,
+                "legacy reconstructed reservation unknown") ==
+            OrderState::UnknownReconcileRequired);
+        REQUIRE(
+            reconciliation.apply(
+                "RES-RECONSTRUCT-WORKING",
+                response.simulation_order_id,
+                SimulationReconciliationType::Working,
+                0.0,
+                5'200,
+                "legacy reconstructed reservation working") ==
+            OrderState::Working);
+        REQUIRE(
+            reconciliation.apply(
+                "RES-RECONSTRUCT-FILLED",
+                response.simulation_order_id,
+                SimulationReconciliationType::Filled,
+                response.simulated_quantity,
+                5'300,
+                "legacy reconstructed reservation filled") ==
+            OrderState::Filled);
+        REQUIRE(replayed->exposure_reservation_summary()
+                    .active_reservations == 0);
+        REQUIRE(replayed->exposure_reservation_release_count() == 1);
+
+        auto replayed_again =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100);
+        REQUIRE(replayed_again->exposure_reservation_summary()
+                    .active_reservations == 0);
+        REQUIRE(
+            replayed_again->exposure_reservation_reconstructed_count() ==
+            1);
+        REQUIRE(
+            replayed_again->exposure_reservation_release_count() ==
+            1);
     }
 
     std::filesystem::remove_all(root);
