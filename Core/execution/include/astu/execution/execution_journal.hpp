@@ -100,6 +100,55 @@ public:
         append_durable(out.str());
     }
 
+    void append_simulation_order_intent(
+        const astu::ipc::SimulationRequest& request,
+        const astu::ipc::SimulationResponse& response,
+        std::int64_t utc_ms) {
+        std::lock_guard<std::mutex> lock(mu_);
+        if (response.simulation_order_id.empty() ||
+            !response.accepted_for_simulation ||
+            response.order_routing_enabled ||
+            response.simulated_quantity <= 0.0 ||
+            response.simulated_notional <= 0.0) {
+            throw std::invalid_argument(
+                "simulation order intent requires accepted non-routing sizing result");
+        }
+        if (order_intents_.contains(response.simulation_order_id)) {
+            throw std::invalid_argument(
+                "simulation order intent already journaled");
+        }
+
+        std::ostringstream out;
+        out
+            << "{"
+            << "\"schemaVersion\":1"
+            << ",\"eventType\":\"SIMULATION_ORDER_INTENT\""
+            << ",\"utcMs\":" << utc_ms
+            << ",\"simulationOrderId\":\""
+            << astu::ipc::json_escape(response.simulation_order_id) << "\""
+            << ",\"requestId\":\"" << astu::ipc::json_escape(request.request_id) << "\""
+            << ",\"idempotencyKey\":\"" << astu::ipc::json_escape(request.idempotency_key) << "\""
+            << ",\"signalId\":\"" << astu::ipc::json_escape(request.intent.signal_id) << "\""
+            << ",\"symbol\":\"" << astu::ipc::json_escape(request.intent.symbol) << "\""
+            << ",\"action\":\"" << astu::ipc::action_to_string(request.intent.action) << "\""
+            << ",\"side\":\"" << astu::ipc::side_to_string(request.intent.side) << "\""
+            << ",\"quantity\":" << response.simulated_quantity
+            << ",\"referencePrice\":" << request.intent.trigger_price
+            << ",\"notional\":" << response.simulated_notional
+            << ",\"simulationOnly\":true"
+            << ",\"orderRoutingEnabled\":false"
+            << ",\"exchangeSubmissionAttempted\":false"
+            << "}\n";
+
+        append_durable(out.str());
+        order_intents_.insert(response.simulation_order_id);
+    }
+
+    std::size_t recovered_order_intent_count() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        return order_intents_.size();
+    }
+
     void append_order_transition(
         const astu::ipc::SimulationRequest& request,
         const std::string& simulation_order_id,
@@ -210,6 +259,10 @@ private:
                     replay_order_transition_unlocked(obj);
                     continue;
                 }
+                if (event_type == "SIMULATION_ORDER_INTENT") {
+                    replay_simulation_order_intent_unlocked(obj);
+                    continue;
+                }
                 if (event_type != "IDEMPOTENCY_RESERVATION" &&
                     event_type != "SIMULATION_DECISION") {
                     continue;
@@ -230,6 +283,30 @@ private:
             astu::execution::OrderState::IntentReceived};
         std::uint64_t sequence{0};
     };
+
+    void replay_simulation_order_intent_unlocked(
+        const astu::ipc::JsonObject& obj) {
+        const auto order_id =
+            astu::ipc::require_string(obj, "simulationOrderId");
+        if (order_id.empty() ||
+            !astu::ipc::require_bool(obj, "simulationOnly") ||
+            astu::ipc::require_bool(obj, "orderRoutingEnabled") ||
+            astu::ipc::require_bool(obj, "exchangeSubmissionAttempted") ||
+            astu::ipc::require_double(obj, "quantity") <= 0.0 ||
+            astu::ipc::require_double(obj, "referencePrice") <= 0.0 ||
+            astu::ipc::require_double(obj, "notional") <= 0.0) {
+            throw std::runtime_error(
+                "execution journal invalid simulation order intent");
+        }
+        (void)astu::ipc::action_from_string(
+            astu::ipc::require_string(obj, "action"));
+        (void)astu::ipc::side_from_string(
+            astu::ipc::require_string(obj, "side"));
+        if (!order_intents_.insert(order_id).second) {
+            throw std::runtime_error(
+                "execution journal duplicate simulation order intent");
+        }
+    }
 
     void replay_order_transition_unlocked(
         const astu::ipc::JsonObject& obj) {
@@ -349,6 +426,7 @@ private:
     std::deque<std::string> order_;
     std::unordered_set<std::string> seen_;
     std::unordered_map<std::string, OrderRecoveryState> order_states_;
+    std::unordered_set<std::string> order_intents_;
     std::uint64_t order_transition_count_{0};
 };
 
