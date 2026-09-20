@@ -39,10 +39,30 @@ jobs:
           python -m py_compile CleanRoomR2/stack/identity_bridge.py
           python -m py_compile Core/account/binance_usdm_readonly_gateway.py
           python -m py_compile Core/account/binance_usdm_income_reconciler.py
+          python -m py_compile Core/account/binance_usdm_testnet_user_data.py
           python -m py_compile Core/stack/autotrader_sim_launcher.py
           python -m py_compile Core/instrument/binance_usdm_instrument_rules.py
           python -m py_compile Core/order_state/simulated_order_state_source.py
           python -m py_compile Core/operator/account_risk_view.py
+
+      - name: Testnet user-data authority semantics
+        shell: bash
+        run: |
+          python Core/tests/test_testnet_user_data.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          schema = json.loads(
+              Path("Core/schemas/TestnetUserDataState.v1.schema.json")
+              .read_text(encoding="utf-8")
+          )
+          assert schema["properties"]["messageType"]["const"] == "TestnetUserDataState.v1"
+          assert schema["additionalProperties"] is False
+          assert "ordersConverged" in schema["required"]
+          assert "accountConverged" in schema["required"]
+          assert "positionsConverged" in schema["required"]
+          print("TESTNET_USER_DATA_SCHEMA=PASS")
+          PY
 
       - name: Authoritative simulation order snapshot source
         shell: bash
