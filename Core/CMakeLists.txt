@@ -91,6 +91,19 @@ add_executable(astu_reconciliation_tests tests/reconciliation_tests.cpp)
 target_link_libraries(astu_reconciliation_tests PRIVATE astu_core)
 add_test(NAME astu_reconciliation_tests COMMAND astu_reconciliation_tests)
 
+add_executable(
+    astu_startup_order_reconciliation_tests
+    tests/startup_order_reconciliation_tests.cpp
+)
+target_link_libraries(
+    astu_startup_order_reconciliation_tests
+    PRIVATE astu_core
+)
+add_test(
+    NAME astu_startup_order_reconciliation_tests
+    COMMAND astu_startup_order_reconciliation_tests
+)
+
 if(WIN32)
     add_test(
         NAME astu_trade_amibroker_exports
