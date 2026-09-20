@@ -135,6 +135,20 @@ def run(args: argparse.Namespace) -> int:
         else None
     )
 
+    if (
+        args.minimum_available_balance_reserve < 0
+        or args.simulation_margin_reservation_rate < 0
+        or (
+            args.minimum_available_balance_reserve > 0
+            and args.simulation_margin_reservation_rate <= 0
+        )
+    ):
+        print(
+            "ASTU_SIM_STACK_FATAL=minimum available-balance reserve requires "
+            "non-negative settings and a positive simulation margin reservation rate"
+        )
+        return 2
+
     if not host.exists():
         print(f"ASTU_SIM_STACK_FATAL=missing execution host {host}")
         return 2
