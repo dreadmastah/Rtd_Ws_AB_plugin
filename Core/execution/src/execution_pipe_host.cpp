@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <limits>
 #include <string>
 #include <thread>
 #include <utility>
@@ -717,6 +718,155 @@ int main(int argc, char** argv) {
         0,
         0);
     execution_status->publish();
+
+    std::jthread account_risk_observation_thread(
+        [base_risk_provider,
+         journal,
+         execution_status](
+            std::stop_token stop) {
+            astu::core::SignalIntent monitor_intent;
+            monitor_intent.symbol = "ACCOUNT";
+            while (!stop.stop_requested()) {
+                try {
+                    const auto risk =
+                        (*base_risk_provider)(monitor_intent);
+                    const auto reservations =
+                        journal->exposure_reservation_summary();
+
+                    const auto projected_available_balance =
+                        std::max(
+                            0.0,
+                            risk.available_balance -
+                                std::max(
+                                    0.0,
+                                    reservations.reserved_available_balance));
+                    const auto projected_gross_notional =
+                        std::max(
+                            0.0,
+                            risk.gross_notional +
+                                std::max(
+                                    0.0,
+                                    reservations.reserved_gross_notional));
+                    const auto projected_open_positions =
+                        static_cast<std::uint32_t>(
+                            std::min<std::uint64_t>(
+                                static_cast<std::uint64_t>(
+                                    risk.open_positions) +
+                                    static_cast<std::uint64_t>(
+                                        reservations.reserved_position_slots),
+                                std::numeric_limits<std::uint32_t>::max()));
+
+                    const auto projected_initial_margin =
+                        risk.margin_metrics_reconciled
+                            ? std::max(
+                                  0.0,
+                                  risk.initial_margin +
+                                      std::max(
+                                          0.0,
+                                          reservations
+                                              .reserved_available_balance))
+                            : 0.0;
+                    const auto projected_effective_leverage =
+                        risk.margin_metrics_reconciled &&
+                                risk.margin_balance > 0.0
+                            ? projected_gross_notional /
+                                  risk.margin_balance
+                            : 0.0;
+                    const auto projected_margin_utilization =
+                        risk.margin_metrics_reconciled &&
+                                risk.margin_balance > 0.0
+                            ? projected_initial_margin /
+                                  risk.margin_balance
+                            : 0.0;
+                    const auto projected_net_directional_notional =
+                        risk.net_directional_reconciled
+                            ? risk.net_directional_notional +
+                                  reservations
+                                      .reserved_net_directional_notional
+                            : 0.0;
+
+                    std::string risk_state = "EMERGENCY";
+                    switch (risk.risk_state) {
+                    case astu::core::RiskState::Normal:
+                        risk_state = "NORMAL";
+                        break;
+                    case astu::core::RiskState::Warning:
+                        risk_state = "WARNING";
+                        break;
+                    case astu::core::RiskState::Restricted:
+                        risk_state = "RESTRICTED";
+                        break;
+                    case astu::core::RiskState::BlockNewEntries:
+                        risk_state = "BLOCK_NEW_ENTRIES";
+                        break;
+                    case astu::core::RiskState::Emergency:
+                        risk_state = "EMERGENCY";
+                        break;
+                    }
+
+                    execution_status->set_account_risk_observation(
+                        risk.reconciled,
+                        static_cast<std::uint64_t>(utc_now_ms()),
+                        std::move(risk_state),
+                        risk.risk_capital,
+                        risk.available_balance,
+                        projected_available_balance,
+                        risk.gross_notional,
+                        projected_gross_notional,
+                        risk.max_gross_notional,
+                        risk.open_positions,
+                        projected_open_positions,
+                        risk.max_open_positions,
+                        risk.margin_metrics_reconciled,
+                        risk.margin_balance,
+                        risk.initial_margin,
+                        projected_initial_margin,
+                        projected_effective_leverage,
+                        projected_margin_utilization,
+                        risk.net_directional_reconciled,
+                        risk.net_directional_notional,
+                        projected_net_directional_notional);
+                    execution_status->publish();
+                } catch (const std::exception& exc) {
+                    execution_status->set_account_risk_observation(
+                        false,
+                        static_cast<std::uint64_t>(utc_now_ms()),
+                        "EMERGENCY",
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0,
+                        0,
+                        0,
+                        false,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        false,
+                        0.0,
+                        0.0);
+                    try {
+                        execution_status->publish();
+                    } catch (...) {
+                    }
+                    std::cerr
+                        << "account-risk observation failed: "
+                        << exc.what() << "\n";
+                }
+
+                for (int i = 0;
+                     i < 10 && !stop.stop_requested();
+                     ++i) {
+                    std::this_thread::sleep_for(
+                        std::chrono::milliseconds(100));
+                }
+            }
+        });
 
     std::jthread realized_pnl_monitor_thread;
     if (realized_pnl_provider) {
