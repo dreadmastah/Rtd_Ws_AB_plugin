@@ -102,6 +102,10 @@ struct AccountRiskSnapshot {
     double initial_margin{0.0};
     double max_effective_leverage{0.0};
     double max_margin_utilization{0.0};
+
+    bool net_directional_reconciled{false};
+    double net_directional_notional{0.0};
+    double max_net_directional_notional{0.0};
 };
 
 struct PositionSnapshot {
