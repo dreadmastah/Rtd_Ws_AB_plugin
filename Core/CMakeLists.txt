@@ -16,6 +16,10 @@ target_include_directories(astu_core INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/instrument/include
 )
 
+if(WIN32)
+    target_link_libraries(astu_core INTERFACE advapi32)
+endif()
+
 add_executable(astu_execution_sim execution/src/execution_sim_main.cpp)
 target_link_libraries(astu_execution_sim PRIVATE astu_core)
 
@@ -157,6 +161,19 @@ add_test(
 )
 
 if(WIN32)
+    add_executable(
+        astu_named_pipe_security_tests
+        tests/named_pipe_security_tests.cpp
+    )
+    target_link_libraries(
+        astu_named_pipe_security_tests
+        PRIVATE astu_core
+    )
+    add_test(
+        NAME astu_named_pipe_security_tests
+        COMMAND astu_named_pipe_security_tests
+    )
+
     add_test(
         NAME astu_trade_amibroker_exports
         COMMAND astu_trade_amibroker_exports_smoke $<TARGET_FILE:astu_trade_amibroker>
