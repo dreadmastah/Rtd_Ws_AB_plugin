@@ -6,12 +6,15 @@
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
+#include "astu/execution/order_fsm.hpp"
 #include "astu/ipc/flat_json.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
 
@@ -77,6 +80,7 @@ public:
             << ",\"requestId\":\"" << astu::ipc::json_escape(request.request_id) << "\""
             << ",\"idempotencyKey\":\"" << astu::ipc::json_escape(request.idempotency_key) << "\""
             << ",\"signalId\":\"" << astu::ipc::json_escape(request.intent.signal_id) << "\""
+            << ",\"simulationOrderId\":\"" << astu::ipc::json_escape(response.simulation_order_id) << "\""
             << ",\"symbol\":\"" << astu::ipc::json_escape(request.intent.symbol) << "\""
             << ",\"universeId\":\"" << astu::ipc::json_escape(request.intent.universe_id) << "\""
             << ",\"universeVersion\":" << request.intent.universe_version
@@ -94,6 +98,82 @@ public:
             << "}\n";
 
         append_durable(out.str());
+    }
+
+    void append_order_transition(
+        const astu::ipc::SimulationRequest& request,
+        const std::string& simulation_order_id,
+        astu::execution::OrderState to_state,
+        std::int64_t utc_ms,
+        std::string reason) {
+        std::lock_guard<std::mutex> lock(mu_);
+        if (simulation_order_id.empty()) {
+            throw std::invalid_argument("simulation order id is required");
+        }
+
+        std::string from_state = "NONE";
+        std::uint64_t sequence = 1;
+        const auto existing = order_states_.find(simulation_order_id);
+        if (existing == order_states_.end()) {
+            if (to_state != astu::execution::OrderState::IntentReceived) {
+                throw std::invalid_argument(
+                    "first order-state transition must be INTENT_RECEIVED");
+            }
+        } else {
+            astu::execution::OrderStateMachine::require_transition(
+                existing->second.state,
+                to_state);
+            from_state =
+                astu::execution::order_state_to_string(existing->second.state);
+            sequence = existing->second.sequence + 1;
+        }
+
+        std::ostringstream out;
+        out
+            << "{"
+            << "\"schemaVersion\":1"
+            << ",\"eventType\":\"ORDER_STATE_TRANSITION\""
+            << ",\"utcMs\":" << utc_ms
+            << ",\"simulationOrderId\":\""
+            << astu::ipc::json_escape(simulation_order_id) << "\""
+            << ",\"requestId\":\"" << astu::ipc::json_escape(request.request_id) << "\""
+            << ",\"signalId\":\"" << astu::ipc::json_escape(request.intent.signal_id) << "\""
+            << ",\"symbol\":\"" << astu::ipc::json_escape(request.intent.symbol) << "\""
+            << ",\"fromState\":\"" << from_state << "\""
+            << ",\"toState\":\""
+            << astu::execution::order_state_to_string(to_state) << "\""
+            << ",\"transitionSequence\":" << sequence
+            << ",\"simulationOnly\":true"
+            << ",\"exchangeSubmissionAttempted\":false"
+            << ",\"reason\":\"" << astu::ipc::json_escape(reason) << "\""
+            << "}\n";
+
+        append_durable(out.str());
+        order_states_[simulation_order_id] = OrderRecoveryState{
+            to_state,
+            sequence,
+        };
+        ++order_transition_count_;
+    }
+
+    std::optional<astu::execution::OrderState> order_state(
+        const std::string& simulation_order_id) const {
+        std::lock_guard<std::mutex> lock(mu_);
+        const auto it = order_states_.find(simulation_order_id);
+        if (it == order_states_.end()) {
+            return std::nullopt;
+        }
+        return it->second.state;
+    }
+
+    std::size_t recovered_order_count() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        return order_states_.size();
+    }
+
+    std::uint64_t order_transition_count() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        return order_transition_count_;
     }
 
     std::size_t replay_size() const {
@@ -126,6 +206,10 @@ private:
                     continue;
                 }
                 const auto event_type = astu::ipc::require_string(obj, "eventType");
+                if (event_type == "ORDER_STATE_TRANSITION") {
+                    replay_order_transition_unlocked(obj);
+                    continue;
+                }
                 if (event_type != "IDEMPOTENCY_RESERVATION" &&
                     event_type != "SIMULATION_DECISION") {
                     continue;
@@ -139,6 +223,59 @@ private:
                     "execution journal replay parse failure: " + std::string(exc.what()));
             }
         }
+    }
+
+    struct OrderRecoveryState {
+        astu::execution::OrderState state{
+            astu::execution::OrderState::IntentReceived};
+        std::uint64_t sequence{0};
+    };
+
+    void replay_order_transition_unlocked(
+        const astu::ipc::FlatObject& obj) {
+        const auto order_id =
+            astu::ipc::require_string(obj, "simulationOrderId");
+        const auto from_state =
+            astu::ipc::require_string(obj, "fromState");
+        const auto to_state = astu::execution::order_state_from_string(
+            astu::ipc::require_string(obj, "toState"));
+        const auto sequence =
+            astu::ipc::require_u64(obj, "transitionSequence");
+        if (!astu::ipc::require_bool(obj, "simulationOnly") ||
+            astu::ipc::require_bool(obj, "exchangeSubmissionAttempted")) {
+            throw std::runtime_error(
+                "execution journal contains non-simulation order transition");
+        }
+        if (order_id.empty()) {
+            throw std::runtime_error(
+                "execution journal order transition has empty order id");
+        }
+
+        const auto existing = order_states_.find(order_id);
+        if (existing == order_states_.end()) {
+            if (sequence != 1 || from_state != "NONE" ||
+                to_state != astu::execution::OrderState::IntentReceived) {
+                throw std::runtime_error(
+                    "execution journal invalid initial order transition");
+            }
+        } else {
+            if (sequence != existing->second.sequence + 1) {
+                throw std::runtime_error(
+                    "execution journal order transition sequence gap");
+            }
+            if (from_state !=
+                astu::execution::order_state_to_string(
+                    existing->second.state)) {
+                throw std::runtime_error(
+                    "execution journal order transition fromState mismatch");
+            }
+            astu::execution::OrderStateMachine::require_transition(
+                existing->second.state,
+                to_state);
+        }
+
+        order_states_[order_id] = OrderRecoveryState{to_state, sequence};
+        ++order_transition_count_;
     }
 
     static std::int64_t utc_now_ms() {
@@ -211,6 +348,8 @@ private:
     mutable std::mutex mu_;
     std::deque<std::string> order_;
     std::unordered_set<std::string> seen_;
+    std::unordered_map<std::string, OrderRecoveryState> order_states_;
+    std::uint64_t order_transition_count_{0};
 };
 
 }  // namespace astu::execution
