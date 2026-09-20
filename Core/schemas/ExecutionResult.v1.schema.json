@@ -16,6 +16,10 @@
     "simulatedQuantity",
     "simulatedNotional",
     "orderRoutingEnabled",
+    "executionEnvironment",
+    "exchangeClientOrderId",
+    "exchangeOrderId",
+    "exchangeOrderStatus",
     "reason"
   ],
   "properties": {
@@ -52,6 +56,9 @@
         "SIZING_REJECTED",
         "POSITION_UNAVAILABLE",
         "POSITION_CONFLICT",
+        "TESTNET_SUBMITTED",
+        "TESTNET_REJECTED",
+        "TESTNET_UNKNOWN",
         "ORDER_ROUTING_DISABLED",
         "DUPLICATE_REQUEST",
         "FRAME_INVALID"
@@ -72,13 +79,31 @@
       "minimum": 0
     },
     "orderRoutingEnabled": {
-      "const": false
+      "type": "boolean"
     },
     "reason": {
       "type": "string",
       "maxLength": 512
     },
     "simulationOrderId": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "executionEnvironment": {
+      "enum": [
+        "SIMULATION_ONLY",
+        "BINANCE_USDM_TESTNET"
+      ]
+    },
+    "exchangeClientOrderId": {
+      "type": "string",
+      "maxLength": 36
+    },
+    "exchangeOrderId": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "exchangeOrderStatus": {
       "type": "string",
       "maxLength": 64
     }
