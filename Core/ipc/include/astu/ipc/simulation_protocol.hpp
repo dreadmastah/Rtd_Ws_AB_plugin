@@ -83,6 +83,8 @@ inline std::string decision_to_string(astu::core::DecisionCode code) {
     case DecisionCode::InstrumentUnavailable: return "INSTRUMENT_UNAVAILABLE";
     case DecisionCode::FilterRejected: return "FILTER_REJECTED";
     case DecisionCode::SizingRejected: return "SIZING_REJECTED";
+    case DecisionCode::PositionUnavailable: return "POSITION_UNAVAILABLE";
+    case DecisionCode::PositionConflict: return "POSITION_CONFLICT";
     case DecisionCode::OrderRoutingDisabled: return "ORDER_ROUTING_DISABLED";
     case DecisionCode::DuplicateRequest: return "DUPLICATE_REQUEST";
     case DecisionCode::FrameInvalid: return "FRAME_INVALID";
@@ -105,6 +107,8 @@ inline astu::core::DecisionCode decision_from_string(const std::string& value) {
     if (value == "INSTRUMENT_UNAVAILABLE") return DecisionCode::InstrumentUnavailable;
     if (value == "FILTER_REJECTED") return DecisionCode::FilterRejected;
     if (value == "SIZING_REJECTED") return DecisionCode::SizingRejected;
+    if (value == "POSITION_UNAVAILABLE") return DecisionCode::PositionUnavailable;
+    if (value == "POSITION_CONFLICT") return DecisionCode::PositionConflict;
     if (value == "ORDER_ROUTING_DISABLED") return DecisionCode::OrderRoutingDisabled;
     if (value == "DUPLICATE_REQUEST") return DecisionCode::DuplicateRequest;
     if (value == "FRAME_INVALID") return DecisionCode::FrameInvalid;
@@ -224,6 +228,7 @@ public:
     using DataProvider = std::function<astu::core::DataStatus(const astu::core::SignalIntent&)>;
     using RiskProvider = std::function<astu::core::AccountRiskSnapshot(const astu::core::SignalIntent&)>;
     using InstrumentProvider = std::function<astu::core::InstrumentConstraints(const astu::core::SignalIntent&)>;
+    using PositionProvider = std::function<astu::core::PositionSnapshot(const astu::core::SignalIntent&)>;
     using IdempotencyAcceptor = std::function<bool(const std::string&)>;
     using ResponseObserver = std::function<void(
         const SimulationRequest&,
@@ -236,10 +241,12 @@ public:
         std::size_t idempotency_capacity = 4096,
         IdempotencyAcceptor idempotency_acceptor = {},
         ResponseObserver response_observer = {},
-        InstrumentProvider instrument_provider = {})
+        InstrumentProvider instrument_provider = {},
+        PositionProvider position_provider = {})
         : data_provider_(std::move(data_provider)),
           risk_provider_(std::move(risk_provider)),
           instrument_provider_(std::move(instrument_provider)),
+          position_provider_(std::move(position_provider)),
           idempotency_(idempotency_capacity),
           idempotency_acceptor_(std::move(idempotency_acceptor)),
           response_observer_(std::move(response_observer)) {}
@@ -263,15 +270,27 @@ public:
 
         const auto data = data_provider_(request.intent);
         const auto risk = risk_provider_(request.intent);
-        const auto decision = instrument_provider_
-            ? astu::execution::SimulationEngine::run_with_instrument(
-                  request.intent,
-                  data,
-                  risk,
-                  instrument_provider_(request.intent),
-                  now_utc_ms)
-            : astu::execution::SimulationEngine::run(
-                  request.intent, data, risk, now_utc_ms);
+        astu::core::SimulationDecision decision;
+        if (instrument_provider_ && position_provider_) {
+            decision =
+                astu::execution::SimulationEngine::run_with_position_and_instrument(
+                    request.intent,
+                    data,
+                    risk,
+                    position_provider_(request.intent),
+                    instrument_provider_(request.intent),
+                    now_utc_ms);
+        } else if (instrument_provider_) {
+            decision = astu::execution::SimulationEngine::run_with_instrument(
+                request.intent,
+                data,
+                risk,
+                instrument_provider_(request.intent),
+                now_utc_ms);
+        } else {
+            decision = astu::execution::SimulationEngine::run(
+                request.intent, data, risk, now_utc_ms);
+        }
 
         SimulationResponse response;
         response.request_id = request.request_id;
@@ -328,6 +347,7 @@ private:
     DataProvider data_provider_;
     RiskProvider risk_provider_;
     InstrumentProvider instrument_provider_;
+    PositionProvider position_provider_;
     IdempotencyCache idempotency_;
     IdempotencyAcceptor idempotency_acceptor_;
     ResponseObserver response_observer_;
