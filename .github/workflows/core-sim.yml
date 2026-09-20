@@ -307,3 +307,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_exposure_reservation_smoke.cmd
+
+      - name: Windows projected pending/symbol risk limit smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_projected_risk_limits_smoke.cmd
