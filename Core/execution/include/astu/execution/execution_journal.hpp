@@ -316,6 +316,11 @@ public:
         return exposure_reservation_implicit_release_count_;
     }
 
+    std::uint64_t exposure_reservation_reconstructed_count() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        return exposure_reservation_reconstructed_count_;
+    }
+
     void append_reconciliation_event(
         const std::string& event_id,
         const std::string& simulation_order_id,
@@ -854,6 +859,33 @@ private:
                 ++exposure_reservation_implicit_release_count_;
             }
         }
+
+        for (const auto& [order_id, intent] : order_intents_) {
+            if (!astu::core::increases_exposure(intent.action) ||
+                exposure_reservations_.contains(order_id)) {
+                continue;
+            }
+            const auto state_it = order_states_.find(order_id);
+            if (state_it == order_states_.end()) {
+                throw std::runtime_error(
+                    "simulation order intent missing order state during reservation recovery");
+            }
+            if (is_terminal_order_state(state_it->second.state)) {
+                continue;
+            }
+            exposure_reservations_.emplace(
+                order_id,
+                ExposureReservationRecord{
+                    intent.symbol,
+                    intent.action,
+                    intent.side,
+                    intent.quantity,
+                    intent.notional,
+                    reserves_new_position_slot(intent.action),
+                    true,
+                });
+            ++exposure_reservation_reconstructed_count_;
+        }
     }
 
     void replay_simulation_order_intent_unlocked(
@@ -1125,6 +1157,7 @@ private:
     std::uint64_t exposure_reservation_create_count_{0};
     std::uint64_t exposure_reservation_release_count_{0};
     std::uint64_t exposure_reservation_implicit_release_count_{0};
+    std::uint64_t exposure_reservation_reconstructed_count_{0};
 };
 
 }  // namespace astu::execution
