@@ -437,10 +437,33 @@ int main(int argc, char** argv) {
                 journal->recovered_order_count());
     }
 
-    auto base_risk_provider = std::move(risk_provider);
+    const bool account_loss_limits_enabled =
+        max_daily_risk_capital_loss > 0.0 ||
+        max_weekly_risk_capital_loss > 0.0 ||
+        max_daily_total_pnl_loss > 0.0 ||
+        max_weekly_total_pnl_loss > 0.0 ||
+        max_account_drawdown > 0.0;
+    const bool account_loss_requires_margin =
+        max_daily_total_pnl_loss > 0.0 ||
+        max_weekly_total_pnl_loss > 0.0 ||
+        max_account_drawdown > 0.0;
+
+    std::shared_ptr<astu::execution::AccountLossBaselineTracker>
+        account_loss_tracker;
+    if (account_loss_limits_enabled) {
+        account_loss_tracker = std::make_shared<
+            astu::execution::AccountLossBaselineTracker>(
+                account_loss_baseline_file);
+    }
+
+    auto base_risk_provider = std::make_shared<
+        astu::ipc::SimulationDispatcher::RiskProvider>(
+            std::move(risk_provider));
     const auto projected_position_provider = position_provider;
     risk_provider =
-        [base_risk_provider = std::move(base_risk_provider),
+        [base_risk_provider,
+         account_loss_tracker,
+         account_loss_requires_margin,
          journal,
          projected_position_provider,
          synthetic,
@@ -450,9 +473,45 @@ int main(int argc, char** argv) {
          margin_reservation_rate,
          max_effective_leverage,
          max_margin_utilization,
-         max_net_directional_notional](
+         max_net_directional_notional,
+         max_daily_risk_capital_loss,
+         max_weekly_risk_capital_loss,
+         max_daily_total_pnl_loss,
+         max_weekly_total_pnl_loss,
+         max_account_drawdown](
             const astu::core::SignalIntent& intent) mutable {
-            auto risk = base_risk_provider(intent);
+            auto risk = (*base_risk_provider)(intent);
+
+            risk.max_daily_risk_capital_loss =
+                max_daily_risk_capital_loss;
+            risk.max_weekly_risk_capital_loss =
+                max_weekly_risk_capital_loss;
+            risk.max_daily_total_pnl_loss =
+                max_daily_total_pnl_loss;
+            risk.max_weekly_total_pnl_loss =
+                max_weekly_total_pnl_loss;
+            risk.max_account_drawdown =
+                max_account_drawdown;
+
+            if (account_loss_tracker) {
+                const auto metrics =
+                    account_loss_tracker->evaluate(
+                        risk,
+                        static_cast<std::uint64_t>(utc_now_ms()),
+                        account_loss_requires_margin);
+                risk.account_loss_metrics_reconciled =
+                    metrics.ready;
+                risk.daily_risk_capital_loss =
+                    metrics.daily_risk_capital_loss;
+                risk.weekly_risk_capital_loss =
+                    metrics.weekly_risk_capital_loss;
+                risk.daily_total_pnl_loss =
+                    metrics.daily_total_pnl_loss;
+                risk.weekly_total_pnl_loss =
+                    metrics.weekly_total_pnl_loss;
+                risk.account_drawdown =
+                    metrics.account_drawdown;
+            }
 
             bool symbol_exposure_reconciled = false;
             double reconciled_symbol_notional = 0.0;
@@ -547,6 +606,14 @@ int main(int argc, char** argv) {
         max_effective_leverage,
         max_margin_utilization,
         max_net_directional_notional);
+    execution_status->set_account_loss_policy(
+        account_loss_limits_enabled,
+        account_loss_baseline_file.string(),
+        max_daily_risk_capital_loss,
+        max_weekly_risk_capital_loss,
+        max_daily_total_pnl_loss,
+        max_weekly_total_pnl_loss,
+        max_account_drawdown);
     execution_status->set_runtime_order_reconciliation(
         startup_order_snapshot_required,
         0,
@@ -560,6 +627,62 @@ int main(int argc, char** argv) {
         0,
         0);
     execution_status->publish();
+
+    std::jthread account_loss_monitor_thread;
+    if (account_loss_tracker) {
+        account_loss_monitor_thread = std::jthread(
+            [base_risk_provider,
+             account_loss_tracker,
+             account_loss_requires_margin,
+             execution_status](
+                std::stop_token stop) {
+                astu::core::SignalIntent monitor_intent;
+                monitor_intent.symbol = "ACCOUNT";
+                while (!stop.stop_requested()) {
+                    try {
+                        const auto risk =
+                            (*base_risk_provider)(monitor_intent);
+                        const auto metrics =
+                            account_loss_tracker->evaluate(
+                                risk,
+                                static_cast<std::uint64_t>(
+                                    utc_now_ms()),
+                                account_loss_requires_margin);
+                        execution_status->set_account_loss_metrics(
+                            metrics.ready,
+                            metrics.utc_day_index,
+                            metrics.utc_week_start_day_index,
+                            metrics.daily_start_risk_capital,
+                            metrics.weekly_start_risk_capital,
+                            metrics.daily_start_margin_balance,
+                            metrics.weekly_start_margin_balance,
+                            metrics.high_water_margin_balance,
+                            metrics.daily_risk_capital_loss,
+                            metrics.weekly_risk_capital_loss,
+                            metrics.daily_total_pnl_loss,
+                            metrics.weekly_total_pnl_loss,
+                            metrics.account_drawdown);
+                        execution_status->publish();
+                    } catch (const std::exception& exc) {
+                        execution_status->set_degraded(
+                            std::string(
+                                "account loss baseline monitor failed: ") +
+                            exc.what());
+                        try {
+                            execution_status->publish();
+                        } catch (...) {
+                        }
+                    }
+
+                    for (int i = 0;
+                         i < 10 && !stop.stop_requested();
+                         ++i) {
+                        std::this_thread::sleep_for(
+                            std::chrono::milliseconds(100));
+                    }
+                }
+            });
+    }
 
     std::jthread runtime_order_reconciliation_thread;
     if (order_snapshot_provider) {
@@ -815,6 +938,21 @@ int main(int argc, char** argv) {
               << max_margin_utilization << "\n";
     std::cout << "MAX_NET_DIRECTIONAL_NOTIONAL="
               << max_net_directional_notional << "\n";
+    std::cout << "ACCOUNT_LOSS_BASELINE_ENABLED="
+              << (account_loss_limits_enabled ? "true" : "false")
+              << "\n";
+    std::cout << "ACCOUNT_LOSS_BASELINE_FILE="
+              << account_loss_baseline_file.string() << "\n";
+    std::cout << "MAX_DAILY_RISK_CAPITAL_LOSS="
+              << max_daily_risk_capital_loss << "\n";
+    std::cout << "MAX_WEEKLY_RISK_CAPITAL_LOSS="
+              << max_weekly_risk_capital_loss << "\n";
+    std::cout << "MAX_DAILY_TOTAL_PNL_LOSS="
+              << max_daily_total_pnl_loss << "\n";
+    std::cout << "MAX_WEEKLY_TOTAL_PNL_LOSS="
+              << max_weekly_total_pnl_loss << "\n";
+    std::cout << "MAX_ACCOUNT_DRAWDOWN="
+              << max_account_drawdown << "\n";
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
     if (!instrument_status_dir.empty()) {
