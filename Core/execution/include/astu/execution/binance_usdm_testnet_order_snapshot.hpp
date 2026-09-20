@@ -1,9 +1,11 @@
 #pragma once
 
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 
