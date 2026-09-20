@@ -433,6 +433,34 @@ private:
         double cumulative_filled_quantity{0.0};
     };
 
+    static astu::execution::OrderState
+    reconciliation_target_from_type_unlocked(
+        const std::string& value) {
+        if (value == "MARK_UNKNOWN") {
+            return astu::execution::OrderState::UnknownReconcileRequired;
+        }
+        if (value == "ACKNOWLEDGED") {
+            return astu::execution::OrderState::Acknowledged;
+        }
+        if (value == "WORKING") {
+            return astu::execution::OrderState::Working;
+        }
+        if (value == "PARTIAL_FILL") {
+            return astu::execution::OrderState::Partial;
+        }
+        if (value == "FILLED") {
+            return astu::execution::OrderState::Filled;
+        }
+        if (value == "CANCELED") {
+            return astu::execution::OrderState::Canceled;
+        }
+        if (value == "REJECTED") {
+            return astu::execution::OrderState::Rejected;
+        }
+        throw std::invalid_argument(
+            "unknown reconciliation type");
+    }
+
     static void validate_reconciliation_quantity_unlocked(
         double order_quantity,
         double previous_filled,
@@ -504,8 +532,17 @@ private:
             astu::ipc::require_string(obj, "simulationOrderId");
         const auto from_state =
             astu::ipc::require_string(obj, "fromState");
+        const auto reconciliation_type =
+            astu::ipc::require_string(obj, "reconciliationType");
         const auto to_state = astu::execution::order_state_from_string(
             astu::ipc::require_string(obj, "toState"));
+        const auto expected_state =
+            reconciliation_target_from_type_unlocked(
+                reconciliation_type);
+        if (to_state != expected_state) {
+            throw std::runtime_error(
+                "reconciliation type/toState mismatch");
+        }
         const auto transition_sequence =
             astu::ipc::require_u64(obj, "transitionSequence");
         const auto reconciliation_sequence =
@@ -516,7 +553,7 @@ private:
             astu::ipc::require_double(obj, "orderQuantity");
 
         if (event_id.empty() || order_id.empty() ||
-            astu::ipc::require_string(obj, "reconciliationType").empty() ||
+            reconciliation_type.empty() ||
             !astu::ipc::require_bool(obj, "simulationOnly") ||
             astu::ipc::require_bool(obj, "exchangeSubmissionAttempted")) {
             throw std::runtime_error(
