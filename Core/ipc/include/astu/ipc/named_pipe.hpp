@@ -15,6 +15,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <sddl.h>
 #endif
 
 namespace astu::ipc {
@@ -54,6 +55,124 @@ public:
 private:
     HANDLE handle_;
 };
+
+inline std::wstring sid_to_string(PSID sid) {
+    LPWSTR raw = nullptr;
+    if (!ConvertSidToStringSidW(sid, &raw)) {
+        throw std::runtime_error(
+            "ConvertSidToStringSidW failed error=" +
+            std::to_string(GetLastError()));
+    }
+
+    std::wstring value;
+    try {
+        value.assign(raw);
+    } catch (...) {
+        LocalFree(raw);
+        throw;
+    }
+    LocalFree(raw);
+    return value;
+}
+
+inline std::wstring current_process_user_sid_string() {
+    HANDLE raw_token = INVALID_HANDLE_VALUE;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &raw_token)) {
+        throw std::runtime_error(
+            "OpenProcessToken failed error=" +
+            std::to_string(GetLastError()));
+    }
+    WinHandle token(raw_token);
+
+    DWORD bytes = 0;
+    (void)GetTokenInformation(token.get(), TokenUser, nullptr, 0, &bytes);
+    const DWORD size_error = GetLastError();
+    if (bytes == 0 || size_error != ERROR_INSUFFICIENT_BUFFER) {
+        throw std::runtime_error(
+            "GetTokenInformation size query failed error=" +
+            std::to_string(size_error));
+    }
+
+    std::vector<std::byte> buffer(bytes);
+    if (!GetTokenInformation(
+            token.get(),
+            TokenUser,
+            buffer.data(),
+            bytes,
+            &bytes)) {
+        throw std::runtime_error(
+            "GetTokenInformation failed error=" +
+            std::to_string(GetLastError()));
+    }
+
+    const auto* token_user =
+        reinterpret_cast<const TOKEN_USER*>(buffer.data());
+    return sid_to_string(token_user->User.Sid);
+}
+
+class PipeSecurityAttributes {
+public:
+    PipeSecurityAttributes() {
+        const std::wstring sddl =
+            L"D:P(A;;GA;;;" + current_process_user_sid_string() + L")";
+        if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                sddl.c_str(),
+                SDDL_REVISION_1,
+                &descriptor_,
+                nullptr)) {
+            throw std::runtime_error(
+                "ConvertStringSecurityDescriptorToSecurityDescriptorW failed error=" +
+                std::to_string(GetLastError()));
+        }
+
+        attributes_.nLength = sizeof(attributes_);
+        attributes_.lpSecurityDescriptor = descriptor_;
+        attributes_.bInheritHandle = FALSE;
+    }
+
+    ~PipeSecurityAttributes() {
+        if (descriptor_ != nullptr) {
+            LocalFree(descriptor_);
+        }
+    }
+
+    PipeSecurityAttributes(const PipeSecurityAttributes&) = delete;
+    PipeSecurityAttributes& operator=(const PipeSecurityAttributes&) = delete;
+
+    SECURITY_ATTRIBUTES* get() noexcept { return &attributes_; }
+    PSECURITY_DESCRIPTOR descriptor() const noexcept { return descriptor_; }
+
+private:
+    PSECURITY_DESCRIPTOR descriptor_{nullptr};
+    SECURITY_ATTRIBUTES attributes_{};
+};
+
+inline constexpr DWORD kNamedPipeOpenMode =
+    PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE;
+inline constexpr DWORD kNamedPipeMode =
+    PIPE_TYPE_BYTE |
+    PIPE_READMODE_BYTE |
+    PIPE_WAIT |
+    PIPE_REJECT_REMOTE_CLIENTS;
+
+inline WinHandle create_secure_named_pipe(const std::wstring& pipe_name) {
+    PipeSecurityAttributes security;
+    WinHandle pipe(CreateNamedPipeW(
+        pipe_name.c_str(),
+        kNamedPipeOpenMode,
+        kNamedPipeMode,
+        1,
+        static_cast<DWORD>(kFrameHeaderBytes + kMaxPayloadBytes),
+        static_cast<DWORD>(kFrameHeaderBytes + kMaxPayloadBytes),
+        5000,
+        security.get()));
+    if (!pipe.valid()) {
+        throw std::runtime_error(
+            "CreateNamedPipeW failed error=" +
+            std::to_string(GetLastError()));
+    }
+    return pipe;
+}
 
 inline void write_all(HANDLE handle, std::span<const std::byte> bytes) {
     std::size_t offset = 0;
@@ -125,14 +244,14 @@ public:
             const DWORD error = GetLastError();
             if (error != ERROR_PIPE_BUSY && error != ERROR_FILE_NOT_FOUND) {
                 throw std::runtime_error(
-                    "CreateFileW for Execution Named Pipe failed error=" +
+                    "CreateFileW for Named Pipe failed error=" +
                     std::to_string(error));
             }
 
             const ULONGLONG now = GetTickCount64();
             if (now >= deadline) {
                 throw std::runtime_error(
-                    "Execution Named Pipe unavailable before timeout");
+                    "Named Pipe unavailable before timeout");
             }
 
             const DWORD remaining = static_cast<DWORD>(
@@ -164,18 +283,7 @@ public:
 
     template <typename Handler>
     void serve_once(Handler&& handler) const {
-        WinHandle pipe(CreateNamedPipeW(
-            pipe_name_.c_str(),
-            PIPE_ACCESS_DUPLEX,
-            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-            1,
-            static_cast<DWORD>(kFrameHeaderBytes + kMaxPayloadBytes),
-            static_cast<DWORD>(kFrameHeaderBytes + kMaxPayloadBytes),
-            5000,
-            nullptr));
-        if (!pipe.valid()) {
-            throw std::runtime_error("CreateNamedPipeW failed");
-        }
+        WinHandle pipe = create_secure_named_pipe(pipe_name_);
 
         const BOOL connected =
             ConnectNamedPipe(pipe.get(), nullptr) ? TRUE :
