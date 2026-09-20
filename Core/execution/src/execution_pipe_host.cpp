@@ -167,6 +167,8 @@ int main(int argc, char** argv) {
     auto journal = std::make_shared<astu::execution::ExecutionJournal>(
         journal_path,
         100'000);
+    const auto recovered_orders_at_startup =
+        journal->recovered_order_count();
     auto order_lifecycle =
         std::make_shared<astu::execution::SimulationOrderLifecycle>(journal);
 
@@ -194,6 +196,7 @@ int main(int argc, char** argv) {
             position_provider_name,
             journal_path.string());
     execution_status->set_order_state_metrics(
+        recovered_orders_at_startup,
         journal->recovered_order_count(),
         journal->order_transition_count());
     execution_status->publish();
@@ -205,7 +208,7 @@ int main(int argc, char** argv) {
         [journal](const std::string& key) {
             return journal->accept_idempotency_key(key);
         },
-        [journal, order_lifecycle, execution_status](
+        [journal, order_lifecycle, execution_status, recovered_orders_at_startup](
             const astu::ipc::SimulationRequest& request,
             const astu::ipc::SimulationResponse& response,
             std::int64_t utc_ms) {
@@ -213,6 +216,7 @@ int main(int argc, char** argv) {
             journal->append(request, response, utc_ms);
             execution_status->record_response(response);
             execution_status->set_order_state_metrics(
+                recovered_orders_at_startup,
                 journal->recovered_order_count(),
                 journal->order_transition_count());
         },
@@ -269,7 +273,9 @@ int main(int argc, char** argv) {
         std::cout << "POSITION_PROVIDER=" << position_provider_name << "\n";
     }
     std::cout << "REPLAY_KEYS_LOADED=" << journal->replay_size() << "\n";
-    std::cout << "RECOVERED_SIMULATION_ORDERS="
+    std::cout << "RECOVERED_SIMULATION_ORDERS_AT_STARTUP="
+              << recovered_orders_at_startup << "\n";
+    std::cout << "TRACKED_SIMULATION_ORDERS="
               << journal->recovered_order_count() << "\n";
     std::cout << "ORDER_TRANSITIONS_REPLAYED="
               << journal->order_transition_count() << "\n";
