@@ -24,6 +24,7 @@
 #include "astu/execution/runtime_order_reconciler.hpp"
 #include "astu/execution/simulation_order_lifecycle.hpp"
 #include "astu/execution/startup_order_reconciler.hpp"
+#include "astu/execution/symbol_risk_status.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
 #include "astu/instrument/live_instrument_provider.hpp"
 #include "astu/wsrtd/live_status_provider.hpp"
@@ -59,6 +60,24 @@ astu::core::AccountRiskSnapshot synthetic_risk(
 std::int64_t utc_now_ms() {
     const auto now = std::chrono::system_clock::now().time_since_epoch();
     return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+}
+
+std::string position_mode_to_string(
+    astu::core::PositionMode mode) {
+    using astu::core::PositionMode;
+    switch (mode) {
+    case PositionMode::Flat:
+        return "FLAT";
+    case PositionMode::Long:
+        return "LONG";
+    case PositionMode::Short:
+        return "SHORT";
+    case PositionMode::Hedged:
+        return "HEDGED";
+    case PositionMode::Unknown:
+        return "UNKNOWN";
+    }
+    return "UNKNOWN";
 }
 
 astu::core::DataStatus synthetic_data(
@@ -120,6 +139,10 @@ int main(int argc, char** argv) {
     std::uint64_t max_risk_status_age_ms = 5'000;
     std::filesystem::path execution_status_file =
         "Core/runtime/execution_status.v1.json";
+    std::filesystem::path symbol_risk_status_file =
+        "Core/runtime/symbol_risk_status.v1.json";
+    std::filesystem::path symbol_risk_universe_file =
+        "CleanRoomR2/stack/bootstrap_symbols.tls";
     std::filesystem::path instrument_status_dir;
     std::uint64_t max_instrument_status_age_ms = 86'400'000;
     std::filesystem::path position_status_dir;
@@ -139,6 +162,14 @@ int main(int argc, char** argv) {
     }
     if (const char* env = std::getenv("ASTU_EXECUTION_STATUS_FILE"); env && *env) {
         execution_status_file = env;
+    }
+    if (const char* env = std::getenv("ASTU_SYMBOL_RISK_STATUS_FILE");
+        env && *env) {
+        symbol_risk_status_file = env;
+    }
+    if (const char* env = std::getenv("ASTU_SYMBOL_RISK_UNIVERSE_FILE");
+        env && *env) {
+        symbol_risk_universe_file = env;
     }
     if (const char* env = std::getenv("ASTU_INSTRUMENT_STATUS_DIR"); env && *env) {
         instrument_status_dir = env;
@@ -309,6 +340,10 @@ int main(int argc, char** argv) {
             max_risk_status_age_ms = std::stoull(argv[++i]);
         } else if (arg == "--execution-status-file" && i + 1 < argc) {
             execution_status_file = argv[++i];
+        } else if (arg == "--symbol-risk-status-file" && i + 1 < argc) {
+            symbol_risk_status_file = argv[++i];
+        } else if (arg == "--symbol-risk-universe-file" && i + 1 < argc) {
+            symbol_risk_universe_file = argv[++i];
         } else if (arg == "--instrument-status-dir" && i + 1 < argc) {
             instrument_status_dir = argv[++i];
         } else if (arg == "--max-instrument-status-age-ms" && i + 1 < argc) {
@@ -427,6 +462,11 @@ int main(int argc, char** argv) {
                 return provider(intent);
             };
     }
+
+    const auto symbol_risk_symbols =
+        astu::execution::load_symbol_risk_universe(
+            symbol_risk_universe_file,
+            64);
 
     astu::ipc::SimulationDispatcher::PositionProvider position_provider;
     if (!position_status_dir.empty()) {
@@ -718,6 +758,118 @@ int main(int argc, char** argv) {
         0,
         0);
     execution_status->publish();
+
+    auto symbol_risk_status =
+        std::make_shared<astu::execution::SymbolRiskStatusPublisher>(
+            symbol_risk_status_file);
+
+    std::jthread symbol_risk_status_thread(
+        [symbol_risk_status,
+         symbol_risk_symbols,
+         projected_position_provider,
+         journal,
+         synthetic,
+         max_symbol_notional](
+            std::stop_token stop) {
+            while (!stop.stop_requested()) {
+                try {
+                    std::vector<astu::execution::SymbolRiskStatusEntry>
+                        entries;
+                    entries.reserve(symbol_risk_symbols.size());
+
+                    for (const auto& symbol : symbol_risk_symbols) {
+                        astu::execution::SymbolRiskStatusEntry entry;
+                        entry.symbol = symbol;
+                        entry.max_symbol_notional =
+                            std::max(0.0, max_symbol_notional);
+                        entry.limit_enabled =
+                            max_symbol_notional > 0.0;
+
+                        if (synthetic) {
+                            entry.position_ready = true;
+                            entry.position_mode = "FLAT";
+                            entry.current_notional = 0.0;
+                            entry.detail =
+                                "synthetic position exposure";
+                        } else if (projected_position_provider) {
+                            astu::core::SignalIntent intent;
+                            intent.symbol = symbol;
+                            const auto position =
+                                projected_position_provider(intent);
+                            entry.position_ready =
+                                position.reconciled &&
+                                position.schema_version == 1 &&
+                                position.symbol == symbol &&
+                                std::isfinite(position.notional) &&
+                                position.notional >= 0.0;
+                            entry.position_mode =
+                                position_mode_to_string(
+                                    position.mode);
+                            entry.current_notional =
+                                entry.position_ready
+                                    ? position.notional
+                                    : 0.0;
+                            entry.detail = position.detail;
+                        } else {
+                            entry.position_ready = false;
+                            entry.position_mode = "UNKNOWN";
+                            entry.detail =
+                                "position provider unavailable";
+                        }
+
+                        const auto reservations =
+                            journal->exposure_reservation_summary(
+                                symbol);
+                        entry.active_reservations =
+                            reservations.symbol_active_reservations;
+                        entry.reserved_gross_notional =
+                            std::max(
+                                0.0,
+                                reservations
+                                    .symbol_reserved_gross_notional);
+                        entry.projected_notional =
+                            std::max(
+                                0.0,
+                                entry.current_notional +
+                                    entry.reserved_gross_notional);
+
+                        if (!entry.limit_enabled) {
+                            entry.status = "DISABLED";
+                            entry.headroom = 0.0;
+                        } else if (!entry.position_ready) {
+                            entry.status = "UNAVAILABLE";
+                            entry.headroom = 0.0;
+                        } else {
+                            entry.headroom =
+                                std::max(
+                                    0.0,
+                                    max_symbol_notional -
+                                        entry.projected_notional);
+                            entry.status =
+                                entry.projected_notional >=
+                                        max_symbol_notional
+                                    ? "BLOCKED"
+                                    : "HEADROOM";
+                        }
+
+                        entries.push_back(std::move(entry));
+                    }
+
+                    symbol_risk_status->publish(entries);
+                } catch (const std::exception& exc) {
+                    std::cerr
+                        << "symbol-risk status publish failed: "
+                        << exc.what() << "\n";
+                }
+
+                for (int i = 0;
+                     i < 10 && !stop.stop_requested();
+                     ++i) {
+                    std::this_thread::sleep_for(
+                        std::chrono::milliseconds(100));
+                }
+            }
+        });
 
     std::jthread account_risk_observation_thread(
         [base_risk_provider,
@@ -1258,6 +1410,12 @@ int main(int argc, char** argv) {
               << max_weekly_realized_trade_loss << "\n";
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
+    std::cout << "SYMBOL_RISK_STATUS_FILE="
+              << symbol_risk_status_file.string() << "\n";
+    std::cout << "SYMBOL_RISK_UNIVERSE_FILE="
+              << symbol_risk_universe_file.string() << "\n";
+    std::cout << "SYMBOL_RISK_UNIVERSE_COUNT="
+              << symbol_risk_symbols.size() << "\n";
     if (!instrument_status_dir.empty()) {
         std::cout << "INSTRUMENT_PROVIDER=" << instrument_provider_name << "\n";
         std::cout << "INSTRUMENT_STATUS_DIR=" << instrument_status_dir.string() << "\n";
