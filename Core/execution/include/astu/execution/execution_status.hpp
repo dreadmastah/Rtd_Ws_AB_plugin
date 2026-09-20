@@ -146,6 +146,60 @@ public:
             max_net_directional_notional;
     }
 
+    void set_account_loss_policy(
+        bool enabled,
+        std::string baseline_file,
+        double max_daily_risk_capital_loss,
+        double max_weekly_risk_capital_loss,
+        double max_daily_total_pnl_loss,
+        double max_weekly_total_pnl_loss,
+        double max_account_drawdown) {
+        std::lock_guard<std::mutex> lock(mu_);
+        account_loss_baseline_enabled_ = enabled;
+        account_loss_baseline_file_ = std::move(baseline_file);
+        max_daily_risk_capital_loss_ =
+            max_daily_risk_capital_loss;
+        max_weekly_risk_capital_loss_ =
+            max_weekly_risk_capital_loss;
+        max_daily_total_pnl_loss_ =
+            max_daily_total_pnl_loss;
+        max_weekly_total_pnl_loss_ =
+            max_weekly_total_pnl_loss;
+        max_account_drawdown_ =
+            max_account_drawdown;
+    }
+
+    void set_account_loss_metrics(
+        bool ready,
+        std::uint64_t utc_day_index,
+        std::uint64_t utc_week_start_day_index,
+        double daily_start_risk_capital,
+        double weekly_start_risk_capital,
+        double daily_start_margin_balance,
+        double weekly_start_margin_balance,
+        double high_water_margin_balance,
+        double daily_risk_capital_loss,
+        double weekly_risk_capital_loss,
+        double daily_total_pnl_loss,
+        double weekly_total_pnl_loss,
+        double account_drawdown) {
+        std::lock_guard<std::mutex> lock(mu_);
+        account_loss_metrics_ready_ = ready;
+        account_loss_utc_day_index_ = utc_day_index;
+        account_loss_utc_week_start_day_index_ =
+            utc_week_start_day_index;
+        daily_start_risk_capital_ = daily_start_risk_capital;
+        weekly_start_risk_capital_ = weekly_start_risk_capital;
+        daily_start_margin_balance_ = daily_start_margin_balance;
+        weekly_start_margin_balance_ = weekly_start_margin_balance;
+        high_water_margin_balance_ = high_water_margin_balance;
+        daily_risk_capital_loss_ = daily_risk_capital_loss;
+        weekly_risk_capital_loss_ = weekly_risk_capital_loss;
+        daily_total_pnl_loss_ = daily_total_pnl_loss;
+        weekly_total_pnl_loss_ = weekly_total_pnl_loss;
+        account_drawdown_ = account_drawdown;
+    }
+
     void set_exposure_reservation_metrics(
         std::uint64_t recovered_active_at_startup,
         std::uint64_t active_reservations,
@@ -224,6 +278,26 @@ public:
         double max_effective_leverage = 0.0;
         double max_margin_utilization = 0.0;
         double max_net_directional_notional = 0.0;
+        bool account_loss_baseline_enabled = false;
+        std::string account_loss_baseline_file;
+        bool account_loss_metrics_ready = false;
+        std::uint64_t account_loss_utc_day_index = 0;
+        std::uint64_t account_loss_utc_week_start_day_index = 0;
+        double daily_start_risk_capital = 0.0;
+        double weekly_start_risk_capital = 0.0;
+        double daily_start_margin_balance = 0.0;
+        double weekly_start_margin_balance = 0.0;
+        double high_water_margin_balance = 0.0;
+        double daily_risk_capital_loss = 0.0;
+        double weekly_risk_capital_loss = 0.0;
+        double daily_total_pnl_loss = 0.0;
+        double weekly_total_pnl_loss = 0.0;
+        double account_drawdown = 0.0;
+        double max_daily_risk_capital_loss = 0.0;
+        double max_weekly_risk_capital_loss = 0.0;
+        double max_daily_total_pnl_loss = 0.0;
+        double max_weekly_total_pnl_loss = 0.0;
+        double max_account_drawdown = 0.0;
         {
             std::lock_guard<std::mutex> lock(mu_);
             lifecycle = lifecycle_state_;
@@ -297,6 +371,46 @@ public:
                 max_margin_utilization_;
             max_net_directional_notional =
                 max_net_directional_notional_;
+            account_loss_baseline_enabled =
+                account_loss_baseline_enabled_;
+            account_loss_baseline_file =
+                account_loss_baseline_file_;
+            account_loss_metrics_ready =
+                account_loss_metrics_ready_;
+            account_loss_utc_day_index =
+                account_loss_utc_day_index_;
+            account_loss_utc_week_start_day_index =
+                account_loss_utc_week_start_day_index_;
+            daily_start_risk_capital =
+                daily_start_risk_capital_;
+            weekly_start_risk_capital =
+                weekly_start_risk_capital_;
+            daily_start_margin_balance =
+                daily_start_margin_balance_;
+            weekly_start_margin_balance =
+                weekly_start_margin_balance_;
+            high_water_margin_balance =
+                high_water_margin_balance_;
+            daily_risk_capital_loss =
+                daily_risk_capital_loss_;
+            weekly_risk_capital_loss =
+                weekly_risk_capital_loss_;
+            daily_total_pnl_loss =
+                daily_total_pnl_loss_;
+            weekly_total_pnl_loss =
+                weekly_total_pnl_loss_;
+            account_drawdown =
+                account_drawdown_;
+            max_daily_risk_capital_loss =
+                max_daily_risk_capital_loss_;
+            max_weekly_risk_capital_loss =
+                max_weekly_risk_capital_loss_;
+            max_daily_total_pnl_loss =
+                max_daily_total_pnl_loss_;
+            max_weekly_total_pnl_loss =
+                max_weekly_total_pnl_loss_;
+            max_account_drawdown =
+                max_account_drawdown_;
         }
 
         std::ostringstream out;
@@ -380,6 +494,46 @@ public:
             << max_margin_utilization
             << ",\"maxNetDirectionalNotional\":"
             << max_net_directional_notional
+            << ",\"accountLossBaselineEnabled\":"
+            << (account_loss_baseline_enabled ? "true" : "false")
+            << ",\"accountLossBaselineFile\":\""
+            << astu::ipc::json_escape(account_loss_baseline_file) << "\""
+            << ",\"accountLossMetricsReady\":"
+            << (account_loss_metrics_ready ? "true" : "false")
+            << ",\"accountLossUtcDayIndex\":"
+            << account_loss_utc_day_index
+            << ",\"accountLossUtcWeekStartDayIndex\":"
+            << account_loss_utc_week_start_day_index
+            << ",\"dailyStartRiskCapital\":"
+            << daily_start_risk_capital
+            << ",\"weeklyStartRiskCapital\":"
+            << weekly_start_risk_capital
+            << ",\"dailyStartMarginBalance\":"
+            << daily_start_margin_balance
+            << ",\"weeklyStartMarginBalance\":"
+            << weekly_start_margin_balance
+            << ",\"highWaterMarginBalance\":"
+            << high_water_margin_balance
+            << ",\"dailyRiskCapitalLoss\":"
+            << daily_risk_capital_loss
+            << ",\"weeklyRiskCapitalLoss\":"
+            << weekly_risk_capital_loss
+            << ",\"dailyTotalPnlLoss\":"
+            << daily_total_pnl_loss
+            << ",\"weeklyTotalPnlLoss\":"
+            << weekly_total_pnl_loss
+            << ",\"accountDrawdown\":"
+            << account_drawdown
+            << ",\"maxDailyRiskCapitalLoss\":"
+            << max_daily_risk_capital_loss
+            << ",\"maxWeeklyRiskCapitalLoss\":"
+            << max_weekly_risk_capital_loss
+            << ",\"maxDailyTotalPnlLoss\":"
+            << max_daily_total_pnl_loss
+            << ",\"maxWeeklyTotalPnlLoss\":"
+            << max_weekly_total_pnl_loss
+            << ",\"maxAccountDrawdown\":"
+            << max_account_drawdown
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -499,6 +653,26 @@ private:
     double max_effective_leverage_{0.0};
     double max_margin_utilization_{0.0};
     double max_net_directional_notional_{0.0};
+    bool account_loss_baseline_enabled_{false};
+    std::string account_loss_baseline_file_;
+    bool account_loss_metrics_ready_{false};
+    std::uint64_t account_loss_utc_day_index_{0};
+    std::uint64_t account_loss_utc_week_start_day_index_{0};
+    double daily_start_risk_capital_{0.0};
+    double weekly_start_risk_capital_{0.0};
+    double daily_start_margin_balance_{0.0};
+    double weekly_start_margin_balance_{0.0};
+    double high_water_margin_balance_{0.0};
+    double daily_risk_capital_loss_{0.0};
+    double weekly_risk_capital_loss_{0.0};
+    double daily_total_pnl_loss_{0.0};
+    double weekly_total_pnl_loss_{0.0};
+    double account_drawdown_{0.0};
+    double max_daily_risk_capital_loss_{0.0};
+    double max_weekly_risk_capital_loss_{0.0};
+    double max_daily_total_pnl_loss_{0.0};
+    double max_weekly_total_pnl_loss_{0.0};
+    double max_account_drawdown_{0.0};
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
