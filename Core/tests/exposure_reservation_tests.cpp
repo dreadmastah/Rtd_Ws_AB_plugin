@@ -288,6 +288,36 @@ int main() {
     }
 
     {
+        const auto journal_path = root / "partial_headroom.jsonl";
+        auto journal =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100);
+        auto dispatcher = reservation_dispatcher(
+            journal,
+            base_risk(95.0, 100.0, 0, 10));
+
+        const auto first = request("HEADROOM-1");
+        const auto first_response =
+            dispatcher.dispatch(first, 2'500);
+        REQUIRE(first_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(first_response.simulated_notional - 5.0) <
+                1e-12);
+        REQUIRE(std::fabs(
+                    journal->exposure_reservation_summary()
+                        .reserved_gross_notional -
+                    5.0) <
+                1e-12);
+
+        const auto second = request("HEADROOM-2");
+        const auto second_response =
+            dispatcher.dispatch(second, 2'501);
+        REQUIRE(second_response.decision_code ==
+                DecisionCode::RiskBlocked);
+    }
+
+    {
         const auto journal_path = root / "positions.jsonl";
         auto journal =
             std::make_shared<astu::execution::ExecutionJournal>(
