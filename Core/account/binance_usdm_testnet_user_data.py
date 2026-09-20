@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize Binance USD-M Testnet user-data events into fail-closed authority.
+"""Normalize Binance USD-M Demo Trading user-data events into fail-closed authority.
 
 The process has no order/cancel/margin mutation methods. It consumes
 ORDER_TRADE_UPDATE, ACCOUNT_UPDATE, listenKeyExpired, and transport liveness,
@@ -414,9 +414,9 @@ def api_request(
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
             return response.read()
     except urllib.error.HTTPError as exc:
-        raise UserDataError(f"Binance Testnet USER_STREAM HTTP {exc.code}") from exc
+        raise UserDataError(f"Binance Demo Trading USER_STREAM HTTP {exc.code}") from exc
     except urllib.error.URLError as exc:
-        raise UserDataError(f"Binance Testnet USER_STREAM request failed: {exc}") from exc
+        raise UserDataError(f"Binance Demo Trading USER_STREAM request failed: {exc}") from exc
 
 
 def start_listen_key(base_url: str, api_key: str, timeout_seconds: float) -> str:
@@ -428,7 +428,7 @@ def start_listen_key(base_url: str, api_key: str, timeout_seconds: float) -> str
     )
     obj = json.loads(body.decode("utf-8"))
     if not isinstance(obj, dict) or not obj.get("listenKey"):
-        raise UserDataError("Binance Testnet listenKey response invalid")
+        raise UserDataError("Binance Demo Trading listenKey response invalid")
     return str(obj["listenKey"])
 
 
@@ -592,7 +592,7 @@ def run_fixture(args: argparse.Namespace, authority: Authority) -> int:
 def run_live(args: argparse.Namespace, authority: Authority) -> int:
     if os.getenv("ASTU_BINANCE_TESTNET_USER_DATA_ENABLED", "").strip() != "1":
         raise UserDataError(
-            "live Testnet user-data stream requires ASTU_BINANCE_TESTNET_USER_DATA_ENABLED=1"
+            "live Demo Trading user-data stream requires ASTU_BINANCE_TESTNET_USER_DATA_ENABLED=1"
         )
     api_key = os.getenv("ASTU_BINANCE_TESTNET_API_KEY", "")
     if not api_key:
@@ -600,7 +600,7 @@ def run_live(args: argparse.Namespace, authority: Authority) -> int:
 
     if not args.ws_url_template.strip():
         raise UserDataError(
-            "live Testnet user-data stream requires an explicit "
+            "live Demo Trading user-data stream requires an explicit "
             "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE"
         )
 
