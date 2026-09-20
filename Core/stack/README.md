@@ -24,6 +24,19 @@ The instrument publisher uses public metadata only. It has no credentials, signi
 
 When an instrument mode is enabled, the execution host fails closed if the symbol rules are missing, stale, malformed, or fail the quantity/notional filters.
 
+## Startup order-state authority
+
+The supervisor can optionally forward a directory of `AuthoritativeSimulationOrderSnapshot.v1` files into the execution host:
+
+```cmd
+python Core\stack\autotrader_sim_launcher.py ^
+  --risk-mode fixture ^
+  --instrument-mode fixture ^
+  --order-snapshot-dir Core\runtime\authoritative_order_snapshots
+```
+
+When configured, startup reconciliation is required for every normalized simulation order in the journal. Missing/stale/mismatched non-terminal state is moved to `UNKNOWN_RECONCILE_REQUIRED`; terminal disagreements fail startup closed. The local helper `Core/order_state/simulated_order_state_source.py` can publish simulation snapshots for tests. It performs no exchange I/O.
+
 ## Start
 
 From the repository root after the C++ build:
