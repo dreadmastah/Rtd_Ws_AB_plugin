@@ -164,6 +164,9 @@ jobs:
           print("POSITION_SNAPSHOTS_FIXTURE=PASS")
           PY
 
+      - name: Position snapshot reconciliation semantics
+        run: python Core/account/tests/test_position_snapshots.py
+
       - name: Public instrument rules bootstrap universe fixture
         shell: bash
         run: |
