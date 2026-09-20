@@ -213,6 +213,14 @@ int main(int argc, char** argv) {
             const astu::ipc::SimulationResponse& response,
             std::int64_t utc_ms) {
             order_lifecycle->observe(request, response, utc_ms);
+            if (response.decision_code ==
+                    astu::core::DecisionCode::OrderRoutingDisabled &&
+                response.accepted_for_simulation) {
+                journal->append_simulation_order_intent(
+                    request,
+                    response,
+                    utc_ms);
+            }
             journal->append(request, response, utc_ms);
             execution_status->record_response(response);
             execution_status->set_order_state_metrics(
@@ -279,6 +287,8 @@ int main(int argc, char** argv) {
               << journal->recovered_order_count() << "\n";
     std::cout << "ORDER_TRANSITIONS_REPLAYED="
               << journal->order_transition_count() << "\n";
+    std::cout << "RECOVERED_SIMULATION_ORDER_INTENTS_AT_STARTUP="
+              << journal->recovered_order_intent_count() << "\n";
 
     for (;;) {
         try {
