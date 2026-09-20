@@ -101,7 +101,24 @@ def status() -> int:
         print(f"{name.upper()}_PID={pid} ALIVE={alive}")
         all_alive = all_alive and alive
     print(f"ASTU_SIM_STACK_STATUS={'RUNNING' if all_alive else 'DEGRADED'}")
-    print("ORDER_ROUTING_ENABLED=false")
+
+    routing_enabled = False
+    execution_environment = "UNKNOWN"
+    try:
+        obj = json.loads(
+            EXECUTION_STATUS_FILE.read_text(encoding="utf-8")
+        )
+        routing_enabled = obj.get("orderRoutingEnabled") is True
+        execution_environment = str(
+            obj.get("executionEnvironment", "UNKNOWN")
+        )
+    except Exception:
+        pass
+    print(
+        "ORDER_ROUTING_ENABLED="
+        f"{str(routing_enabled).lower()}"
+    )
+    print(f"EXECUTION_ENVIRONMENT={execution_environment}")
     return 0 if all_alive else 1
 
 
