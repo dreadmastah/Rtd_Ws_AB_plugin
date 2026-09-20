@@ -320,6 +320,113 @@
           "const": false
         }
       }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "eventId",
+        "simulationOrderId",
+        "reconciliationType",
+        "fromState",
+        "toState",
+        "transitionSequence",
+        "reconciliationSequence",
+        "orderQuantity",
+        "cumulativeFilledQuantity",
+        "simulationOnly",
+        "exchangeSubmissionAttempted",
+        "detail"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "SIMULATION_RECONCILIATION_EVENT"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "simulationOrderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "reconciliationType": {
+          "enum": [
+            "MARK_UNKNOWN",
+            "ACKNOWLEDGED",
+            "WORKING",
+            "PARTIAL_FILL",
+            "FILLED",
+            "CANCELED",
+            "REJECTED"
+          ]
+        },
+        "fromState": {
+          "enum": [
+            "INTENT_RECEIVED",
+            "VALIDATING",
+            "RISK_APPROVED",
+            "SIZING",
+            "SUBMITTING",
+            "ACKNOWLEDGED",
+            "WORKING",
+            "PARTIAL",
+            "FILLED",
+            "CANCELED",
+            "REJECTED",
+            "UNKNOWN_RECONCILE_REQUIRED"
+          ]
+        },
+        "toState": {
+          "enum": [
+            "UNKNOWN_RECONCILE_REQUIRED",
+            "ACKNOWLEDGED",
+            "WORKING",
+            "PARTIAL",
+            "FILLED",
+            "CANCELED",
+            "REJECTED"
+          ]
+        },
+        "transitionSequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reconciliationSequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "orderQuantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "cumulativeFilledQuantity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "simulationOnly": {
+          "const": true
+        },
+        "exchangeSubmissionAttempted": {
+          "const": false
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
     }
   ]
 }
