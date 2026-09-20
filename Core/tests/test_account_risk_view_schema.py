@@ -13,6 +13,10 @@ assert set(schema["properties"]["gateState"]["enum"]) == {
     "RISK_BLOCKED",
 }
 assert "accountRiskObservation" in schema["required"]
+assert "symbolRisk" in schema["required"]
+symbol_risk = schema["properties"]["symbolRisk"]
+assert symbol_risk["additionalProperties"] is False
+assert symbol_risk["properties"]["symbols"]["maxItems"] == 64
 account = schema["properties"]["accountRiskObservation"]
 assert account["additionalProperties"] is False
 assert "projectedEffectiveLeverage" in account["required"]
@@ -33,5 +37,12 @@ for key in (
     assert key in execution_schema["required"]
     assert key in execution_schema["properties"]
 assert execution_schema["properties"]["orderRoutingEnabled"]["const"] is False
+
+symbol_schema = json.loads(
+    (ROOT / "schemas" / "SymbolRiskStatus.v1.schema.json").read_text(encoding="utf-8")
+)
+assert symbol_schema["properties"]["orderRoutingEnabled"]["const"] is False
+assert symbol_schema["properties"]["symbols"]["maxItems"] == 64
 print("ACCOUNT_RISK_VIEW_SCHEMA=PASS")
 print("EXECUTION_STATUS_ACCOUNT_RISK_OBSERVABILITY_SCHEMA=PASS")
+print("SYMBOL_RISK_STATUS_SCHEMA=PASS")
