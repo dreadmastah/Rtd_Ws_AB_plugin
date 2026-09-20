@@ -62,6 +62,18 @@ set BINANCE_API_SECRET=...
 python Core\stack\autotrader_sim_launcher.py --risk-mode readonly --instrument-mode public
 ```
 
+## Synthetic projected-risk controls
+
+The execution host synthetic mode exposes test-only limits for projected-risk acceptance:
+
+```cmd
+astu_execution_pipe_host.exe --synthetic ^
+  --synthetic-max-gross-notional 10 ^
+  --synthetic-max-open-positions 1
+```
+
+These switches are used only by deterministic simulation acceptance tests. Active exposure reservations are included in the next request's projected gross-notional and open-position checks. They do not enable order routing or exchange connectivity.
+
 ## Status and stop
 
 ```cmd
