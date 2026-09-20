@@ -75,6 +75,9 @@ def main() -> int:
         else:
             os.environ["ASTU_TESTNET_ACCEPTANCE_ARM"] = prior
 
+    assert "--reduce-only" in Path(MOD).read_text(encoding="utf-8")
+    assert '("reduceOnly", "true")' in Path(MOD).read_text(encoding="utf-8")
+
     client_id = m.deterministic_acceptance_client_id()
     assert client_id.startswith("ASTU-ACC-")
     assert len(client_id) <= 36
