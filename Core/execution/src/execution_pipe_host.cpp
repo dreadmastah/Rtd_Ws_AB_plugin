@@ -27,16 +27,18 @@
 namespace {
 
 astu::core::AccountRiskSnapshot synthetic_risk(
-    const astu::core::SignalIntent&) {
+    const astu::core::SignalIntent&,
+    double max_gross_notional,
+    std::uint32_t max_open_positions) {
     astu::core::AccountRiskSnapshot risk;
     risk.reconciled = true;
     risk.risk_state = astu::core::RiskState::Normal;
     risk.risk_capital = 10'000.0;
     risk.available_balance = 10'000.0;
     risk.gross_notional = 0.0;
-    risk.max_gross_notional = 100'000.0;
+    risk.max_gross_notional = max_gross_notional;
     risk.open_positions = 0;
-    risk.max_open_positions = 10;
+    risk.max_open_positions = max_open_positions;
     return risk;
 }
 
@@ -70,6 +72,8 @@ int main(int argc, char** argv) {
     bool synthetic = false;
     std::filesystem::path status_dir =
         "CleanRoomR2/stack/runtime/autotrader_status";
+    double synthetic_max_gross_notional = 100'000.0;
+    std::uint32_t synthetic_max_open_positions = 10;
     std::uint64_t max_status_age_ms = 5'000;
     std::filesystem::path journal_path =
         "Core/runtime/execution_journal.v1.jsonl";
@@ -116,6 +120,11 @@ int main(int argc, char** argv) {
         const std::string arg = argv[i];
         if (arg == "--synthetic") {
             synthetic = true;
+        } else if (arg == "--synthetic-max-gross-notional" && i + 1 < argc) {
+            synthetic_max_gross_notional = std::stod(argv[++i]);
+        } else if (arg == "--synthetic-max-open-positions" && i + 1 < argc) {
+            synthetic_max_open_positions = static_cast<std::uint32_t>(
+                std::stoul(argv[++i]));
         } else if (arg == "--status-dir" && i + 1 < argc) {
             status_dir = argv[++i];
         } else if (arg == "--max-status-age-ms" && i + 1 < argc) {
@@ -160,7 +169,15 @@ int main(int argc, char** argv) {
 
     astu::ipc::SimulationDispatcher::RiskProvider risk_provider;
     if (synthetic) {
-        risk_provider = synthetic_risk;
+        risk_provider =
+            [synthetic_max_gross_notional,
+             synthetic_max_open_positions](
+                const astu::core::SignalIntent& intent) {
+                return synthetic_risk(
+                    intent,
+                    synthetic_max_gross_notional,
+                    synthetic_max_open_positions);
+            };
     } else {
         astu::account::LiveRiskProvider provider(
             risk_status_file,
@@ -523,6 +540,11 @@ int main(int argc, char** argv) {
     if (!synthetic) {
         std::cout << "RISK_STATUS_FILE=" << risk_status_file.string() << "\n";
         std::cout << "MAX_RISK_STATUS_AGE_MS=" << max_risk_status_age_ms << "\n";
+    } else {
+        std::cout << "SYNTHETIC_MAX_GROSS_NOTIONAL="
+                  << synthetic_max_gross_notional << "\n";
+        std::cout << "SYNTHETIC_MAX_OPEN_POSITIONS="
+                  << synthetic_max_open_positions << "\n";
     }
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
