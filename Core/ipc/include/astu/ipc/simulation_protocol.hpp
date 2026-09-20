@@ -293,7 +293,7 @@ public:
             ? idempotency_acceptor_(request.idempotency_key)
             : idempotency_.accept_once(request.idempotency_key);
         if (!idempotency_ok) {
-            const auto duplicate = error_response(
+            auto duplicate = error_response(
                 request,
                 astu::core::DecisionCode::DuplicateRequest,
                 "duplicate idempotency key");
