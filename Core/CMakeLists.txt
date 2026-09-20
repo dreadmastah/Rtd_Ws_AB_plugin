@@ -38,6 +38,12 @@ if(WIN32)
     )
     target_link_libraries(astu_trade_pipe_live_smoke PRIVATE astu_core)
 
+    add_executable(
+        astu_reconciliation_pipe_smoke
+        trade_plugin/src/reconciliation_pipe_client_smoke.cpp
+    )
+    target_link_libraries(astu_reconciliation_pipe_smoke PRIVATE astu_core)
+
     add_library(
         astu_trade_amibroker
         SHARED
