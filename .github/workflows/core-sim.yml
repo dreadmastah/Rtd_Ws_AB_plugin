@@ -42,6 +42,32 @@ jobs:
           python -m py_compile Core/instrument/binance_usdm_instrument_rules.py
           python -m py_compile Core/order_state/simulated_order_state_source.py
 
+      - name: Authoritative simulation order snapshot source
+        shell: bash
+        run: |
+          rm -rf Core/runtime/authoritative_order_snapshot_fixture
+          python Core/order_state/simulated_order_state_source.py \
+            --output-dir Core/runtime/authoritative_order_snapshot_fixture \
+            --order-id SIMORD-CI-FIXTURE \
+            --state SIZING \
+            --cumulative-filled 0 \
+            --detail "CI authoritative startup fixture"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path(
+              "Core/runtime/authoritative_order_snapshot_fixture/"
+              "SIMORD-CI-FIXTURE.json"
+          )
+          obj = json.loads(p.read_text(encoding="utf-8"))
+          assert obj["messageType"] == "AuthoritativeSimulationOrderSnapshot.v1"
+          assert obj["ready"] is True
+          assert obj["simulationOrderId"] == "SIMORD-CI-FIXTURE"
+          assert obj["state"] == "SIZING"
+          assert obj["cumulativeFilledQuantity"] == 0
+          print("AUTHORITATIVE_SIM_ORDER_SNAPSHOT_SOURCE=PASS")
+          PY
+
       - name: Identity bridge one-shot
         shell: bash
         run: |
