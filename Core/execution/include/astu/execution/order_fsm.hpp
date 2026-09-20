@@ -171,9 +171,7 @@ inline std::string deterministic_simulation_order_id(
         intent.strategy_version + "|" +
         intent.symbol + "|" +
         std::to_string(static_cast<int>(intent.action)) + "|" +
-        std::to_string(static_cast<int>(intent.side)) + "|" +
-        std::to_string(intent.universe_version) + "|" +
-        std::to_string(intent.data_generation);
+        std::to_string(static_cast<int>(intent.side));
 
     constexpr std::uint64_t kSeed1 = 14695981039346656037ULL;
     constexpr std::uint64_t kSeed2 = 7809847782465536322ULL;
