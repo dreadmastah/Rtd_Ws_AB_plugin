@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:RealizedPnlAccumulatorState.v1",
+  "title": "RealizedPnlAccumulatorState.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "updatedUnixMs",
+    "utcDayStartUnixMs",
+    "utcWeekStartUnixMs",
+    "dailyRealizedTradePnl",
+    "weeklyRealizedTradePnl",
+    "dailyFundingFee",
+    "weeklyFundingFee",
+    "dailyCommission",
+    "weeklyCommission",
+    "recordsInCurrentWeek",
+    "ignoredIncomeRecords"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "messageType": {"const": "RealizedPnlAccumulatorState.v1"},
+    "updatedUnixMs": {"type": "integer", "minimum": 1},
+    "utcDayStartUnixMs": {"type": "integer", "minimum": 0},
+    "utcWeekStartUnixMs": {"type": "integer", "minimum": 0},
+    "dailyRealizedTradePnl": {"type": "number"},
+    "weeklyRealizedTradePnl": {"type": "number"},
+    "dailyFundingFee": {"type": "number"},
+    "weeklyFundingFee": {"type": "number"},
+    "dailyCommission": {"type": "number"},
+    "weeklyCommission": {"type": "number"},
+    "recordsInCurrentWeek": {"type": "integer", "minimum": 0},
+    "ignoredIncomeRecords": {"type": "integer", "minimum": 0}
+  }
+}
