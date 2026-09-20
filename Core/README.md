@@ -789,7 +789,9 @@ The next architecture milestone is Binance Testnet order execution. The first M1
 
 The host currently refuses `--enable-testnet-order-routing` even when armed and credentialed. This is intentional: the existing authoritative order snapshot source is simulation-only, while Architecture R3.1 requires Binance to remain authoritative for actual order/fill/position state.
 
-## Binance Testnet user-data authority and convergence gate
+## Binance Demo Trading user-data authority and convergence gate
+
+Internal compatibility identifiers such as `TESTNET`, `BINANCE_USDM_TESTNET`, `ASTU_BINANCE_TESTNET_*`, existing filenames, schemas, and class names are intentionally retained to avoid breaking contracts while Binance's current user-facing product name is Demo Trading.
 
 The M13 authority layer now includes a supervised Testnet user-data sidecar plus a C++ activation gate.
 
@@ -826,7 +828,7 @@ The supervisor can manage the live sidecar with `--testnet-user-data-mode live`;
 
 Cross-platform CI covers stream-event normalization, ASTU order ownership, event-time regression, liveness expiry, account/position REST convergence, order convergence, schema shape, and the C++ freshness/convergence gate.
 
-## Credentialed Testnet acceptance harness
+## Credentialed Demo Trading acceptance harness
 
 `Core/tools/testnet_acceptance.py` provides a guarded manual acceptance path. It is **preflight-only by default** and rejects Binance production `fapi.binance.com` outright.
 
@@ -851,7 +853,7 @@ python Core/tools/testnet_acceptance.py
 
 The preflight verifies Testnet REST credentials, public symbol price access, listen-key lifecycle, and WebSocket upgrade/keepalive when a stream template is supplied. It writes `Core/runtime/testnet_acceptance_report.v1.json`.
 
-Submitting one bounded Testnet MARKET acceptance order additionally requires both an explicit CLI flag and a separate environment arm:
+Submitting one bounded Demo Trading MARKET acceptance order additionally requires both an explicit CLI flag and a separate environment arm:
 
 ```powershell
 $env:ASTU_TESTNET_ACCEPTANCE_ARM="I_UNDERSTAND_TESTNET_ORDER"
@@ -864,10 +866,10 @@ python Core/tools/testnet_acceptance.py `
   --max-test-notional 25
 ```
 
-The harness enforces a compiled hard maximum Testnet notional of 50 quote units, requires the requested notional to remain at or below `--max-test-notional`, derives a unique `ASTU-ACC-...` client order ID, submits only `MARKET`, then queries `GET /fapi/v1/order` by `origClientOrderId`. CI tests the mainnet-host rejection, explicit-arm requirement, and notional caps without making any network request.
+The harness enforces a compiled hard maximum Demo Trading notional of 50 quote units, requires the requested notional to remain at or below `--max-test-notional`, derives a unique `ASTU-ACC-...` client order ID, submits only `MARKET`, then queries `GET /fapi/v1/order` by `origClientOrderId`. CI tests the mainnet-host rejection, explicit-arm requirement, and notional caps without making any network request.
 
-The runtime host's final Testnet activation refusal remains unchanged. The acceptance harness is a separate manual validation surface and does not make the application live-trading-capable.
+The runtime host's final Demo Trading activation refusal remains unchanged. The acceptance harness is a separate manual validation surface and does not make the application live-trading-capable.
 
 ## Current next implementation step
 
-Complete a **credentialed manual Binance USD-M Testnet acceptance** outside default CI: verify the currently valid user-data stream endpoint, listen-key lifecycle/reconnect behavior, live `ORDER_TRADE_UPDATE` delivery, REST fallback after an intentionally ambiguous submission, and account + position + order convergence after the bounded Testnet MARKET acceptance order. Only after that evidence is captured and reproducible should the final administrative activation refusal be reconsidered for explicit Testnet-only arming. Mainnet private routing remains out of scope.
+Complete a **credentialed manual Binance USD-M Demo Trading acceptance** outside default CI: verify the currently valid user-data stream endpoint, listen-key lifecycle/reconnect behavior, live `ORDER_TRADE_UPDATE` delivery, REST fallback after an intentionally ambiguous submission, and account + position + order convergence after the bounded Testnet MARKET acceptance order. Only after that evidence is captured and reproducible should the final administrative activation refusal be reconsidered for explicit Testnet-only arming. Mainnet private routing remains out of scope.
