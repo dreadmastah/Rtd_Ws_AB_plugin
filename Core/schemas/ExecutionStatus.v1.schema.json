@@ -40,6 +40,7 @@
     "exposureReservationCreateCount",
     "exposureReservationReleaseCount",
     "exposureReservationImplicitReleaseCount",
+    "exposureReservationReconstructedCount",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -243,6 +244,10 @@
       "minimum": 0
     },
     "exposureReservationImplicitReleaseCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exposureReservationReconstructedCount": {
       "type": "integer",
       "minimum": 0
     }
