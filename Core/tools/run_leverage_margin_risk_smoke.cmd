@@ -43,14 +43,13 @@ if errorlevel 1 (
   set RC=4
   goto cleanup
 )
-python -c "import json,time; p=r'%STATUS%'; deadline=time.time()+5; last=None
-while time.time()<deadline:
-  try:
-    last=json.load(open(p,encoding='utf-8'))
-    if abs(float(last.get('maxEffectiveLeverage',0))-2.0)<1e-12 and last.get('maxMarginUtilization')==0 and last.get('activeExposureReservations')==1 and abs(float(last.get('reservedGrossNotional',0))-10.0)<1e-9 and last.get('orderRoutingEnabled') is False: print('EFFECTIVE_LEVERAGE_LIMIT=PASS'); raise SystemExit(0)
-  except (OSError,ValueError,json.JSONDecodeError): pass
-  time.sleep(0.1)
-raise AssertionError(last)"
+python "%ROOT%\tools\wait_json_status.py" "%STATUS%" ^
+  --eq maxMarginUtilization=0 ^
+  --eq activeExposureReservations=1 ^
+  --eq orderRoutingEnabled=false ^
+  --float-eq maxEffectiveLeverage=2:1e-12 ^
+  --float-eq reservedGrossNotional=10:1e-9
+if not errorlevel 1 echo EFFECTIVE_LEVERAGE_LIMIT=PASS
 if errorlevel 1 (
   set RC=5
   goto cleanup
@@ -94,14 +93,11 @@ if errorlevel 1 (
   set RC=8
   goto cleanup
 )
-python -c "import json,time; p=r'%STATUS%'; deadline=time.time()+5; last=None
-while time.time()<deadline:
-  try:
-    last=json.load(open(p,encoding='utf-8'))
-    if abs(float(last.get('maxMarginUtilization',0))-0.5)<1e-12 and abs(float(last.get('simulationMarginReservationRate',0))-0.5)<1e-12 and abs(float(last.get('reservedAvailableBalance',0))-5.0)<1e-9: print('MARGIN_UTILIZATION_LIMIT=PASS'); raise SystemExit(0)
-  except (OSError,ValueError,json.JSONDecodeError): pass
-  time.sleep(0.1)
-raise AssertionError(last)"
+python "%ROOT%\tools\wait_json_status.py" "%STATUS%" ^
+  --float-eq maxMarginUtilization=0.5:1e-12 ^
+  --float-eq simulationMarginReservationRate=0.5:1e-12 ^
+  --float-eq reservedAvailableBalance=5:1e-9
+if not errorlevel 1 echo MARGIN_UTILIZATION_LIMIT=PASS
 if errorlevel 1 (
   set RC=9
   goto cleanup
@@ -146,14 +142,12 @@ if errorlevel 1 (
   goto cleanup
 )
 
-python -c "import json,time; p=r'%STATUS%'; deadline=time.time()+5; last=None
-while time.time()<deadline:
-  try:
-    last=json.load(open(p,encoding='utf-8'))
-    if last.get('exposureReservationReleaseCount')==1 and last.get('activeExposureReservations')==1 and abs(float(last.get('reservedAvailableBalance',0))-5.0)<1e-9 and last.get('orderRoutingEnabled') is False: print('MARGIN_UTILIZATION_RESTART_RELEASE=PASS'); raise SystemExit(0)
-  except (OSError,ValueError,json.JSONDecodeError): pass
-  time.sleep(0.1)
-raise AssertionError(last)"
+python "%ROOT%\tools\wait_json_status.py" "%STATUS%" ^
+  --eq exposureReservationReleaseCount=1 ^
+  --eq activeExposureReservations=1 ^
+  --eq orderRoutingEnabled=false ^
+  --float-eq reservedAvailableBalance=5:1e-9
+if not errorlevel 1 echo MARGIN_UTILIZATION_RESTART_RELEASE=PASS
 if errorlevel 1 set RC=15
 
 :cleanup
