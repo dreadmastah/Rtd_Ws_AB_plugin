@@ -814,10 +814,33 @@ private:
                 "execution journal invalid exposure reservation release");
         }
 
-        const auto reservation_it =
+        auto reservation_it =
             exposure_reservations_.find(order_id);
-        if (reservation_it == exposure_reservations_.end() ||
-            !reservation_it->second.active) {
+        if (reservation_it == exposure_reservations_.end()) {
+            const auto intent_it = order_intents_.find(order_id);
+            if (intent_it == order_intents_.end() ||
+                !astu::core::increases_exposure(
+                    intent_it->second.action)) {
+                throw std::runtime_error(
+                    "exposure reservation release without reservable simulation order intent");
+            }
+            const auto& intent = intent_it->second;
+            exposure_reservations_.emplace(
+                order_id,
+                ExposureReservationRecord{
+                    intent.symbol,
+                    intent.action,
+                    intent.side,
+                    intent.quantity,
+                    intent.notional,
+                    reserves_new_position_slot(intent.action),
+                    true,
+                });
+            ++exposure_reservation_reconstructed_count_;
+            reservation_it =
+                exposure_reservations_.find(order_id);
+        }
+        if (!reservation_it->second.active) {
             throw std::runtime_error(
                 "exposure reservation release without active reservation");
         }
