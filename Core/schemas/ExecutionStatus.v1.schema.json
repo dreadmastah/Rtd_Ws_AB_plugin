@@ -43,6 +43,9 @@
     "exposureReservationReconstructedCount",
     "maxPendingEntryScaleInReservations",
     "maxSymbolNotional",
+    "reservedAvailableBalance",
+    "minimumAvailableBalanceReserve",
+    "simulationMarginReservationRate",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -258,6 +261,18 @@
       "minimum": 0
     },
     "maxSymbolNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "reservedAvailableBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "minimumAvailableBalanceReserve": {
+      "type": "number",
+      "minimum": 0
+    },
+    "simulationMarginReservationRate": {
       "type": "number",
       "minimum": 0
     }
