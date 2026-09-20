@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Credentialed Binance USD-M Testnet acceptance harness.
+"""Credentialed Binance USD-M Demo Trading acceptance harness.
 
-Default behavior is preflight only. A MARKET order can be submitted only when:
+Default behavior is preflight only. A Demo Trading MARKET order can be submitted only when:
 1) --execute-market-order is supplied,
 2) ASTU_TESTNET_ACCEPTANCE_ARM=I_UNDERSTAND_TESTNET_ORDER,
-3) the REST host is an approved Testnet/demo host,
+3) the REST host is an approved Demo Trading host,
 4) the requested notional is below the configured hard cap,
 5) an explicit user-stream URL template is supplied and successfully upgrades.
 
-No mainnet host is accepted.
+No production/mainnet host is accepted. Internal TESTNET identifiers are retained for compatibility.
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def load_user_data_module():
         USER_DATA,
     )
     if spec is None or spec.loader is None:
-        raise AcceptanceError("cannot load Testnet user-data module")
+        raise AcceptanceError("cannot load Demo Trading user-data module")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -187,8 +187,8 @@ def validate_execution(
     notional = quantity * price
     if notional > max_notional + 1e-9:
         raise AcceptanceError(
-            f"requested Testnet notional {notional:.8f} exceeds "
-            f"configured acceptance cap {max_notional:.8f}"
+            f"requested Demo Trading notional {notional:.8f} exceeds "
+            f"configured Demo Trading acceptance cap {max_notional:.8f}"
         )
     if execute and os.getenv("ASTU_TESTNET_ACCEPTANCE_ARM", "") != (
         "I_UNDERSTAND_TESTNET_ORDER"
@@ -386,7 +386,7 @@ def main() -> int:
                 )
             )
             report["detail"] = (
-                "credentialed Testnet preflight completed; no order submitted"
+                "credentialed Demo Trading preflight completed; no order submitted"
             )
             atomic_write(args.report, report)
             print("TESTNET_ACCEPTANCE=PREFLIGHT_PASS")
@@ -395,7 +395,7 @@ def main() -> int:
 
         if not report["streamProbe"]["connected"]:
             raise AcceptanceError(
-                "order execution requires a successful explicit user-stream probe"
+                "Demo Trading order execution requires a successful explicit user-stream probe"
             )
 
         notional = validate_execution(
@@ -438,7 +438,7 @@ def main() -> int:
         report["executedQty"] = str(lookup.get("executedQty", ""))
         report["passed"] = True
         report["detail"] = (
-            "Testnet MARKET order acknowledged and recovered by origClientOrderId; "
+            "Demo Trading MARKET order acknowledged and recovered by origClientOrderId; "
             "inspect user-data authority artifacts for ORDER_TRADE_UPDATE convergence"
         )
         atomic_write(args.report, report)
