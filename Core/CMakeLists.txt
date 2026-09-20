@@ -19,6 +19,12 @@ target_include_directories(astu_core INTERFACE
 add_executable(astu_execution_sim execution/src/execution_sim_main.cpp)
 target_link_libraries(astu_execution_sim PRIVATE astu_core)
 
+add_executable(
+    astu_sim_reconcile
+    execution/src/simulation_reconcile_main.cpp
+)
+target_link_libraries(astu_sim_reconcile PRIVATE astu_core)
+
 if(WIN32)
     add_executable(astu_execution_pipe_host execution/src/execution_pipe_host.cpp)
     target_link_libraries(astu_execution_pipe_host PRIVATE astu_core)
@@ -74,6 +80,10 @@ add_test(NAME astu_position_state_tests COMMAND astu_position_state_tests)
 add_executable(astu_order_fsm_tests tests/order_fsm_tests.cpp)
 target_link_libraries(astu_order_fsm_tests PRIVATE astu_core)
 add_test(NAME astu_order_fsm_tests COMMAND astu_order_fsm_tests)
+
+add_executable(astu_reconciliation_tests tests/reconciliation_tests.cpp)
+target_link_libraries(astu_reconciliation_tests PRIVATE astu_core)
+add_test(NAME astu_reconciliation_tests COMMAND astu_reconciliation_tests)
 
 if(WIN32)
     add_test(
