@@ -10,6 +10,7 @@
     "generatedUnixMs",
     "source",
     "reconciled",
+    "settlementAsset",
     "utcDayStartUnixMs",
     "utcWeekStartUnixMs",
     "dailyRealizedTradePnl",
@@ -27,25 +28,80 @@
     "detail"
   ],
   "properties": {
-    "schemaVersion": {"const": 1},
-    "messageType": {"const": "RealizedPnlSnapshot.v1"},
-    "generatedUnixMs": {"type": "integer", "minimum": 1},
-    "source": {"type": "string", "minLength": 1, "maxLength": 64},
-    "reconciled": {"type": "boolean"},
-    "utcDayStartUnixMs": {"type": "integer", "minimum": 0},
-    "utcWeekStartUnixMs": {"type": "integer", "minimum": 0},
-    "dailyRealizedTradePnl": {"type": "number"},
-    "weeklyRealizedTradePnl": {"type": "number"},
-    "dailyRealizedTradeLoss": {"type": "number", "minimum": 0},
-    "weeklyRealizedTradeLoss": {"type": "number", "minimum": 0},
-    "dailyFundingFee": {"type": "number"},
-    "weeklyFundingFee": {"type": "number"},
-    "dailyCommission": {"type": "number"},
-    "weeklyCommission": {"type": "number"},
-    "dailyNetTradingIncome": {"type": "number"},
-    "weeklyNetTradingIncome": {"type": "number"},
-    "recordsInCurrentWeek": {"type": "integer", "minimum": 0},
-    "ignoredIncomeRecords": {"type": "integer", "minimum": 0},
-    "detail": {"type": "string", "maxLength": 512}
+    "schemaVersion": {
+      "const": 1
+    },
+    "messageType": {
+      "const": "RealizedPnlSnapshot.v1"
+    },
+    "generatedUnixMs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "reconciled": {
+      "type": "boolean"
+    },
+    "utcDayStartUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "utcWeekStartUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dailyRealizedTradePnl": {
+      "type": "number"
+    },
+    "weeklyRealizedTradePnl": {
+      "type": "number"
+    },
+    "dailyRealizedTradeLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyRealizedTradeLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "dailyFundingFee": {
+      "type": "number"
+    },
+    "weeklyFundingFee": {
+      "type": "number"
+    },
+    "dailyCommission": {
+      "type": "number"
+    },
+    "weeklyCommission": {
+      "type": "number"
+    },
+    "dailyNetTradingIncome": {
+      "type": "number"
+    },
+    "weeklyNetTradingIncome": {
+      "type": "number"
+    },
+    "recordsInCurrentWeek": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ignoredIncomeRecords": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "settlementAsset": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16
+    }
   }
 }
