@@ -26,12 +26,16 @@ RUNTIME = ROOT / "runtime"
 LOGS = RUNTIME / "logs"
 PID_FILE = RUNTIME / "autotrader_sim_pids.json"
 RISK_FILE = RUNTIME / "account_risk_status.v1.json"
+REALIZED_PNL_FILE = RUNTIME / "realized_pnl_status.v1.json"
+REALIZED_PNL_STATE = RUNTIME / "realized_pnl_accumulator.v1.json"
 POSITION_DIR = RUNTIME / "position_status"
 EXECUTION_STATUS_FILE = RUNTIME / "execution_status.v1.json"
 DEFAULT_STATUS_DIR = REPO / "CleanRoomR2" / "stack" / "runtime" / "autotrader_status"
 DEFAULT_HOST = REPO / "build" / "core" / "Release" / "astu_execution_pipe_host.exe"
 GATEWAY = ROOT / "account" / "binance_usdm_readonly_gateway.py"
 FIXTURE = ROOT / "account" / "tests" / "fixtures" / "binance_usdm_account_v3.json"
+INCOME_RECONCILER = ROOT / "account" / "binance_usdm_income_reconciler.py"
+INCOME_FIXTURE = ROOT / "account" / "tests" / "fixtures" / "binance_usdm_income_v1.json"
 INSTRUMENT_PUBLISHER = ROOT / "instrument" / "binance_usdm_instrument_rules.py"
 INSTRUMENT_FIXTURE = ROOT / "instrument" / "tests" / "fixtures" / "binance_usdm_exchange_info_bootstrap12.json"
 INSTRUMENT_DIR = RUNTIME / "instrument_constraints"
@@ -125,6 +129,8 @@ def run(args: argparse.Namespace) -> int:
     host = Path(args.host).resolve()
     status_dir = Path(args.status_dir).resolve()
     risk_file = Path(args.risk_file).resolve()
+    realized_pnl_file = Path(args.realized_pnl_file).resolve()
+    realized_pnl_state = Path(args.realized_pnl_state).resolve()
     position_dir = Path(args.position_dir).resolve()
     journal = Path(args.journal).resolve()
     execution_status_file = Path(args.execution_status_file).resolve()
@@ -147,6 +153,8 @@ def run(args: argparse.Namespace) -> int:
         or args.max_daily_total_pnl_loss < 0
         or args.max_weekly_total_pnl_loss < 0
         or args.max_account_drawdown < 0
+        or args.max_daily_realized_trade_loss < 0
+        or args.max_weekly_realized_trade_loss < 0
         or (
             (
                 args.minimum_available_balance_reserve > 0
@@ -159,6 +167,19 @@ def run(args: argparse.Namespace) -> int:
             "ASTU_SIM_STACK_FATAL=projected margin settings must be valid; "
             "free-balance or margin-utilization limits require a positive "
             "simulation margin reservation rate"
+        )
+        return 2
+
+    if (
+        (
+            args.max_daily_realized_trade_loss > 0
+            or args.max_weekly_realized_trade_loss > 0
+        )
+        and args.realized_pnl_mode == "disabled"
+    ):
+        print(
+            "ASTU_SIM_STACK_FATAL=realized-trade loss limits require "
+            "--realized-pnl-mode fixture or readonly"
         )
         return 2
 
@@ -239,6 +260,34 @@ def run(args: argparse.Namespace) -> int:
             str(args.risk_poll_seconds),
         ]
 
+    realized_pnl_command: list[str] | None = None
+    if args.realized_pnl_mode == "fixture":
+        realized_pnl_command = [
+            sys.executable,
+            "-u",
+            str(INCOME_RECONCILER),
+            "--fixture",
+            str(INCOME_FIXTURE),
+            "--output",
+            str(realized_pnl_file),
+            "--state",
+            str(realized_pnl_state),
+            "--poll-seconds",
+            str(args.realized_pnl_poll_seconds),
+        ]
+    elif args.realized_pnl_mode == "readonly":
+        realized_pnl_command = [
+            sys.executable,
+            "-u",
+            str(INCOME_RECONCILER),
+            "--output",
+            str(realized_pnl_file),
+            "--state",
+            str(realized_pnl_state),
+            "--poll-seconds",
+            str(args.realized_pnl_poll_seconds),
+        ]
+
     instrument_command: list[str] | None = None
     if args.instrument_mode == "fixture":
         instrument_command = [
@@ -268,6 +317,12 @@ def run(args: argparse.Namespace) -> int:
     try:
         if risk_command is not None:
             children["risk"] = start_child("risk", risk_command)
+            time.sleep(0.5)
+        if realized_pnl_command is not None:
+            children["realized_pnl"] = start_child(
+                "realized_pnl",
+                realized_pnl_command,
+            )
             time.sleep(0.5)
         if instrument_command is not None:
             children["instrument"] = start_child("instrument", instrument_command)
@@ -313,6 +368,14 @@ def run(args: argparse.Namespace) -> int:
             str(args.max_account_drawdown),
             "--account-loss-baseline-file",
             str(args.account_loss_baseline_file),
+            "--realized-pnl-status-file",
+            str(realized_pnl_file),
+            "--max-realized-pnl-status-age-ms",
+            str(args.max_realized_pnl_status_age_ms),
+            "--max-daily-realized-trade-loss",
+            str(args.max_daily_realized_trade_loss),
+            "--max-weekly-realized-trade-loss",
+            str(args.max_weekly_realized_trade_loss),
         ]
         if instrument_command is not None:
             host_command.extend([
@@ -344,6 +407,9 @@ def run(args: argparse.Namespace) -> int:
         print(f"RISK_MODE={args.risk_mode}")
         print(f"STATUS_DIR={status_dir}")
         print(f"RISK_STATUS_FILE={risk_file}")
+        print(f"REALIZED_PNL_MODE={args.realized_pnl_mode}")
+        print(f"REALIZED_PNL_STATUS_FILE={realized_pnl_file}")
+        print(f"REALIZED_PNL_STATE={realized_pnl_state}")
         if risk_command is not None:
             print(f"POSITION_STATUS_DIR={position_dir}")
         print(f"EXECUTION_JOURNAL={journal}")
@@ -361,6 +427,8 @@ def run(args: argparse.Namespace) -> int:
         print(f"MAX_WEEKLY_TOTAL_PNL_LOSS={args.max_weekly_total_pnl_loss}")
         print(f"MAX_ACCOUNT_DRAWDOWN={args.max_account_drawdown}")
         print(f"ACCOUNT_LOSS_BASELINE_FILE={args.account_loss_baseline_file}")
+        print(f"MAX_DAILY_REALIZED_TRADE_LOSS={args.max_daily_realized_trade_loss}")
+        print(f"MAX_WEEKLY_REALIZED_TRADE_LOSS={args.max_weekly_realized_trade_loss}")
         print(f"INSTRUMENT_MODE={args.instrument_mode}")
         if instrument_command is not None:
             print(f"INSTRUMENT_STATUS_DIR={instrument_dir}")
@@ -389,6 +457,8 @@ def run(args: argparse.Namespace) -> int:
                     pass
                 if name == "risk":
                     command = risk_command
+                elif name == "realized_pnl":
+                    command = realized_pnl_command
                 elif name == "instrument":
                     command = instrument_command
                 else:
@@ -442,6 +512,29 @@ def parse_args() -> argparse.Namespace:
         default="disabled",
     )
     ap.add_argument("--risk-poll-seconds", type=float, default=5.0)
+    ap.add_argument(
+        "--realized-pnl-mode",
+        choices=("disabled", "fixture", "readonly"),
+        default="disabled",
+    )
+    ap.add_argument(
+        "--realized-pnl-file",
+        default=str(REALIZED_PNL_FILE),
+    )
+    ap.add_argument(
+        "--realized-pnl-state",
+        default=str(REALIZED_PNL_STATE),
+    )
+    ap.add_argument(
+        "--realized-pnl-poll-seconds",
+        type=float,
+        default=30.0,
+    )
+    ap.add_argument(
+        "--max-realized-pnl-status-age-ms",
+        type=int,
+        default=90000,
+    )
     ap.add_argument("--position-dir", default=str(POSITION_DIR))
     ap.add_argument("--max-position-status-age-ms", type=int, default=7000)
     ap.add_argument(
@@ -542,6 +635,18 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--account-loss-baseline-file",
         default=str(RUNTIME / "account_loss_baseline.v1.json"),
+    )
+    ap.add_argument(
+        "--max-daily-realized-trade-loss",
+        type=float,
+        default=0.0,
+        help="0 disables exact UTC-day realized-trade loss enforcement.",
+    )
+    ap.add_argument(
+        "--max-weekly-realized-trade-loss",
+        type=float,
+        default=0.0,
+        help="0 disables exact UTC-week realized-trade loss enforcement.",
     )
     ap.add_argument("--restart-delay-seconds", type=float, default=2.0)
     return ap.parse_args()
