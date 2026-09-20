@@ -17,6 +17,7 @@
     "riskProvider",
     "realizedPnlProvider",
     "orderRoutingEnabled",
+    "executionEnvironment",
     "gateState",
     "blockReasons",
     "periods",
@@ -74,7 +75,7 @@
       "maxLength": 128
     },
     "orderRoutingEnabled": {
-      "const": false
+      "type": "boolean"
     },
     "gateState": {
       "enum": [
@@ -506,6 +507,12 @@
           }
         }
       }
+    },
+    "executionEnvironment": {
+      "enum": [
+        "SIMULATION_ONLY",
+        "BINANCE_USDM_TESTNET"
+      ]
     }
   }
 }
