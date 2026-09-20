@@ -35,9 +35,9 @@ on:
         default: "0"
         type: string
       max_test_notional:
-        description: "Acceptance cap in quote units; harness hard ceiling is 50"
+        description: "Acceptance cap in quote units; harness hard ceiling is 100"
         required: true
-        default: "25"
+        default: "100"
         type: string
       confirmation:
         description: "For order mode type exactly EXECUTE_DEMO_ORDER"
