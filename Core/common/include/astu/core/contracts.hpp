@@ -106,6 +106,18 @@ struct AccountRiskSnapshot {
     bool net_directional_reconciled{false};
     double net_directional_notional{0.0};
     double max_net_directional_notional{0.0};
+
+    bool account_loss_metrics_reconciled{false};
+    double daily_risk_capital_loss{0.0};
+    double weekly_risk_capital_loss{0.0};
+    double daily_total_pnl_loss{0.0};
+    double weekly_total_pnl_loss{0.0};
+    double account_drawdown{0.0};
+    double max_daily_risk_capital_loss{0.0};
+    double max_weekly_risk_capital_loss{0.0};
+    double max_daily_total_pnl_loss{0.0};
+    double max_weekly_total_pnl_loss{0.0};
+    double max_account_drawdown{0.0};
 };
 
 struct PositionSnapshot {
