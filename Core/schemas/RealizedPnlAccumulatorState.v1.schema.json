@@ -8,6 +8,7 @@
     "schemaVersion",
     "messageType",
     "updatedUnixMs",
+    "settlementAsset",
     "utcDayStartUnixMs",
     "utcWeekStartUnixMs",
     "dailyRealizedTradePnl",
@@ -20,18 +21,54 @@
     "ignoredIncomeRecords"
   ],
   "properties": {
-    "schemaVersion": {"const": 1},
-    "messageType": {"const": "RealizedPnlAccumulatorState.v1"},
-    "updatedUnixMs": {"type": "integer", "minimum": 1},
-    "utcDayStartUnixMs": {"type": "integer", "minimum": 0},
-    "utcWeekStartUnixMs": {"type": "integer", "minimum": 0},
-    "dailyRealizedTradePnl": {"type": "number"},
-    "weeklyRealizedTradePnl": {"type": "number"},
-    "dailyFundingFee": {"type": "number"},
-    "weeklyFundingFee": {"type": "number"},
-    "dailyCommission": {"type": "number"},
-    "weeklyCommission": {"type": "number"},
-    "recordsInCurrentWeek": {"type": "integer", "minimum": 0},
-    "ignoredIncomeRecords": {"type": "integer", "minimum": 0}
+    "schemaVersion": {
+      "const": 1
+    },
+    "messageType": {
+      "const": "RealizedPnlAccumulatorState.v1"
+    },
+    "updatedUnixMs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "utcDayStartUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "utcWeekStartUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dailyRealizedTradePnl": {
+      "type": "number"
+    },
+    "weeklyRealizedTradePnl": {
+      "type": "number"
+    },
+    "dailyFundingFee": {
+      "type": "number"
+    },
+    "weeklyFundingFee": {
+      "type": "number"
+    },
+    "dailyCommission": {
+      "type": "number"
+    },
+    "weeklyCommission": {
+      "type": "number"
+    },
+    "recordsInCurrentWeek": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ignoredIncomeRecords": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "settlementAsset": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16
+    }
   }
 }
