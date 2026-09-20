@@ -81,6 +81,7 @@ int main(int argc, char** argv) {
         const auto response = client.send(request);
         std::cout << "requestId=" << response.request_id << "\n";
         std::cout << "signalId=" << response.signal_id << "\n";
+        std::cout << "simulationOrderId=" << response.simulation_order_id << "\n";
         std::cout << "decision=" << astu::ipc::decision_to_string(response.decision_code) << "\n";
         std::cout << "acceptedForSimulation="
                   << (response.accepted_for_simulation ? "true" : "false") << "\n";
