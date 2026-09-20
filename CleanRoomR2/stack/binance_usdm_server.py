@@ -59,6 +59,11 @@ RECOVERY_1M_RECORDS = max(60, int(RECOV_CFG.get("intraday_target_records", 1500)
 RECOVERY_EOD_BARS = max(1, int(RECOV_CFG.get("eod_target_bars", 300)))
 PREFLIGHT_RETRY_INITIAL = max(1.0, float(RECOV_CFG.get("preflight_retry_initial_seconds", 2)))
 PREFLIGHT_RETRY_MAX = max(PREFLIGHT_RETRY_INITIAL, float(RECOV_CFG.get("preflight_retry_max_seconds", 60)))
+MARKET_LIVENESS_ENABLED = bool(RECOV_CFG.get("market_liveness_enabled", True))
+MARKET_LIVENESS_CHECK_SEC = max(1.0, float(RECOV_CFG.get("market_liveness_check_seconds", 5)))
+MARKET_LIVENESS_STARTUP_GRACE_SEC = max(10.0, float(RECOV_CFG.get("market_liveness_startup_grace_seconds", 30)))
+MARKET_EVENT_STALL_SEC = max(10.0, float(RECOV_CFG.get("market_event_stall_seconds", 20)))
+MARKET_COMPLETED_KLINE_STALL_SEC = max(75.0, float(RECOV_CFG.get("market_completed_kline_stall_seconds", 90)))
 STATE_FILE_CFG = Path(str(RECOV_CFG.get("state_file", "runtime/recovery_state.json")))
 RECOVERY_STATE_PATH = STATE_FILE_CFG if STATE_FILE_CFG.is_absolute() else BASE / STATE_FILE_CFG
 MINUTE_MS = 60_000
@@ -149,6 +154,12 @@ class App:
         self.public_send_locks: list[asyncio.Lock] = [asyncio.Lock() for _ in range(PUBLIC_WS_CONNECTIONS)]
         self.market_up = False
         self.public_up: list[bool] = [False] * PUBLIC_WS_CONNECTIONS
+        self.market_connected_monotonic = 0.0
+        self.market_last_event_monotonic = 0.0
+        self.market_last_completed_kline_monotonic = 0.0
+        self.market_last_completed_open_ms = 0
+        self.market_liveness_triggered = False
+        self.market_liveness_reconnects = 0
         self.req_id = 100
         self.backfill_sem = asyncio.Semaphore(2)
         self.receiver_count = 0
@@ -477,6 +488,12 @@ class App:
                     if kind == "market":
                         self.market_ws = ws
                         self.market_up = True
+                        market_connected_now = time.monotonic()
+                        self.market_connected_monotonic = market_connected_now
+                        self.market_last_event_monotonic = market_connected_now
+                        self.market_last_completed_kline_monotonic = market_connected_now
+                        self.market_last_completed_open_ms = 0
+                        self.market_liveness_triggered = False
                         params = [x for s in sorted(self.active) for x in self.market_streams(s)]
                     else:
                         assert group_index is not None
@@ -513,6 +530,8 @@ class App:
                             event_ms = int(obj.get("E", 0) or 0)
                             if kind == "market":
                                 et = str(obj.get("e", "<missing>"))
+                                if et in {"kline", "24hrTicker", "markPriceUpdate"}:
+                                    self.market_last_event_monotonic = time.monotonic()
                                 diag_market_event_counts[et] = diag_market_event_counts.get(et, 0) + 1
                                 if event_ms > 0:
                                     diag_latest_event_lag_ms = max(0, int(time.time() * 1000) - event_ms)
@@ -521,8 +540,12 @@ class App:
                                     k = obj.get("k") or {}
                                     if bool(k.get("x", False)):
                                         diag_closed_klines += 1
+                                        completed_open_ms = int(k.get("t", 0) or 0)
+                                        if completed_open_ms > self.market_last_completed_open_ms:
+                                            self.market_last_completed_open_ms = completed_open_ms
+                                            self.market_last_completed_kline_monotonic = time.monotonic()
                                         closed_symbol = str(obj.get("s", "")).upper()
-                                        closed_open_ms = int(k.get("t", 0) or 0)
+                                        closed_open_ms = completed_open_ms
                                         closed_event_ms = event_ms
                                         closed_lag_ms = (
                                             max(0, int(time.time() * 1000) - event_ms)
@@ -616,6 +639,11 @@ class App:
                 if kind == "market":
                     self.market_ws = None
                     self.market_up = False
+                    self.market_connected_monotonic = 0.0
+                    self.market_last_event_monotonic = 0.0
+                    self.market_last_completed_kline_monotonic = 0.0
+                    self.market_last_completed_open_ms = 0
+                    self.market_liveness_triggered = False
                 else:
                     assert group_index is not None
                     self.public_ws[group_index] = None
@@ -623,6 +651,57 @@ class App:
             if not self.stop.is_set():
                 await asyncio.sleep(backoff)
                 backoff = min(20.0, backoff * 1.7)
+
+    def market_liveness_reason(self, now_monotonic: float | None = None) -> str | None:
+        if not MARKET_LIVENESS_ENABLED or not self.market_up or self.market_ws is None:
+            return None
+        if self.market_liveness_triggered:
+            return None
+        now = time.monotonic() if now_monotonic is None else float(now_monotonic)
+        if self.market_connected_monotonic <= 0:
+            return None
+        connected_age = max(0.0, now - self.market_connected_monotonic)
+        if connected_age < MARKET_LIVENESS_STARTUP_GRACE_SEC:
+            return None
+        event_age = max(0.0, now - self.market_last_event_monotonic)
+        if event_age >= MARKET_EVENT_STALL_SEC:
+            return f"event-stall age={event_age:.1f}s threshold={MARKET_EVENT_STALL_SEC:.1f}s"
+        completed_age = max(0.0, now - self.market_last_completed_kline_monotonic)
+        if completed_age >= MARKET_COMPLETED_KLINE_STALL_SEC:
+            return (
+                f"completed-kline-stall age={completed_age:.1f}s "
+                f"threshold={MARKET_COMPLETED_KLINE_STALL_SEC:.1f}s "
+                f"last_open_ms={self.market_last_completed_open_ms}"
+            )
+        return None
+
+    async def market_liveness_loop(self) -> None:
+        if not MARKET_LIVENESS_ENABLED:
+            return
+        while not self.stop.is_set():
+            try:
+                await asyncio.wait_for(self.stop.wait(), timeout=MARKET_LIVENESS_CHECK_SEC)
+                continue
+            except asyncio.TimeoutError:
+                pass
+            reason = self.market_liveness_reason()
+            if reason is None:
+                continue
+            ws = self.market_ws
+            if ws is None or not self.market_up:
+                continue
+            self.market_liveness_triggered = True
+            self.market_liveness_reconnects += 1
+            LOG.warning(
+                "R213B market application liveness failure reason=%s reconnects=%d; forcing market websocket reconnect",
+                reason,
+                self.market_liveness_reconnects,
+            )
+            self.request_recovery("market-application-liveness", full=False)
+            try:
+                await ws.close(code=1012, reason="market application liveness")
+            except Exception:
+                LOG.exception("R213B market liveness websocket close failed")
 
     async def handle_binance_event(self, obj: Any) -> None:
         if not isinstance(obj, dict):
@@ -1121,6 +1200,7 @@ class App:
             tasks = [
                 asyncio.create_task(self.relay_loop(), name="relay"),
                 asyncio.create_task(self.market_loop(), name="market"),
+                asyncio.create_task(self.market_liveness_loop(), name="market-liveness"),
                 asyncio.create_task(self.publish_loop(), name="publisher"),
                 asyncio.create_task(self.open_interest_loop(), name="open-interest"),
                 asyncio.create_task(self.recovery_loop(), name="recovery"),
@@ -1158,6 +1238,14 @@ async def main() -> None:
     LOG.info(
         "automatic recovery enabled=%s intraday_target=%d eod_target=%d audit_seconds=%.1f state=%s",
         RECOVERY_ENABLED, RECOVERY_1M_RECORDS, RECOVERY_EOD_BARS, RECOVERY_AUDIT_SEC, RECOVERY_STATE_PATH,
+    )
+    LOG.info(
+        "R213B market liveness enabled=%s check_seconds=%.1f startup_grace_seconds=%.1f event_stall_seconds=%.1f completed_kline_stall_seconds=%.1f",
+        MARKET_LIVENESS_ENABLED,
+        MARKET_LIVENESS_CHECK_SEC,
+        MARKET_LIVENESS_STARTUP_GRACE_SEC,
+        MARKET_EVENT_STALL_SEC,
+        MARKET_COMPLETED_KLINE_STALL_SEC,
     )
     await app.run()
 
