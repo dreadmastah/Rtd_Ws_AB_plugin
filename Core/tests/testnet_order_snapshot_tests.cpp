@@ -2,6 +2,7 @@
 #include <iostream>
 #include <memory>
 
+#include "astu/execution/authoritative_order_convergence.hpp"
 #include "astu/execution/binance_usdm_testnet_order_snapshot.hpp"
 
 namespace {
@@ -126,6 +127,49 @@ int main() {
         return 3;
     }
 
+    journal->append_order_transition(
+        req,
+        resp.simulation_order_id,
+        OrderState::Submitting,
+        6,
+        "testnet submitting",
+        false,
+        true,
+        "BINANCE_USDM_TESTNET");
+    journal->append_order_transition(
+        req,
+        resp.simulation_order_id,
+        OrderState::UnknownReconcileRequired,
+        7,
+        "ambiguous submission",
+        false,
+        true,
+        "BINANCE_USDM_TESTNET");
+    if (!AuthoritativeOrderConvergence::apply_testnet_snapshot(
+            journal,
+            resp.simulation_order_id,
+            snapshot,
+            8) ||
+        journal->order_state(resp.simulation_order_id) !=
+            OrderState::Filled ||
+        std::fabs(
+            journal->reconciled_filled_quantity(
+                resp.simulation_order_id) -
+            0.102) > 1e-12) {
+        return 4;
+    }
+
+    auto replay = std::make_shared<ExecutionJournal>(
+        root / "journal.jsonl");
+    if (replay->order_state(resp.simulation_order_id) !=
+            OrderState::Filled ||
+        std::fabs(
+            replay->reconciled_filled_quantity(
+                resp.simulation_order_id) -
+            0.102) > 1e-12) {
+        return 5;
+    }
+
     BinanceUsdmTestnetOrderSnapshotProvider absent(
         journal,
         [](const std::string& symbol,
@@ -144,7 +188,7 @@ int main() {
     if (missing.ready ||
         missing.state !=
             OrderState::UnknownReconcileRequired) {
-        return 4;
+        return 6;
     }
 
     BinanceUsdmTestnetOrderSnapshotProvider mismatch(
@@ -165,7 +209,7 @@ int main() {
             return result;
         });
     if (mismatch(resp.simulation_order_id).ready) {
-        return 5;
+        return 7;
     }
 
     std::error_code ec;
