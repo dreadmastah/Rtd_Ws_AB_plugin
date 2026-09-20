@@ -54,7 +54,7 @@ concurrency:
 
 jobs:
   acceptance:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 10
     environment: binance-demo-trading
     env:
@@ -68,21 +68,25 @@ jobs:
         with:
           ref: chatgpt/core-autotrader-scaffold-sim-only
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Validate workflow inputs
-        shell: bash
+        shell: pwsh
         env:
           MODE: ${{ inputs.mode }}
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
-          set -euo pipefail
-          test -n "$ASTU_BINANCE_TESTNET_API_KEY"
-          test -n "$ASTU_BINANCE_TESTNET_API_SECRET"
-          test -n "$ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE"
+          if ([string]::IsNullOrWhiteSpace($env:ASTU_BINANCE_TESTNET_API_KEY)) { throw "missing API key" }
+          if ([string]::IsNullOrWhiteSpace($env:ASTU_BINANCE_TESTNET_API_SECRET)) { throw "missing API secret" }
+          if ([string]::IsNullOrWhiteSpace($env:ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE)) { throw "missing Demo stream URL" }
 
-          if [ "$MODE" = "order" ] && [ "$CONFIRMATION" != "EXECUTE_DEMO_ORDER" ]; then
-            echo "ORDER_ACCEPTANCE_REFUSED=confirmation_mismatch"
+          if ($env:MODE -eq "order" -and $env:CONFIRMATION -ne "EXECUTE_DEMO_ORDER") {
+            Write-Host "ORDER_ACCEPTANCE_REFUSED=confirmation_mismatch"
             exit 2
-          fi
+          }
 
       - name: Compile acceptance harness
         run: |
@@ -92,28 +96,28 @@ jobs:
 
       - name: Credentialed Demo Trading preflight
         if: ${{ inputs.mode == 'preflight' }}
-        shell: bash
+        shell: pwsh
         run: |
-          python Core/tools/testnet_acceptance.py \
-            --rest-base-url "${{ inputs.rest_base_url }}" \
-            --ws-url-template "$ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE" \
-            --symbol "${{ inputs.symbol }}" \
-            --side "${{ inputs.side }}" \
+          python Core/tools/testnet_acceptance.py `
+            --rest-base-url "${{ inputs.rest_base_url }}" `
+            --ws-url-template "$env:ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE" `
+            --symbol "${{ inputs.symbol }}" `
+            --side "${{ inputs.side }}" `
             --max-test-notional "${{ inputs.max_test_notional }}"
 
       - name: Credentialed bounded Demo Trading MARKET acceptance
         if: ${{ inputs.mode == 'order' }}
-        shell: bash
+        shell: pwsh
         env:
           ASTU_TESTNET_ACCEPTANCE_ARM: I_UNDERSTAND_TESTNET_ORDER
         run: |
-          python Core/tools/testnet_acceptance.py \
-            --execute-market-order \
-            --rest-base-url "${{ inputs.rest_base_url }}" \
-            --ws-url-template "$ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE" \
-            --symbol "${{ inputs.symbol }}" \
-            --side "${{ inputs.side }}" \
-            --quantity "${{ inputs.quantity }}" \
+          python Core/tools/testnet_acceptance.py `
+            --execute-market-order `
+            --rest-base-url "${{ inputs.rest_base_url }}" `
+            --ws-url-template "$env:ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE" `
+            --symbol "${{ inputs.symbol }}" `
+            --side "${{ inputs.side }}" `
+            --quantity "${{ inputs.quantity }}" `
             --max-test-notional "${{ inputs.max_test_notional }}"
 
       - name: Upload acceptance report
