@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:SymbolRiskStatus.v1",
+  "title": "SymbolRiskStatus.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "generatedUnixMs",
+    "orderRoutingEnabled",
+    "symbols"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "messageType": { "const": "SymbolRiskStatus.v1" },
+    "generatedUnixMs": { "type": "integer", "minimum": 1 },
+    "orderRoutingEnabled": { "const": false },
+    "symbols": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "symbol",
+          "positionReady",
+          "positionMode",
+          "currentNotional",
+          "activeReservations",
+          "reservedGrossNotional",
+          "projectedNotional",
+          "maxSymbolNotional",
+          "headroom",
+          "limitEnabled",
+          "status",
+          "detail"
+        ],
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[A-Z0-9]+$"
+          },
+          "positionReady": { "type": "boolean" },
+          "positionMode": {
+            "enum": ["FLAT", "LONG", "SHORT", "HEDGED", "UNKNOWN"]
+          },
+          "currentNotional": { "type": "number", "minimum": 0 },
+          "activeReservations": { "type": "integer", "minimum": 0 },
+          "reservedGrossNotional": { "type": "number", "minimum": 0 },
+          "projectedNotional": { "type": "number", "minimum": 0 },
+          "maxSymbolNotional": { "type": "number", "minimum": 0 },
+          "headroom": { "type": ["number", "null"], "minimum": 0 },
+          "limitEnabled": { "type": "boolean" },
+          "status": {
+            "enum": ["DISABLED", "UNAVAILABLE", "HEADROOM", "BLOCKED"]
+          },
+          "detail": { "type": "string", "maxLength": 512 }
+        }
+      }
+    }
+  }
+}
