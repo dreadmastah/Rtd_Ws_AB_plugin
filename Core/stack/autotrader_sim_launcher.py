@@ -450,6 +450,11 @@ def run(args: argparse.Namespace) -> int:
             "--poll-seconds",
             str(args.instrument_poll_seconds),
         ]
+        if routing_active:
+            instrument_command.extend([
+                "--rest-base",
+                str(args.testnet_rest_base_url),
+            ])
 
     try:
         if risk_command is not None:
