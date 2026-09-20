@@ -264,6 +264,10 @@ def run(args: argparse.Namespace) -> int:
             str(args.max_pending_entry_scale_in_reservations),
             "--max-symbol-notional",
             str(args.max_symbol_notional),
+            "--minimum-available-balance-reserve",
+            str(args.minimum_available_balance_reserve),
+            "--simulation-margin-reservation-rate",
+            str(args.simulation_margin_reservation_rate),
         ]
         if instrument_command is not None:
             host_command.extend([
@@ -301,6 +305,8 @@ def run(args: argparse.Namespace) -> int:
         print(f"EXECUTION_STATUS_FILE={execution_status_file}")
         print(f"MAX_PENDING_ENTRY_SCALE_IN_RESERVATIONS={args.max_pending_entry_scale_in_reservations}")
         print(f"MAX_SYMBOL_NOTIONAL={args.max_symbol_notional}")
+        print(f"MINIMUM_AVAILABLE_BALANCE_RESERVE={args.minimum_available_balance_reserve}")
+        print(f"SIMULATION_MARGIN_RESERVATION_RATE={args.simulation_margin_reservation_rate}")
         print(f"INSTRUMENT_MODE={args.instrument_mode}")
         if instrument_command is not None:
             print(f"INSTRUMENT_STATUS_DIR={instrument_dir}")
@@ -415,6 +421,21 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.0,
         help="0 disables the simulation per-symbol projected-notional limit.",
+    )
+    ap.add_argument(
+        "--minimum-available-balance-reserve",
+        type=float,
+        default=0.0,
+        help="Minimum projected available balance to keep free for safety.",
+    )
+    ap.add_argument(
+        "--simulation-margin-reservation-rate",
+        type=float,
+        default=0.0,
+        help=(
+            "Execution-local simulation margin reserved per unit of accepted "
+            "notional; 0 disables available-balance reservation."
+        ),
     )
     ap.add_argument("--restart-delay-seconds", type=float, default=2.0)
     return ap.parse_args()
