@@ -237,6 +237,38 @@ int main() {
     }
 
     {
+        const auto missing_journal_path =
+            root / "missing_journal.v1.jsonl";
+        const auto missing_snapshot_dir =
+            root / "missing_snapshots";
+        const auto missing_req = request("missing");
+        const auto missing_response = accepted(missing_req);
+        const auto missing_id =
+            missing_response.simulation_order_id;
+
+        auto journal =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                missing_journal_path,
+                100);
+        seed_order(journal, missing_req, missing_response);
+        FileBackedSimulationOrderSnapshotProvider provider(
+            missing_snapshot_dir,
+            5'000);
+
+        const auto report = StartupOrderReconciler::reconcile(
+            journal,
+            provider,
+            static_cast<std::int64_t>(now_ms()));
+        REQUIRE(report.tracked_orders == 1);
+        REQUIRE(report.matched_orders == 0);
+        REQUIRE(report.marked_unknown == 1);
+        REQUIRE(report.unresolved_orders == 1);
+        REQUIRE(*journal->order_state(missing_id) ==
+                OrderState::UnknownReconcileRequired);
+        REQUIRE(journal->reconciliation_event_count() == 1);
+    }
+
+    {
         const auto terminal_journal_path =
             root / "terminal_journal.v1.jsonl";
         const auto terminal_snapshot_dir =
