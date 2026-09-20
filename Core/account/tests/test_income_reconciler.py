@@ -138,6 +138,34 @@ def main() -> int:
         failed = True
     assert failed
 
+    with tempfile.TemporaryDirectory() as tmp:
+        state_path = Path(tmp) / "bad-state.json"
+        bad_state = dict(state)
+        bad_state["dailyCommission"] = "nan"
+        income.write_atomic(state_path, bad_state)
+        state_failed = False
+        try:
+            income.load_accumulator_state(
+                state_path,
+                settlement_asset="USDT",
+            )
+        except income.IncomeReconcilerError:
+            state_failed = True
+        assert state_failed
+
+        bad_state = dict(state)
+        bad_state["utcDayStartUnixMs"] += 1
+        income.write_atomic(state_path, bad_state)
+        alignment_failed = False
+        try:
+            income.load_accumulator_state(
+                state_path,
+                settlement_asset="USDT",
+            )
+        except income.IncomeReconcilerError:
+            alignment_failed = True
+        assert alignment_failed
+
     fail_closed = income.fail_closed_snapshot(
         source="TEST_FAIL",
         reason="fixture failure",
