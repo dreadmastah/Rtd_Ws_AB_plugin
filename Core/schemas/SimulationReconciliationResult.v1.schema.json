@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:SimulationReconciliationResult.v1",
+  "title": "SimulationReconciliationResult.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "requestId",
+    "eventId",
+    "simulationOrderId",
+    "accepted",
+    "state",
+    "cumulativeFilledQuantity",
+    "reconciliationEventCount",
+    "orderTransitionCount",
+    "exchangeSubmissionAttempted",
+    "reason"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "messageType": {"const": "SimulationReconciliationResult.v1"},
+    "requestId": {"type": "string", "maxLength": 128},
+    "eventId": {"type": "string", "maxLength": 128},
+    "simulationOrderId": {"type": "string", "maxLength": 64},
+    "accepted": {"type": "boolean"},
+    "state": {
+      "enum": [
+        "UNKNOWN",
+        "INTENT_RECEIVED",
+        "VALIDATING",
+        "RISK_APPROVED",
+        "SIZING",
+        "SUBMITTING",
+        "ACKNOWLEDGED",
+        "WORKING",
+        "PARTIAL",
+        "FILLED",
+        "CANCELED",
+        "REJECTED",
+        "UNKNOWN_RECONCILE_REQUIRED"
+      ]
+    },
+    "cumulativeFilledQuantity": {"type": "number", "minimum": 0},
+    "reconciliationEventCount": {"type": "integer", "minimum": 0},
+    "orderTransitionCount": {"type": "integer", "minimum": 0},
+    "exchangeSubmissionAttempted": {"const": false},
+    "reason": {"type": "string", "maxLength": 512}
+  }
+}
