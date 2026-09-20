@@ -77,7 +77,7 @@ start "ASTU Order FSM Host 2" /b "%HOST%" ^
   --execution-status-file "%STATUS%"
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json,time; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['lifecycleState']=='READY'; assert o['orderRoutingEnabled'] is False; assert o['recoveredOrders']==1, o; assert o['orderTransitionCount']==4, o; assert o['positionProvider']=='NONE'; age=int(time.time()*1000)-int(o['generatedUnixMs']); assert 0<=age<5000, age; print('ORDER_FSM_RECOVERY_STATUS=PASS')"
+python -c "import json,time; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['lifecycleState']=='READY'; assert o['orderRoutingEnabled'] is False; assert o['recoveredOrdersAtStartup']==1, o; assert o['trackedOrders']==1, o; assert o['orderTransitionCount']==4, o; assert o['positionProvider']=='NONE'; age=int(time.time()*1000)-int(o['generatedUnixMs']); assert 0<=age<5000, age; print('ORDER_FSM_RECOVERY_STATUS=PASS')"
 if errorlevel 1 (
   echo ORDER_FSM_RESTART_SMOKE=FAIL RECOVERY_STATUS
   set RC=8
@@ -103,7 +103,7 @@ if not "!AFTER_ORDER_ID!"=="!ORDER_ID!" (
 )
 
 ping -n 2 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['recoveredOrders']==1, o; assert o['orderTransitionCount']==4, o; assert o['lastDecisionCode']=='DUPLICATE_REQUEST', o; assert o['orderRoutingEnabled'] is False; print('ORDER_FSM_DUPLICATE_RECOVERY=PASS')"
+python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['recoveredOrdersAtStartup']==1, o; assert o['trackedOrders']==1, o; assert o['orderTransitionCount']==4, o; assert o['lastDecisionCode']=='DUPLICATE_REQUEST', o; assert o['orderRoutingEnabled'] is False; print('ORDER_FSM_DUPLICATE_RECOVERY=PASS')"
 if errorlevel 1 (
   echo ORDER_FSM_RESTART_SMOKE=FAIL DUPLICATE_STATUS
   set RC=11
@@ -123,7 +123,8 @@ taskkill /IM astu_execution_pipe_host.exe /F >nul 2>nul
 if !RC! EQU 0 (
   echo ORDER_FSM_RESTART_SMOKE=PASS
   echo SIMULATION_ORDER_ID=!ORDER_ID!
-  echo RECOVERED_ORDERS=1
+  echo RECOVERED_ORDERS_AT_STARTUP=1
+  echo TRACKED_ORDERS=1
   echo ORDER_TRANSITIONS=4
   echo ORDER_ROUTING_ENABLED=false
 ) else (
