@@ -95,6 +95,29 @@ public:
                     "max pending entry/scale-in reservations reached"};
         }
         if (exposure &&
+            (risk.max_effective_leverage > 0.0 ||
+             risk.max_margin_utilization > 0.0) &&
+            !risk.margin_metrics_reconciled) {
+            return {DecisionCode::AccountNotReconciled, false, exposure, 0.0, 0.0,
+                    "configured leverage/margin limits require reconciled margin metrics"};
+        }
+        if (exposure && risk.max_effective_leverage > 0.0) {
+            if (risk.margin_balance <= 0.0 ||
+                risk.gross_notional / risk.margin_balance >=
+                    risk.max_effective_leverage) {
+                return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                        "maximum effective leverage reached"};
+            }
+        }
+        if (exposure && risk.max_margin_utilization > 0.0) {
+            if (risk.margin_balance <= 0.0 ||
+                risk.initial_margin / risk.margin_balance >=
+                    risk.max_margin_utilization) {
+                return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                        "maximum margin utilization reached"};
+            }
+        }
+        if (exposure &&
             risk.minimum_available_balance_reserve > 0.0 &&
             risk.available_balance <=
                 risk.minimum_available_balance_reserve) {
@@ -282,6 +305,36 @@ public:
                         risk.symbol_notional));
         }
         if (astu::core::increases_exposure(intent.action) &&
+            risk.max_effective_leverage > 0.0) {
+            if (!risk.margin_metrics_reconciled ||
+                risk.margin_balance <= 0.0) {
+                return 0.0;
+            }
+            budget = std::min(
+                budget,
+                std::max(
+                    0.0,
+                    risk.max_effective_leverage *
+                        risk.margin_balance -
+                        risk.gross_notional));
+        }
+        if (astu::core::increases_exposure(intent.action) &&
+            risk.max_margin_utilization > 0.0) {
+            if (!risk.margin_metrics_reconciled ||
+                risk.margin_balance <= 0.0 ||
+                risk.margin_reservation_rate <= 0.0) {
+                return 0.0;
+            }
+            budget = std::min(
+                budget,
+                std::max(
+                    0.0,
+                    risk.max_margin_utilization *
+                        risk.margin_balance -
+                        risk.initial_margin) /
+                    risk.margin_reservation_rate);
+        }
+        if (astu::core::increases_exposure(intent.action) &&
             risk.margin_reservation_rate > 0.0) {
             const double free_balance_headroom =
                 std::max(
@@ -333,6 +386,36 @@ public:
             budget = std::min(budget, symbol_headroom);
         }
 
+        if (astu::core::increases_exposure(intent.action) &&
+            risk.max_effective_leverage > 0.0) {
+            if (!risk.margin_metrics_reconciled ||
+                risk.margin_balance <= 0.0) {
+                return out;
+            }
+            budget = std::min(
+                budget,
+                std::max(
+                    0.0,
+                    risk.max_effective_leverage *
+                        risk.margin_balance -
+                        risk.gross_notional));
+        }
+        if (astu::core::increases_exposure(intent.action) &&
+            risk.max_margin_utilization > 0.0) {
+            if (!risk.margin_metrics_reconciled ||
+                risk.margin_balance <= 0.0 ||
+                risk.margin_reservation_rate <= 0.0) {
+                return out;
+            }
+            budget = std::min(
+                budget,
+                std::max(
+                    0.0,
+                    risk.max_margin_utilization *
+                        risk.margin_balance -
+                        risk.initial_margin) /
+                    risk.margin_reservation_rate);
+        }
         if (astu::core::increases_exposure(intent.action) &&
             risk.margin_reservation_rate > 0.0) {
             const double free_balance_headroom =
