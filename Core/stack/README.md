@@ -35,7 +35,9 @@ python Core\stack\autotrader_sim_launcher.py ^
   --order-snapshot-dir Core\runtime\authoritative_order_snapshots
 ```
 
-When configured, startup reconciliation is required for every normalized simulation order in the journal. Missing/stale/mismatched non-terminal state is moved to `UNKNOWN_RECONCILE_REQUIRED`; terminal disagreements fail startup closed. The local helper `Core/order_state/simulated_order_state_source.py` can publish simulation snapshots for tests. It performs no exchange I/O.
+When configured, startup reconciliation is required for every normalized simulation order in the journal. Missing/stale/mismatched non-terminal state is moved to `UNKNOWN_RECONCILE_REQUIRED`; terminal disagreements fail startup closed. The same source is then swept periodically while the execution host remains running. The default interval is 2000 ms and can be changed with `--order-reconcile-interval-ms`. Runtime disagreements also move to `UNKNOWN_RECONCILE_REQUIRED`, and source recovery alone does not auto-resolve the order; explicit reconciliation evidence is required.
+
+The local helper `Core/order_state/simulated_order_state_source.py` can publish simulation snapshots for tests. It performs no exchange I/O.
 
 ## Start
 
