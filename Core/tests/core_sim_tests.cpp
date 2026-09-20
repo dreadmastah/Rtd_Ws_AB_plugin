@@ -387,6 +387,8 @@ int main() {
             << "\"riskState\":\"NORMAL\","
             << "\"riskCapital\":10000,"
             << "\"availableBalance\":9000,"
+            << "\"marginBalance\":10250,"
+            << "\"initialMargin\":100,"
             << "\"grossNotional\":1000,"
             << "\"maxGrossNotional\":50000,"
             << "\"openPositions\":1,"
@@ -401,6 +403,9 @@ int main() {
         REQUIRE(risk.risk_state == astu::core::RiskState::Normal);
         REQUIRE(risk.risk_capital == 10'000.0);
         REQUIRE(risk.available_balance == 9'000.0);
+        REQUIRE(risk.margin_metrics_reconciled);
+        REQUIRE(risk.margin_balance == 10'250.0);
+        REQUIRE(risk.initial_margin == 100.0);
         REQUIRE(risk.gross_notional == 1'000.0);
         REQUIRE(risk.max_gross_notional == 50'000.0);
         REQUIRE(risk.open_positions == 1);
