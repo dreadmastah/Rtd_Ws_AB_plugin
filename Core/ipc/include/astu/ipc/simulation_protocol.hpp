@@ -34,6 +34,10 @@ struct SimulationResponse {
     double simulated_quantity{0.0};
     double simulated_notional{0.0};
     bool order_routing_enabled{false};
+    std::string execution_environment{"SIMULATION_ONLY"};
+    std::string exchange_client_order_id;
+    std::string exchange_order_id;
+    std::string exchange_order_status;
     std::string reason;
 };
 
@@ -87,6 +91,9 @@ inline std::string decision_to_string(astu::core::DecisionCode code) {
     case DecisionCode::SizingRejected: return "SIZING_REJECTED";
     case DecisionCode::PositionUnavailable: return "POSITION_UNAVAILABLE";
     case DecisionCode::PositionConflict: return "POSITION_CONFLICT";
+    case DecisionCode::TestnetSubmitted: return "TESTNET_SUBMITTED";
+    case DecisionCode::TestnetRejected: return "TESTNET_REJECTED";
+    case DecisionCode::TestnetUnknown: return "TESTNET_UNKNOWN";
     case DecisionCode::OrderRoutingDisabled: return "ORDER_ROUTING_DISABLED";
     case DecisionCode::DuplicateRequest: return "DUPLICATE_REQUEST";
     case DecisionCode::FrameInvalid: return "FRAME_INVALID";
@@ -111,6 +118,9 @@ inline astu::core::DecisionCode decision_from_string(const std::string& value) {
     if (value == "SIZING_REJECTED") return DecisionCode::SizingRejected;
     if (value == "POSITION_UNAVAILABLE") return DecisionCode::PositionUnavailable;
     if (value == "POSITION_CONFLICT") return DecisionCode::PositionConflict;
+    if (value == "TESTNET_SUBMITTED") return DecisionCode::TestnetSubmitted;
+    if (value == "TESTNET_REJECTED") return DecisionCode::TestnetRejected;
+    if (value == "TESTNET_UNKNOWN") return DecisionCode::TestnetUnknown;
     if (value == "ORDER_ROUTING_DISABLED") return DecisionCode::OrderRoutingDisabled;
     if (value == "DUPLICATE_REQUEST") return DecisionCode::DuplicateRequest;
     if (value == "FRAME_INVALID") return DecisionCode::FrameInvalid;
@@ -198,7 +208,16 @@ inline std::string encode_response_json(const SimulationResponse& response) {
         << ",\"wouldIncreaseExposure\":" << (response.would_increase_exposure ? "true" : "false")
         << ",\"simulatedQuantity\":" << response.simulated_quantity
         << ",\"simulatedNotional\":" << response.simulated_notional
-        << ",\"orderRoutingEnabled\":false"
+        << ",\"orderRoutingEnabled\":"
+        << (response.order_routing_enabled ? "true" : "false")
+        << ",\"executionEnvironment\":\""
+        << json_escape(response.execution_environment) << "\""
+        << ",\"exchangeClientOrderId\":\""
+        << json_escape(response.exchange_client_order_id) << "\""
+        << ",\"exchangeOrderId\":\""
+        << json_escape(response.exchange_order_id) << "\""
+        << ",\"exchangeOrderStatus\":\""
+        << json_escape(response.exchange_order_status) << "\""
         << ",\"reason\":\"" << json_escape(response.reason) << "\""
         << "}";
     return out.str();
@@ -220,9 +239,19 @@ inline SimulationResponse decode_response_json(const std::string& json) {
     response.simulated_quantity = require_double(obj, "simulatedQuantity");
     response.simulated_notional = require_double(obj, "simulatedNotional");
     response.order_routing_enabled = require_bool(obj, "orderRoutingEnabled");
+    response.execution_environment =
+        require_string(obj, "executionEnvironment");
+    response.exchange_client_order_id =
+        require_string(obj, "exchangeClientOrderId");
+    response.exchange_order_id =
+        require_string(obj, "exchangeOrderId");
+    response.exchange_order_status =
+        require_string(obj, "exchangeOrderStatus");
     response.reason = require_string(obj, "reason");
-    if (response.order_routing_enabled) {
-        throw std::invalid_argument("simulation protocol forbids orderRoutingEnabled=true");
+    if (response.order_routing_enabled &&
+        response.execution_environment != "BINANCE_USDM_TESTNET") {
+        throw std::invalid_argument(
+            "order routing is permitted only for BINANCE_USDM_TESTNET");
     }
     return response;
 }
@@ -310,6 +339,7 @@ public:
         response.simulated_quantity = decision.simulated_quantity;
         response.simulated_notional = decision.simulated_notional;
         response.order_routing_enabled = false;
+        response.execution_environment = "SIMULATION_ONLY";
         response.reason = decision.reason;
         observe(request, response, now_utc_ms);
         return response;
@@ -345,6 +375,7 @@ private:
         response.simulated_quantity = 0.0;
         response.simulated_notional = 0.0;
         response.order_routing_enabled = false;
+        response.execution_environment = "SIMULATION_ONLY";
         response.reason = std::move(reason);
         return response;
     }
