@@ -38,6 +38,7 @@ jobs:
         run: |
           python -m py_compile CleanRoomR2/stack/identity_bridge.py
           python -m py_compile Core/account/binance_usdm_readonly_gateway.py
+          python -m py_compile Core/account/binance_usdm_income_reconciler.py
           python -m py_compile Core/stack/autotrader_sim_launcher.py
           python -m py_compile Core/instrument/binance_usdm_instrument_rules.py
           python -m py_compile Core/order_state/simulated_order_state_source.py
@@ -201,6 +202,38 @@ jobs:
       - name: Signed net directional account semantics
         run: python Core/account/tests/test_directional_risk_snapshot.py
 
+      - name: Realized income reconciliation semantics
+        run: python Core/account/tests/test_income_reconciler.py
+
+      - name: Read-only realized income fixture
+        shell: bash
+        run: |
+          rm -f Core/runtime/realized_pnl_status.v1.json Core/runtime/realized_pnl_accumulator.v1.json
+          python Core/account/binance_usdm_income_reconciler.py --once \
+            --fixture Core/account/tests/fixtures/binance_usdm_income_v1.json \
+            --output Core/runtime/realized_pnl_status.v1.json \
+            --state Core/runtime/realized_pnl_accumulator.v1.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          status = json.loads(
+              Path("Core/runtime/realized_pnl_status.v1.json").read_text(encoding="utf-8")
+          )
+          state = json.loads(
+              Path("Core/runtime/realized_pnl_accumulator.v1.json").read_text(encoding="utf-8")
+          )
+          assert status["reconciled"] is True
+          assert abs(status["dailyRealizedTradePnl"] + 60.0) < 1e-9
+          assert abs(status["weeklyRealizedTradePnl"] + 60.0) < 1e-9
+          assert abs(status["dailyRealizedTradeLoss"] - 60.0) < 1e-9
+          assert abs(status["weeklyRealizedTradeLoss"] - 60.0) < 1e-9
+          assert abs(status["dailyFundingFee"] - 1.0) < 1e-9
+          assert abs(status["dailyCommission"] + 2.0) < 1e-9
+          assert status["ignoredIncomeRecords"] == 1
+          assert state["messageType"] == "RealizedPnlAccumulatorState.v1"
+          print("READONLY_REALIZED_INCOME_FIXTURE=PASS")
+          PY
+
       - name: Public instrument rules bootstrap universe fixture
         shell: bash
         run: |
@@ -338,3 +371,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_loss_drawdown_risk_smoke.cmd
+
+      - name: Windows exact realized PnL risk smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_realized_pnl_risk_smoke.cmd
