@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "astu/core/contracts.hpp"
+#include "astu/execution/order_fsm.hpp"
 #include "astu/execution/simulation_engine.hpp"
 #include "astu/ipc/flat_json.hpp"
 #include "astu/ipc/idempotency_cache.hpp"
@@ -26,6 +27,7 @@ struct SimulationResponse {
     std::uint32_t schema_version{1};
     std::string request_id;
     std::string signal_id;
+    std::string simulation_order_id;
     astu::core::DecisionCode decision_code{astu::core::DecisionCode::FrameInvalid};
     bool accepted_for_simulation{false};
     bool would_increase_exposure{false};
@@ -190,6 +192,7 @@ inline std::string encode_response_json(const SimulationResponse& response) {
         << ",\"messageType\":\"ExecutionResult.v1\""
         << ",\"requestId\":\"" << json_escape(response.request_id) << "\""
         << ",\"signalId\":\"" << json_escape(response.signal_id) << "\""
+        << ",\"simulationOrderId\":\"" << json_escape(response.simulation_order_id) << "\""
         << ",\"decisionCode\":\"" << decision_to_string(response.decision_code) << "\""
         << ",\"acceptedForSimulation\":" << (response.accepted_for_simulation ? "true" : "false")
         << ",\"wouldIncreaseExposure\":" << (response.would_increase_exposure ? "true" : "false")
@@ -210,6 +213,7 @@ inline SimulationResponse decode_response_json(const std::string& json) {
     SimulationResponse response;
     response.request_id = require_string(obj, "requestId");
     response.signal_id = require_string(obj, "signalId");
+    response.simulation_order_id = require_string(obj, "simulationOrderId");
     response.decision_code = decision_from_string(require_string(obj, "decisionCode"));
     response.accepted_for_simulation = require_bool(obj, "acceptedForSimulation");
     response.would_increase_exposure = require_bool(obj, "wouldIncreaseExposure");
@@ -295,6 +299,11 @@ public:
         SimulationResponse response;
         response.request_id = request.request_id;
         response.signal_id = request.intent.signal_id;
+        response.simulation_order_id =
+            astu::execution::deterministic_simulation_order_id(
+                request.request_id,
+                request.idempotency_key,
+                request.intent);
         response.decision_code = decision.code;
         response.accepted_for_simulation = decision.accepted_for_simulation;
         response.would_increase_exposure = decision.would_increase_exposure;
@@ -325,6 +334,11 @@ private:
         SimulationResponse response;
         response.request_id = request.request_id;
         response.signal_id = request.intent.signal_id;
+        response.simulation_order_id =
+            astu::execution::deterministic_simulation_order_id(
+                request.request_id,
+                request.idempotency_key,
+                request.intent);
         response.decision_code = code;
         response.accepted_for_simulation = false;
         response.would_increase_exposure = astu::core::increases_exposure(request.intent.action);
