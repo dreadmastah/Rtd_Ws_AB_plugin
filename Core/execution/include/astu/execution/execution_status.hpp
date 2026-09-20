@@ -55,6 +55,17 @@ public:
         detail_ = std::move(detail);
     }
 
+    void set_order_state_metrics(
+        std::size_t recovered_orders,
+        std::uint64_t order_transition_count) noexcept {
+        recovered_orders_.store(
+            static_cast<std::uint64_t>(recovered_orders),
+            std::memory_order_relaxed);
+        order_transition_count_.store(
+            order_transition_count,
+            std::memory_order_relaxed);
+    }
+
     void record_response(const astu::ipc::SimulationResponse& response) {
         requests_seen_.fetch_add(1, std::memory_order_relaxed);
         std::lock_guard<std::mutex> lock(mu_);
@@ -98,6 +109,8 @@ public:
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
             << ",\"orderRoutingEnabled\":false"
             << ",\"requestsSeen\":" << requests_seen_.load(std::memory_order_relaxed)
+            << ",\"recoveredOrders\":" << recovered_orders_.load(std::memory_order_relaxed)
+            << ",\"orderTransitionCount\":" << order_transition_count_.load(std::memory_order_relaxed)
             << ",\"lastDecisionCode\":";
         if (last_decision.empty()) {
             out << "null";
@@ -175,6 +188,8 @@ private:
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
+    std::atomic<std::uint64_t> recovered_orders_{0};
+    std::atomic<std::uint64_t> order_transition_count_{0};
 };
 
 }  // namespace astu::execution
