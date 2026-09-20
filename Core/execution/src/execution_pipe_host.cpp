@@ -28,6 +28,7 @@
 #include "astu/execution/symbol_risk_status.hpp"
 #include "astu/execution/binance_usdm_testnet_order_gateway.hpp"
 #include "astu/execution/testnet_order_router.hpp"
+#include "astu/execution/testnet_convergence.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
 #include "astu/instrument/live_instrument_provider.hpp"
 #include "astu/wsrtd/live_status_provider.hpp"
@@ -148,6 +149,9 @@ int main(int argc, char** argv) {
         "CleanRoomR2/stack/bootstrap_symbols.tls";
     bool testnet_order_routing_enabled = false;
     bool testnet_order_routing_armed = false;
+    std::filesystem::path testnet_convergence_status_file =
+        "Core/runtime/testnet_user_data_status.v1.json";
+    std::uint64_t max_testnet_convergence_age_ms = 7'000;
     std::filesystem::path instrument_status_dir;
     std::uint64_t max_instrument_status_age_ms = 86'400'000;
     std::filesystem::path position_status_dir;
@@ -183,6 +187,17 @@ int main(int argc, char** argv) {
     if (const char* env = std::getenv("ASTU_TESTNET_ORDER_ROUTING_ARMED");
         env && std::string(env) == "1") {
         testnet_order_routing_armed = true;
+    }
+    if (const char* env =
+            std::getenv("ASTU_TESTNET_CONVERGENCE_STATUS_FILE");
+        env && *env) {
+        testnet_convergence_status_file = env;
+    }
+    if (const char* env =
+            std::getenv("ASTU_MAX_TESTNET_CONVERGENCE_AGE_MS");
+        env && *env) {
+        max_testnet_convergence_age_ms =
+            static_cast<std::uint64_t>(std::stoull(env));
     }
     if (const char* env = std::getenv("ASTU_INSTRUMENT_STATUS_DIR"); env && *env) {
         instrument_status_dir = env;
@@ -361,6 +376,14 @@ int main(int argc, char** argv) {
             testnet_order_routing_enabled = true;
         } else if (arg == "--arm-testnet-order-routing") {
             testnet_order_routing_armed = true;
+        } else if (arg == "--testnet-convergence-status-file" &&
+                   i + 1 < argc) {
+            testnet_convergence_status_file = argv[++i];
+        } else if (arg == "--max-testnet-convergence-age-ms" &&
+                   i + 1 < argc) {
+            max_testnet_convergence_age_ms =
+                static_cast<std::uint64_t>(
+                    std::stoull(argv[++i]));
         } else if (arg == "--instrument-status-dir" && i + 1 < argc) {
             instrument_status_dir = argv[++i];
         } else if (arg == "--max-instrument-status-age-ms" && i + 1 < argc) {
@@ -565,8 +588,22 @@ int main(int argc, char** argv) {
     }
 
     if (testnet_order_routing_enabled) {
-        throw std::invalid_argument(
-            "Binance Testnet routing activation is fail-closed until the authoritative Binance Testnet order/user-data reconciliation source is implemented; the current order snapshot source is simulation-only");
+        if (max_testnet_convergence_age_ms == 0) {
+            throw std::invalid_argument(
+                "Testnet convergence age must be positive");
+        }
+        const astu::execution::FileBackedTestnetConvergenceProvider
+            convergence_provider(
+                testnet_convergence_status_file,
+                max_testnet_convergence_age_ms);
+        const auto convergence = convergence_provider();
+        if (!convergence.ready) {
+            throw std::runtime_error(
+                "Binance Testnet routing fail-closed: account/position/order user-data convergence unavailable: " +
+                convergence.detail);
+        }
+        throw std::runtime_error(
+            "Binance Testnet routing convergence is ready, but activation remains administratively locked until live Testnet user-data transport/recovery acceptance is completed");
     }
 
     const bool account_loss_limits_enabled =
@@ -1441,6 +1478,12 @@ int main(int argc, char** argv) {
               << "\n";
     std::cout << "TESTNET_ORDER_ROUTING_ARMED="
               << (testnet_order_routing_armed ? "true" : "false")
+              << "\n";
+    std::cout << "TESTNET_CONVERGENCE_STATUS_FILE="
+              << testnet_convergence_status_file.string()
+              << "\n";
+    std::cout << "MAX_TESTNET_CONVERGENCE_AGE_MS="
+              << max_testnet_convergence_age_ms
               << "\n";
     std::cout << "DATA_PROVIDER=" << data_provider_name << "\n";
     if (!synthetic) {
