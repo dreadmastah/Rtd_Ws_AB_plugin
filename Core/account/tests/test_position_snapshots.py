@@ -80,19 +80,34 @@ def main() -> int:
     assert abs(hedged["BTCUSDT"]["quantity"] - 0.015) < 1e-12
     assert abs(hedged["BTCUSDT"]["notional"] - 1500.0) < 1e-12
 
-    missing_account = copy.deepcopy(account)
-    missing_account["positions"] = [
-        x for x in missing_account["positions"] if x["symbol"] != "DOTUSDT"
+    sparse_account = copy.deepcopy(account)
+    sparse_account["positions"] = [
+        x for x in sparse_account["positions"] if x["symbol"] == "BTCUSDT"
     ]
-    try:
-        gateway.account_to_position_snapshots(
-            missing_account,
-            symbols=symbols,
-            source="TEST",
-        )
-        raise AssertionError("missing selected position symbol was not rejected")
-    except gateway.GatewayError as exc:
-        assert "DOTUSDT" in str(exc)
+    sparse = gateway.account_to_position_snapshots(
+        sparse_account,
+        symbols=symbols,
+        source="TEST",
+    )
+    assert sparse["BTCUSDT"]["mode"] == "LONG"
+    for symbol in symbols:
+        if symbol == "BTCUSDT":
+            continue
+        assert sparse[symbol]["reconciled"] is True
+        assert sparse[symbol]["mode"] == "FLAT"
+        assert sparse[symbol]["quantity"] == 0.0
+        assert sparse[symbol]["notional"] == 0.0
+
+    empty_sparse_account = copy.deepcopy(account)
+    empty_sparse_account["positions"] = []
+    empty_sparse = gateway.account_to_position_snapshots(
+        empty_sparse_account,
+        symbols=symbols,
+        source="TEST",
+    )
+    assert set(empty_sparse) == set(symbols)
+    assert all(x["reconciled"] is True for x in empty_sparse.values())
+    assert all(x["mode"] == "FLAT" for x in empty_sparse.values())
 
     failed = gateway.fail_closed_position_snapshots(
         symbols=symbols,
