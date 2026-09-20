@@ -122,6 +122,15 @@ public:
         runtime_order_sweep_errors_ = sweep_errors;
     }
 
+    void set_projected_risk_limits(
+        std::uint64_t max_pending_entry_scale_in_reservations,
+        double max_symbol_notional) {
+        std::lock_guard<std::mutex> lock(mu_);
+        max_pending_entry_scale_in_reservations_ =
+            max_pending_entry_scale_in_reservations;
+        max_symbol_notional_ = max_symbol_notional;
+    }
+
     void set_exposure_reservation_metrics(
         std::uint64_t recovered_active_at_startup,
         std::uint64_t active_reservations,
@@ -186,6 +195,8 @@ public:
         std::uint64_t exposure_reservation_release_count = 0;
         std::uint64_t exposure_reservation_implicit_release_count = 0;
         std::uint64_t exposure_reservation_reconstructed_count = 0;
+        std::uint64_t max_pending_entry_scale_in_reservations = 0;
+        double max_symbol_notional = 0.0;
         {
             std::lock_guard<std::mutex> lock(mu_);
             lifecycle = lifecycle_state_;
@@ -241,6 +252,10 @@ public:
                 exposure_reservation_implicit_release_count_;
             exposure_reservation_reconstructed_count =
                 exposure_reservation_reconstructed_count_;
+            max_pending_entry_scale_in_reservations =
+                max_pending_entry_scale_in_reservations_;
+            max_symbol_notional =
+                max_symbol_notional_;
         }
 
         std::ostringstream out;
@@ -306,6 +321,10 @@ public:
             << exposure_reservation_implicit_release_count
             << ",\"exposureReservationReconstructedCount\":"
             << exposure_reservation_reconstructed_count
+            << ",\"maxPendingEntryScaleInReservations\":"
+            << max_pending_entry_scale_in_reservations
+            << ",\"maxSymbolNotional\":"
+            << max_symbol_notional
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -416,6 +435,8 @@ private:
     std::uint64_t exposure_reservation_release_count_{0};
     std::uint64_t exposure_reservation_implicit_release_count_{0};
     std::uint64_t exposure_reservation_reconstructed_count_{0};
+    std::uint64_t max_pending_entry_scale_in_reservations_{0};
+    double max_symbol_notional_{0.0};
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
