@@ -139,6 +139,45 @@ def main() -> int:
         in view["blockReasons"]
     )
 
+    gross_blocked = base_status()
+    gross_blocked["projectedGrossNotional"] = 5000.0
+    view = mod.build_view(
+        gross_blocked,
+        now_ms=1_001_000,
+        source_path="execution_status.v1.json",
+        max_source_age_ms=5_000,
+    )
+    assert view["gateState"] == "RISK_BLOCKED"
+    assert "RISK_BLOCKED:MAX_GROSS_NOTIONAL" in view["blockReasons"]
+
+    margin_missing = base_status()
+    margin_missing["accountMarginMetricsReady"] = False
+    view = mod.build_view(
+        margin_missing,
+        now_ms=1_001_000,
+        source_path="execution_status.v1.json",
+        max_source_age_ms=5_000,
+    )
+    assert view["gateState"] == "ACCOUNT_NOT_RECONCILED"
+    assert (
+        "ACCOUNT_NOT_RECONCILED:MARGIN_METRICS_UNAVAILABLE"
+        in view["blockReasons"]
+    )
+
+    state_blocked = base_status()
+    state_blocked["accountRiskState"] = "BLOCK_NEW_ENTRIES"
+    view = mod.build_view(
+        state_blocked,
+        now_ms=1_001_000,
+        source_path="execution_status.v1.json",
+        max_source_age_ms=5_000,
+    )
+    assert view["gateState"] == "RISK_BLOCKED"
+    assert (
+        "RISK_BLOCKED:ACCOUNT_RISK_STATE_BLOCK_NEW_ENTRIES"
+        in view["blockReasons"]
+    )
+
     blocked = base_status()
     blocked["dailyRealizedTradeLoss"] = 50.0
     view = mod.build_view(
