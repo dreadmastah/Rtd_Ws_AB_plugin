@@ -10,6 +10,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "astu/core/contracts.hpp"
 #include "astu/ipc/flat_json.hpp"
