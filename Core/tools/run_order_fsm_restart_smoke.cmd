@@ -54,17 +54,10 @@ if errorlevel 1 (
   goto cleanup
 )
 
-findstr /C:"\"toState\":\"SIZING\"" "%JOURNAL%" >nul
+python -c "import json; rows=[json.loads(x) for x in open(r'%JOURNAL%',encoding='utf-8') if x.strip()]; states=[x.get('toState') for x in rows if x.get('eventType')=='ORDER_STATE_TRANSITION']; assert states==['INTENT_RECEIVED','VALIDATING','RISK_APPROVED','SIZING'], states; assert all(x.get('exchangeSubmissionAttempted') is False for x in rows if x.get('eventType')=='ORDER_STATE_TRANSITION'); print('ORDER_FSM_INITIAL_JOURNAL=PASS')"
 if errorlevel 1 (
-  echo ORDER_FSM_RESTART_SMOKE=FAIL SIZING_NOT_JOURNALED
+  echo ORDER_FSM_RESTART_SMOKE=FAIL INITIAL_JOURNAL
   set RC=6
-  goto cleanup
-)
-
-findstr /C:"\"toState\":\"SUBMITTING\"" "%JOURNAL%" >nul
-if not errorlevel 1 (
-  echo ORDER_FSM_RESTART_SMOKE=FAIL SUBMITTING_MUST_NOT_EXIST
-  set RC=7
   goto cleanup
 )
 
@@ -110,8 +103,8 @@ if errorlevel 1 (
   goto cleanup
 )
 
-findstr /C:"\"exchangeSubmissionAttempted\":true" "%JOURNAL%" >nul
-if not errorlevel 1 (
+python -c "import json; rows=[json.loads(x) for x in open(r'%JOURNAL%',encoding='utf-8') if x.strip()]; trans=[x for x in rows if x.get('eventType')=='ORDER_STATE_TRANSITION']; assert len(trans)==4, len(trans); assert all(x['simulationOnly'] is True and x['exchangeSubmissionAttempted'] is False for x in trans); assert trans[-1]['toState']=='SIZING'; print('ORDER_FSM_NO_SUBMISSION=PASS')"
+if errorlevel 1 (
   echo ORDER_FSM_RESTART_SMOKE=FAIL EXCHANGE_SUBMISSION_FLAG
   set RC=12
   goto cleanup
