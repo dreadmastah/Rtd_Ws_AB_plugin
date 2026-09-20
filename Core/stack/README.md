@@ -194,6 +194,9 @@ The projection reports:
 - each configured limit, remaining headroom, consumed ratio, readiness and block status;
 - realized PnL, funding, commission, classified net trading income, settlement asset and record counts;
 - projected exposure reservations and configured projected-risk limits;
+- current/projected available balance, gross notional and open-position counts;
+- current Margin Balance / initial margin plus projected effective leverage and margin utilization;
+- current/projected signed net-directional exposure with LONG and SHORT headroom;
 - explicit `ACCOUNT_NOT_RECONCILED` and `RISK_BLOCKED` reasons derived from the current status evidence;
 - `orderRoutingEnabled=false` as a required invariant.
 
