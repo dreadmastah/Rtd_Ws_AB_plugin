@@ -37,7 +37,7 @@ DEFAULT_ORDER_DIR = Path("Core/runtime/testnet_order_authority")
 DEFAULT_JOURNAL = Path("Core/runtime/execution_journal.v1.jsonl")
 DEFAULT_ACCOUNT = Path("Core/runtime/account_risk_status.v1.json")
 DEFAULT_POSITIONS = Path("Core/runtime/position_status")
-DEFAULT_REST_BASE = "https://testnet.binancefuture.com"
+DEFAULT_REST_BASE = "https://demo-fapi.binance.com"
 DEFAULT_WS_TEMPLATE = os.getenv(
     "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE",
     "",
