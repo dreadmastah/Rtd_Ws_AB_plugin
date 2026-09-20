@@ -66,6 +66,7 @@ MARKET_EVENT_STALL_SEC = max(10.0, float(RECOV_CFG.get("market_event_stall_secon
 MARKET_COMPLETED_KLINE_STALL_SEC = max(75.0, float(RECOV_CFG.get("market_completed_kline_stall_seconds", 90)))
 STATE_FILE_CFG = Path(str(RECOV_CFG.get("state_file", "runtime/recovery_state.json")))
 RECOVERY_STATE_PATH = STATE_FILE_CFG if STATE_FILE_CFG.is_absolute() else BASE / STATE_FILE_CFG
+R213C_INJECT_MARKER = BASE / "runtime" / "r213c_market_app_stall_once"
 MINUTE_MS = 60_000
 DAY_MS = 86_400_000
 RELAY_URI = os.getenv(
@@ -473,6 +474,10 @@ class App:
             diag_max_event_lag_ms = 0
             diag_closed_klines = 0
             diag_public_sampled_events = 0
+            r213c_suppress_market_application = False
+            r213c_suppressed_messages = 0
+            r213c_injection_started_monotonic: float | None = None
+            r213c_last_progress_log_monotonic: float | None = None
             connection_seq += 1
             try:
                 async with connect(
@@ -519,6 +524,41 @@ class App:
                             continue
                         if isinstance(obj, dict) and "data" in obj and "stream" in obj:
                             obj = obj["data"]
+
+                        if kind == "market":
+                            if not r213c_suppress_market_application and R213C_INJECT_MARKER.exists():
+                                try:
+                                    R213C_INJECT_MARKER.unlink()
+                                except FileNotFoundError:
+                                    pass
+                                r213c_suppress_market_application = True
+                                r213c_injection_started_monotonic = time.monotonic()
+                                r213c_last_progress_log_monotonic = r213c_injection_started_monotonic
+                                LOG.warning(
+                                    "R213C controlled market application stall injected connection=%d marker_consumed=%s",
+                                    connection_seq,
+                                    R213C_INJECT_MARKER,
+                                )
+                            if r213c_suppress_market_application:
+                                r213c_suppressed_messages += 1
+                                now_injection = time.monotonic()
+                                if (
+                                    r213c_last_progress_log_monotonic is None
+                                    or now_injection - r213c_last_progress_log_monotonic >= 5.0
+                                ):
+                                    started = (
+                                        now_injection
+                                        if r213c_injection_started_monotonic is None
+                                        else r213c_injection_started_monotonic
+                                    )
+                                    LOG.warning(
+                                        "R213C controlled market application stall active connection=%d duration_seconds=%.1f suppressed_messages=%d transport_receive_active=True",
+                                        connection_seq,
+                                        max(0.0, now_injection - started),
+                                        r213c_suppressed_messages,
+                                    )
+                                    r213c_last_progress_log_monotonic = now_injection
+                                continue
 
                         closed_symbol = ""
                         closed_open_ms = 0
@@ -1246,6 +1286,10 @@ async def main() -> None:
         MARKET_LIVENESS_STARTUP_GRACE_SEC,
         MARKET_EVENT_STALL_SEC,
         MARKET_COMPLETED_KLINE_STALL_SEC,
+    )
+    LOG.warning(
+        "R213C controlled validation hook armed marker=%s; dormant unless marker is explicitly created",
+        R213C_INJECT_MARKER,
     )
     await app.run()
 
