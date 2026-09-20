@@ -15,6 +15,7 @@ struct ExposureReservationSummary {
     std::uint64_t symbol_active_reservations{0};
     double symbol_reserved_gross_notional{0.0};
     double reserved_available_balance{0.0};
+    double reserved_net_directional_notional{0.0};
 };
 
 class ExposureReservationRiskOverlay {
@@ -29,7 +30,8 @@ public:
         double minimum_available_balance_reserve = 0.0,
         double margin_reservation_rate = 0.0,
         double max_effective_leverage = 0.0,
-        double max_margin_utilization = 0.0) noexcept {
+        double max_margin_utilization = 0.0,
+        double max_net_directional_notional = 0.0) noexcept {
         risk.gross_notional = std::max(
             0.0,
             risk.gross_notional +
@@ -78,9 +80,20 @@ public:
             std::max(0.0, max_effective_leverage);
         risk.max_margin_utilization =
             std::max(0.0, max_margin_utilization);
+        if (risk.net_directional_reconciled) {
+            risk.net_directional_notional +=
+                reservations.reserved_net_directional_notional;
+        }
+        risk.max_net_directional_notional =
+            std::max(0.0, max_net_directional_notional);
         return risk;
     }
 };
+
+inline double position_side_direction(
+    astu::core::PositionSide side) noexcept {
+    return side == astu::core::PositionSide::Long ? 1.0 : -1.0;
+}
 
 inline bool reserves_new_position_slot(
     astu::core::SignalAction action) noexcept {
