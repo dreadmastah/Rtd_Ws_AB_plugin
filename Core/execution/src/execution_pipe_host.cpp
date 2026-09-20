@@ -118,6 +118,16 @@ int main(int argc, char** argv) {
         env && *env) {
         order_reconcile_interval_ms = std::stoull(env);
     }
+    if (const char* env = std::getenv(
+            "ASTU_MAX_PENDING_ENTRY_SCALE_IN_RESERVATIONS");
+        env && *env) {
+        max_pending_entry_scale_in_reservations =
+            std::stoull(env);
+    }
+    if (const char* env = std::getenv("ASTU_MAX_SYMBOL_NOTIONAL");
+        env && *env) {
+        max_symbol_notional = std::stod(env);
+    }
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -164,6 +174,13 @@ int main(int argc, char** argv) {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
         }
+    }
+
+    if (!std::isfinite(max_symbol_notional) ||
+        max_symbol_notional < 0.0) {
+        std::cerr
+            << "max-symbol-notional must be finite and non-negative\n";
+        return 2;
     }
 
     astu::ipc::SimulationDispatcher::DataProvider data_provider;
@@ -269,19 +286,21 @@ int main(int argc, char** argv) {
 
             bool symbol_exposure_reconciled = false;
             double reconciled_symbol_notional = 0.0;
-            if (synthetic) {
-                symbol_exposure_reconciled = true;
-            } else if (projected_position_provider) {
-                const auto position =
-                    projected_position_provider(intent);
-                if (position.reconciled &&
-                    position.schema_version == 1 &&
-                    position.symbol == intent.symbol &&
-                    std::isfinite(position.notional) &&
-                    position.notional >= 0.0) {
+            if (max_symbol_notional > 0.0) {
+                if (synthetic) {
                     symbol_exposure_reconciled = true;
-                    reconciled_symbol_notional =
-                        position.notional;
+                } else if (projected_position_provider) {
+                    const auto position =
+                        projected_position_provider(intent);
+                    if (position.reconciled &&
+                        position.schema_version == 1 &&
+                        position.symbol == intent.symbol &&
+                        std::isfinite(position.notional) &&
+                        position.notional >= 0.0) {
+                        symbol_exposure_reconciled = true;
+                        reconciled_symbol_notional =
+                            position.notional;
+                    }
                 }
             }
 
