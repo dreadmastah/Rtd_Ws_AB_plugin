@@ -65,7 +65,7 @@ public:
              risk.margin_balance < 0.0)) {
             return {};
         }
-        if (loaded_ && now_ms < state_.last_observed_unix_ms) {
+        if (loaded_ && now_ms < last_runtime_observed_unix_ms_) {
             return {};
         }
 
@@ -88,6 +88,7 @@ public:
                 state_.high_water_margin_balance = risk.margin_balance;
             }
             state_.last_observed_unix_ms = now_ms;
+            last_runtime_observed_unix_ms_ = now_ms;
             loaded_ = true;
             changed = true;
         } else {
@@ -111,7 +112,10 @@ public:
                 state_.high_water_margin_balance = risk.margin_balance;
                 changed = true;
             }
-            if (state_.last_observed_unix_ms != now_ms) {
+            last_runtime_observed_unix_ms_ = now_ms;
+            constexpr std::uint64_t kPersistHeartbeatMs = 60'000ULL;
+            if (now_ms >= state_.last_observed_unix_ms +
+                              kPersistHeartbeatMs) {
                 state_.last_observed_unix_ms = now_ms;
                 changed = true;
             }
@@ -248,6 +252,8 @@ private:
                     "account loss baseline contains invalid metric");
             }
         }
+        last_runtime_observed_unix_ms_ =
+            state_.last_observed_unix_ms;
         loaded_ = true;
     }
 
@@ -320,6 +326,7 @@ private:
     mutable std::mutex mu_;
     AccountLossBaselineMetrics state_;
     AccountLossBaselineMetrics last_metrics_;
+    std::uint64_t last_runtime_observed_unix_ms_{0};
     bool loaded_{false};
 };
 
