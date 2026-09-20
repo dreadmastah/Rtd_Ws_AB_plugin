@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
+#include <limits>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -598,6 +600,8 @@ public:
         }
 
         std::ostringstream out;
+        out << std::setprecision(
+            std::numeric_limits<double>::max_digits10);
         out
             << "{"
             << "\"schemaVersion\":1"
