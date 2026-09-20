@@ -297,3 +297,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_startup_order_snapshot_smoke.cmd
+
+      - name: Windows periodic runtime order reconciliation smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_runtime_order_reconciliation_smoke.cmd
