@@ -88,6 +88,18 @@ bool expect_state(
 int main() {
     using namespace astu::execution;
 
+    if (require_testnet_rest_host("demo-fapi.binance.com") !=
+            "demo-fapi.binance.com" ||
+        require_testnet_rest_host("testnet.binancefuture.com") !=
+            "testnet.binancefuture.com") {
+        return 1;
+    }
+    try {
+        (void)require_testnet_rest_host("fapi.binance.com");
+        return 2;
+    } catch (const std::invalid_argument&) {
+    }
+
     auto long_buy = request().intent;
     long_buy.action = astu::core::SignalAction::Buy;
     long_buy.side = astu::core::PositionSide::Long;
