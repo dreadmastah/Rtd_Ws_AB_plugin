@@ -380,7 +380,10 @@ public:
         astu::execution::OrderState to_state,
         double cumulative_filled_quantity,
         std::int64_t utc_ms,
-        std::string detail) {
+        std::string detail,
+        bool simulation_only = true,
+        bool exchange_submission_attempted = false,
+        std::string execution_environment = "SIMULATION_ONLY") {
         std::lock_guard<std::mutex> lock(mu_);
         if (event_id.empty() || simulation_order_id.empty() ||
             reconciliation_type.empty()) {
@@ -452,8 +455,13 @@ public:
             << ",\"reconciliationSequence\":" << reconciliation_sequence
             << ",\"orderQuantity\":" << intent.quantity
             << ",\"cumulativeFilledQuantity\":" << cumulative_filled_quantity
-            << ",\"simulationOnly\":true"
-            << ",\"exchangeSubmissionAttempted\":false"
+            << ",\"simulationOnly\":"
+            << (simulation_only ? "true" : "false")
+            << ",\"exchangeSubmissionAttempted\":"
+            << (exchange_submission_attempted ? "true" : "false")
+            << ",\"executionEnvironment\":\""
+            << astu::ipc::json_escape(execution_environment)
+            << "\""
             << ",\"detail\":\"" << astu::ipc::json_escape(detail) << "\""
             << "}\n";
 
@@ -1160,10 +1168,26 @@ private:
         const auto recorded_order_quantity =
             astu::ipc::require_double(obj, "orderQuantity");
 
+        const bool simulation_only =
+            astu::ipc::require_bool(obj, "simulationOnly");
+        const bool exchange_submission_attempted =
+            astu::ipc::require_bool(
+                obj, "exchangeSubmissionAttempted");
+        std::string execution_environment = "SIMULATION_ONLY";
+        if (obj.find("executionEnvironment") != obj.end()) {
+            execution_environment =
+                astu::ipc::require_string(
+                    obj, "executionEnvironment");
+        }
+        const bool testnet_reconciliation =
+            !simulation_only &&
+            exchange_submission_attempted &&
+            execution_environment == "BINANCE_USDM_TESTNET";
         if (event_id.empty() || order_id.empty() ||
             reconciliation_type.empty() ||
-            !astu::ipc::require_bool(obj, "simulationOnly") ||
-            astu::ipc::require_bool(obj, "exchangeSubmissionAttempted")) {
+            ((!simulation_only ||
+              exchange_submission_attempted) &&
+             !testnet_reconciliation)) {
             throw std::runtime_error(
                 "execution journal invalid reconciliation event");
         }
