@@ -53,6 +53,7 @@ void write_snapshot(
         << ",\"generatedUnixMs\":" << generated
         << ",\"source\":\"CPP_TEST\""
         << ",\"reconciled\":" << (reconciled ? "true" : "false")
+        << ",\"settlementAsset\":\"USDT\""
         << ",\"utcDayStartUnixMs\":" << day
         << ",\"utcWeekStartUnixMs\":" << week
         << ",\"dailyRealizedTradePnl\":-20"
@@ -112,6 +113,7 @@ int main() {
         astu::account::LiveRealizedPnlProvider provider(path, 5'000);
         const auto pnl = provider();
         REQUIRE(pnl.reconciled);
+        REQUIRE(pnl.settlement_asset == "USDT");
         REQUIRE(pnl.daily_realized_trade_pnl == -20.0);
         REQUIRE(pnl.weekly_realized_trade_pnl == -50.0);
         REQUIRE(pnl.daily_realized_trade_loss == 20.0);
