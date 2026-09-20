@@ -108,7 +108,11 @@ def normalize_rows(
         trade_id = str(raw.get("tradeId", ""))
         # Binance documents tranId as unique within incomeType. Keep additional
         # fields in the key so fixtures and future API variants remain robust.
-        key = (income_type, event_time, tran_id, trade_id, asset)
+        key = (
+            (income_type, "TRAN_ID", tran_id)
+            if tran_id
+            else (income_type, str(event_time), trade_id, asset)
+        )
         if key in seen:
             continue
         seen.add(key)
@@ -139,6 +143,7 @@ def aggregate_income(
     *,
     now_ms: int,
     source: str,
+    settlement_asset: str = "USDT",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     day_start = utc_day_start_ms(now_ms)
     week_start = utc_week_start_ms(now_ms)
@@ -169,9 +174,25 @@ def aggregate_income(
             "commission": commission,
         }
 
+    settlement_asset = settlement_asset.strip().upper()
+    if not settlement_asset:
+        raise IncomeReconcilerError("settlement asset is empty")
+    included_types = {REALIZED_PNL, FUNDING_FEE, COMMISSION}
+    unsupported = [
+        row
+        for row in normalized
+        if row["incomeType"] in included_types
+        and str(row["asset"]).upper() != settlement_asset
+    ]
+    if unsupported:
+        assets = sorted({str(row["asset"]).upper() for row in unsupported})
+        raise IncomeReconcilerError(
+            "tracked income contains unsupported settlement assets: "
+            + ",".join(assets)
+        )
+
     daily = sums(day_start)
     weekly = sums(week_start)
-    included_types = {REALIZED_PNL, FUNDING_FEE, COMMISSION}
     ignored_count = sum(
         1 for row in normalized if row["incomeType"] not in included_types
     )
@@ -182,6 +203,7 @@ def aggregate_income(
         "generatedUnixMs": int(now_ms),
         "source": source,
         "reconciled": True,
+        "settlementAsset": settlement_asset,
         "utcDayStartUnixMs": int(day_start),
         "utcWeekStartUnixMs": int(week_start),
         "dailyRealizedTradePnl": daily["realized"],
@@ -209,6 +231,7 @@ def aggregate_income(
         "schemaVersion": 1,
         "messageType": "RealizedPnlAccumulatorState.v1",
         "updatedUnixMs": int(now_ms),
+        "settlementAsset": settlement_asset,
         "utcDayStartUnixMs": int(day_start),
         "utcWeekStartUnixMs": int(week_start),
         "dailyRealizedTradePnl": daily["realized"],
@@ -231,6 +254,7 @@ def fail_closed_snapshot(*, source: str, reason: str) -> dict[str, Any]:
         "generatedUnixMs": now_ms,
         "source": source,
         "reconciled": False,
+        "settlementAsset": "UNKNOWN",
         "utcDayStartUnixMs": utc_day_start_ms(now_ms),
         "utcWeekStartUnixMs": utc_week_start_ms(now_ms),
         "dailyRealizedTradePnl": 0.0,
@@ -405,6 +429,7 @@ def main() -> int:
     ap.add_argument("--recv-window-ms", type=int, default=5_000)
     ap.add_argument("--timeout-seconds", type=float, default=10.0)
     ap.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
+    ap.add_argument("--settlement-asset", default="USDT")
     ap.add_argument(
         "--base-url",
         default=os.getenv("BINANCE_USDM_BASE_URL", DEFAULT_BASE_URL),
@@ -469,6 +494,7 @@ def main() -> int:
                 rows,
                 now_ms=now_ms,
                 source=source,
+                settlement_asset=args.settlement_asset,
             )
             write_atomic(args.state, state)
             write_atomic(args.output, snapshot)
