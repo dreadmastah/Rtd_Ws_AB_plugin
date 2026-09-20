@@ -12,6 +12,7 @@
 #include "astu/execution/execution_journal.hpp"
 #include "astu/execution/execution_pipe_server.hpp"
 #include "astu/execution/execution_status.hpp"
+#include "astu/execution/simulation_order_lifecycle.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
 #include "astu/instrument/live_instrument_provider.hpp"
 #include "astu/wsrtd/live_status_provider.hpp"
@@ -166,6 +167,8 @@ int main(int argc, char** argv) {
     auto journal = std::make_shared<astu::execution::ExecutionJournal>(
         journal_path,
         100'000);
+    auto order_lifecycle =
+        std::make_shared<astu::execution::SimulationOrderLifecycle>(journal);
 
     const std::string data_provider_name =
         synthetic ? "SYNTHETIC" : "WSRTD_LIVE_STATUS";
@@ -190,6 +193,9 @@ int main(int argc, char** argv) {
             instrument_rules_required,
             position_provider_name,
             journal_path.string());
+    execution_status->set_order_state_metrics(
+        journal->recovered_order_count(),
+        journal->order_transition_count());
     execution_status->publish();
 
     astu::ipc::SimulationDispatcher dispatcher(
@@ -199,12 +205,16 @@ int main(int argc, char** argv) {
         [journal](const std::string& key) {
             return journal->accept_idempotency_key(key);
         },
-        [journal, execution_status](
+        [journal, order_lifecycle, execution_status](
             const astu::ipc::SimulationRequest& request,
             const astu::ipc::SimulationResponse& response,
             std::int64_t utc_ms) {
+            order_lifecycle->observe(request, response, utc_ms);
             journal->append(request, response, utc_ms);
             execution_status->record_response(response);
+            execution_status->set_order_state_metrics(
+                journal->recovered_order_count(),
+                journal->order_transition_count());
         },
         std::move(instrument_provider),
         std::move(position_provider));
@@ -259,6 +269,10 @@ int main(int argc, char** argv) {
         std::cout << "POSITION_PROVIDER=" << position_provider_name << "\n";
     }
     std::cout << "REPLAY_KEYS_LOADED=" << journal->replay_size() << "\n";
+    std::cout << "RECOVERED_SIMULATION_ORDERS="
+              << journal->recovered_order_count() << "\n";
+    std::cout << "ORDER_TRANSITIONS_REPLAYED="
+              << journal->order_transition_count() << "\n";
 
     for (;;) {
         try {
