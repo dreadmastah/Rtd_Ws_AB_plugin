@@ -128,10 +128,25 @@ int main() {
         REQUIRE(m.ready);
         REQUIRE(std::fabs(m.daily_start_risk_capital - 900.0) < 1e-12);
         REQUIRE(std::fabs(m.daily_risk_capital_loss) < 1e-12);
-        REQUIRE(std::fabs(m.weekly_start_risk_capital - 1'000.0) < 1e-12 ||
-                std::fabs(m.weekly_start_risk_capital - 900.0) < 1e-12);
         REQUIRE(std::fabs(m.high_water_margin_balance - 1'100.0) < 1e-12);
         REQUIRE(std::fabs(m.account_drawdown - 200.0) < 1e-12);
+
+        const auto next_week_start_day =
+            m.utc_week_start_day_index + 7ULL;
+        const auto next_week =
+            next_week_start_day * day_ms + 1'000ULL;
+        m = replayed.evaluate(
+            risk_snapshot(850.0, 850.0),
+            next_week,
+            true);
+        REQUIRE(m.ready);
+        REQUIRE(m.utc_week_start_day_index == next_week_start_day);
+        REQUIRE(std::fabs(m.weekly_start_risk_capital - 850.0) < 1e-12);
+        REQUIRE(std::fabs(m.weekly_risk_capital_loss) < 1e-12);
+        REQUIRE(std::fabs(m.weekly_start_margin_balance - 850.0) < 1e-12);
+        REQUIRE(std::fabs(m.weekly_total_pnl_loss) < 1e-12);
+        REQUIRE(std::fabs(m.high_water_margin_balance - 1'100.0) < 1e-12);
+        REQUIRE(std::fabs(m.account_drawdown - 250.0) < 1e-12);
 
         const auto rollback = replayed.evaluate(
             risk_snapshot(900.0, 900.0),
