@@ -72,6 +72,30 @@ def main() -> int:
         assert abs(btc_changed["minNotional"] - 20.0) < 1e-12
         assert len(list(output.glob("*.json"))) == 12
 
+        market_specific = copy.deepcopy(baseline)
+        market_btc = next(
+            x for x in market_specific["symbols"]
+            if x["symbol"] == "BTCUSDT"
+        )
+        market_btc["filters"].append({
+            "filterType": "MARKET_LOT_SIZE",
+            "minQty": "0.0001",
+            "maxQty": "1000",
+            "stepSize": "0.0001",
+        })
+        market_path = root / "market-specific.json"
+        market_path.write_text(
+            json.dumps(market_specific),
+            encoding="utf-8",
+        )
+        rules.publish_once(output, symbols, "unused", market_path)
+        btc_market = json.loads(
+            (output / "BTCUSDT.json").read_text(encoding="utf-8")
+        )
+        assert abs(btc_market["quantityStep"] - 0.0001) < 1e-12
+        assert abs(btc_market["minQuantity"] - 0.0001) < 1e-12
+        assert "MARKET_LOT_SIZE" in btc_market["detail"]
+
         missing = copy.deepcopy(baseline)
         missing["symbols"] = [
             x for x in missing["symbols"] if x["symbol"] != "ETHUSDT"
