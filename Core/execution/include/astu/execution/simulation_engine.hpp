@@ -95,6 +95,52 @@ public:
                     "max pending entry/scale-in reservations reached"};
         }
         if (exposure &&
+            (risk.max_daily_risk_capital_loss > 0.0 ||
+             risk.max_weekly_risk_capital_loss > 0.0 ||
+             risk.max_daily_total_pnl_loss > 0.0 ||
+             risk.max_weekly_total_pnl_loss > 0.0 ||
+             risk.max_account_drawdown > 0.0) &&
+            !risk.account_loss_metrics_reconciled) {
+            return {DecisionCode::AccountNotReconciled, false, exposure,
+                    0.0, 0.0,
+                    "configured loss/drawdown limits require reconciled persisted UTC baselines"};
+        }
+        if (exposure &&
+            risk.max_daily_risk_capital_loss > 0.0 &&
+            risk.daily_risk_capital_loss >=
+                risk.max_daily_risk_capital_loss) {
+            return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                    "maximum daily risk-capital loss reached"};
+        }
+        if (exposure &&
+            risk.max_weekly_risk_capital_loss > 0.0 &&
+            risk.weekly_risk_capital_loss >=
+                risk.max_weekly_risk_capital_loss) {
+            return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                    "maximum weekly risk-capital loss reached"};
+        }
+        if (exposure &&
+            risk.max_daily_total_pnl_loss > 0.0 &&
+            risk.daily_total_pnl_loss >=
+                risk.max_daily_total_pnl_loss) {
+            return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                    "maximum daily total-PnL loss reached"};
+        }
+        if (exposure &&
+            risk.max_weekly_total_pnl_loss > 0.0 &&
+            risk.weekly_total_pnl_loss >=
+                risk.max_weekly_total_pnl_loss) {
+            return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                    "maximum weekly total-PnL loss reached"};
+        }
+        if (exposure &&
+            risk.max_account_drawdown > 0.0 &&
+            risk.account_drawdown >=
+                risk.max_account_drawdown) {
+            return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                    "maximum account drawdown reached"};
+        }
+        if (exposure &&
             (risk.max_effective_leverage > 0.0 ||
              risk.max_margin_utilization > 0.0) &&
             !risk.margin_metrics_reconciled) {
