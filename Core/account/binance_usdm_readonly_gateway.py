@@ -144,6 +144,8 @@ def account_to_risk_snapshot(
     source: str,
 ) -> dict[str, Any]:
     available_balance = as_float(account, "availableBalance")
+    margin_balance = as_float(account, "totalMarginBalance")
+    initial_margin = as_float(account, "totalInitialMargin")
 
     if "totalMarginBalance" in account:
         risk_capital = as_float(account, "totalMarginBalance")
@@ -196,6 +198,8 @@ def account_to_risk_snapshot(
         "riskState": risk_state,
         "riskCapital": max(0.0, risk_capital),
         "availableBalance": max(0.0, available_balance),
+        "marginBalance": max(0.0, margin_balance),
+        "initialMargin": max(0.0, initial_margin),
         "grossNotional": max(0.0, gross_notional),
         "maxGrossNotional": float(max_gross_notional),
         "openPositions": int(open_positions),
@@ -325,6 +329,8 @@ def fail_closed_snapshot(
         "riskState": "EMERGENCY",
         "riskCapital": 0.0,
         "availableBalance": 0.0,
+        "marginBalance": 0.0,
+        "initialMargin": 0.0,
         "grossNotional": 0.0,
         "maxGrossNotional": max(0.0, float(max_gross_notional)),
         "openPositions": 0,
