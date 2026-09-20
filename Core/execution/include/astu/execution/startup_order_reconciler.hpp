@@ -21,9 +21,10 @@ struct StartupOrderReconciliationReport {
 
 class StartupOrderReconciler {
 public:
+    template <typename Provider>
     static StartupOrderReconciliationReport reconcile(
         const std::shared_ptr<ExecutionJournal>& journal,
-        const FileBackedSimulationOrderSnapshotProvider& provider,
+        const Provider& provider,
         std::int64_t utc_ms) {
         if (!journal) {
             throw std::invalid_argument(
