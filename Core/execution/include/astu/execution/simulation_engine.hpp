@@ -95,6 +95,28 @@ public:
                     "max pending entry/scale-in reservations reached"};
         }
         if (exposure &&
+            (risk.max_daily_realized_trade_loss > 0.0 ||
+             risk.max_weekly_realized_trade_loss > 0.0) &&
+            !risk.realized_pnl_evidence_reconciled) {
+            return {DecisionCode::AccountNotReconciled, false, exposure,
+                    0.0, 0.0,
+                    "configured realized-loss limits require reconciled income evidence"};
+        }
+        if (exposure &&
+            risk.max_daily_realized_trade_loss > 0.0 &&
+            risk.daily_realized_trade_loss >=
+                risk.max_daily_realized_trade_loss) {
+            return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                    "maximum daily realized-trade loss reached"};
+        }
+        if (exposure &&
+            risk.max_weekly_realized_trade_loss > 0.0 &&
+            risk.weekly_realized_trade_loss >=
+                risk.max_weekly_realized_trade_loss) {
+            return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                    "maximum weekly realized-trade loss reached"};
+        }
+        if (exposure &&
             (risk.max_daily_risk_capital_loss > 0.0 ||
              risk.max_weekly_risk_capital_loss > 0.0 ||
              risk.max_daily_total_pnl_loss > 0.0 ||
