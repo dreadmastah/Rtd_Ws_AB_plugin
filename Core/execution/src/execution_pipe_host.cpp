@@ -15,6 +15,7 @@
 #include "astu/execution/execution_pipe_server.hpp"
 #include "astu/execution/execution_status.hpp"
 #include "astu/execution/reconciliation_pipe_server.hpp"
+#include "astu/execution/runtime_order_reconciler.hpp"
 #include "astu/execution/simulation_order_lifecycle.hpp"
 #include "astu/execution/startup_order_reconciler.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
@@ -81,6 +82,7 @@ int main(int argc, char** argv) {
     std::uint64_t max_position_status_age_ms = 7'000;
     std::filesystem::path order_snapshot_dir;
     std::uint64_t max_order_snapshot_age_ms = 7'000;
+    std::uint64_t order_reconcile_interval_ms = 2'000;
 
     if (const char* env = std::getenv("ASTU_STATUS_DIR"); env && *env) {
         status_dir = env;
@@ -102,6 +104,10 @@ int main(int argc, char** argv) {
     }
     if (const char* env = std::getenv("ASTU_ORDER_SNAPSHOT_DIR"); env && *env) {
         order_snapshot_dir = env;
+    }
+    if (const char* env = std::getenv("ASTU_ORDER_RECONCILE_INTERVAL_MS");
+        env && *env) {
+        order_reconcile_interval_ms = std::stoull(env);
     }
 
     for (int i = 1; i < argc; ++i) {
@@ -132,6 +138,8 @@ int main(int argc, char** argv) {
             order_snapshot_dir = argv[++i];
         } else if (arg == "--max-order-snapshot-age-ms" && i + 1 < argc) {
             max_order_snapshot_age_ms = std::stoull(argv[++i]);
+        } else if (arg == "--order-reconcile-interval-ms" && i + 1 < argc) {
+            order_reconcile_interval_ms = std::stoull(argv[++i]);
         } else {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
@@ -192,6 +200,9 @@ int main(int argc, char** argv) {
 
     astu::execution::StartupOrderReconciliationReport
         startup_order_report;
+    std::shared_ptr<
+        astu::execution::FileBackedSimulationOrderSnapshotProvider>
+        order_snapshot_provider;
     const bool startup_order_snapshot_required =
         !order_snapshot_dir.empty();
     const std::string startup_order_snapshot_provider_name =
@@ -199,14 +210,14 @@ int main(int argc, char** argv) {
             ? "FILE_BACKED_AUTHORITATIVE_SIMULATION_ORDER_STATE"
             : "DISABLED";
     if (startup_order_snapshot_required) {
-        astu::execution::FileBackedSimulationOrderSnapshotProvider
-            snapshot_provider(
+        order_snapshot_provider = std::make_shared<
+            astu::execution::FileBackedSimulationOrderSnapshotProvider>(
                 order_snapshot_dir,
                 max_order_snapshot_age_ms);
         startup_order_report =
             astu::execution::StartupOrderReconciler::reconcile(
                 journal,
-                snapshot_provider,
+                *order_snapshot_provider,
                 utc_now_ms());
     } else {
         startup_order_report.tracked_orders =
@@ -253,7 +264,110 @@ int main(int argc, char** argv) {
         startup_order_report.matched_orders,
         startup_order_report.marked_unknown,
         startup_order_report.unresolved_orders);
+    execution_status->set_runtime_order_reconciliation(
+        startup_order_snapshot_required,
+        0,
+        0,
+        0,
+        0,
+        0,
+        startup_order_report.unresolved_orders,
+        0,
+        0,
+        0,
+        0);
     execution_status->publish();
+
+    std::jthread runtime_order_reconciliation_thread;
+    if (order_snapshot_provider) {
+        runtime_order_reconciliation_thread = std::jthread(
+            [journal,
+             execution_status,
+             order_snapshot_provider,
+             order_reconcile_interval_ms,
+             recovered_orders_at_startup,
+             recovered_reconciliation_events_at_startup](
+                std::stop_token stop) {
+                std::uint64_t sweep_count = 0;
+                std::uint64_t sweep_errors = 0;
+                astu::execution::RuntimeOrderReconciliationReport
+                    last_report;
+
+                while (!stop.stop_requested()) {
+                    const auto sweep_utc_ms =
+                        static_cast<std::uint64_t>(utc_now_ms());
+                    try {
+                        last_report =
+                            astu::execution::RuntimeOrderReconciler::sweep(
+                                journal,
+                                *order_snapshot_provider,
+                                static_cast<std::int64_t>(
+                                    sweep_utc_ms));
+                        ++sweep_count;
+                        execution_status->set_runtime_order_reconciliation(
+                            true,
+                            sweep_utc_ms,
+                            sweep_count,
+                            last_report.tracked_nonterminal_orders,
+                            last_report.matched_orders,
+                            last_report.marked_unknown,
+                            last_report.unresolved_orders,
+                            last_report.source_unavailable_orders,
+                            last_report.terminal_orders_skipped,
+                            last_report.concurrent_state_changes,
+                            sweep_errors);
+                        execution_status->set_order_state_metrics(
+                            recovered_orders_at_startup,
+                            journal->recovered_order_count(),
+                            journal->order_transition_count(),
+                            recovered_reconciliation_events_at_startup,
+                            journal->reconciliation_event_count());
+                        execution_status->publish();
+                    } catch (const std::exception& exc) {
+                        ++sweep_errors;
+                        execution_status->set_runtime_order_reconciliation(
+                            true,
+                            sweep_utc_ms,
+                            sweep_count,
+                            last_report.tracked_nonterminal_orders,
+                            last_report.matched_orders,
+                            last_report.marked_unknown,
+                            last_report.unresolved_orders,
+                            last_report.source_unavailable_orders,
+                            last_report.terminal_orders_skipped,
+                            last_report.concurrent_state_changes,
+                            sweep_errors);
+                        execution_status->set_degraded(
+                            std::string(
+                                "runtime order reconciliation sweep failed: ") +
+                            exc.what());
+                        try {
+                            execution_status->publish();
+                        } catch (...) {
+                        }
+                        std::cerr
+                            << "runtime order reconciliation sweep failed: "
+                            << exc.what() << "\n";
+                    }
+
+                    const auto interval =
+                        std::max<std::uint64_t>(
+                            100,
+                            order_reconcile_interval_ms);
+                    std::uint64_t slept = 0;
+                    while (slept < interval &&
+                           !stop.stop_requested()) {
+                        const auto chunk =
+                            std::min<std::uint64_t>(
+                                100,
+                                interval - slept);
+                        std::this_thread::sleep_for(
+                            std::chrono::milliseconds(chunk));
+                        slept += chunk;
+                    }
+                }
+            });
+    }
 
     auto reconciliation_server =
         std::make_shared<astu::execution::ReconciliationPipeServer>(
@@ -395,6 +509,9 @@ int main(int argc, char** argv) {
                   << order_snapshot_dir.string() << "\n";
         std::cout << "MAX_ORDER_SNAPSHOT_AGE_MS="
                   << max_order_snapshot_age_ms << "\n";
+        std::cout << "ORDER_RECONCILE_INTERVAL_MS="
+                  << order_reconcile_interval_ms << "\n";
+        std::cout << "RUNTIME_ORDER_RECONCILIATION=ENABLED\n";
     }
     std::cout << "STARTUP_ORDER_TRACKED="
               << startup_order_report.tracked_orders << "\n";
@@ -404,6 +521,9 @@ int main(int argc, char** argv) {
               << startup_order_report.marked_unknown << "\n";
     std::cout << "STARTUP_ORDER_UNRESOLVED="
               << startup_order_report.unresolved_orders << "\n";
+    if (!startup_order_snapshot_required) {
+        std::cout << "RUNTIME_ORDER_RECONCILIATION=DISABLED\n";
+    }
 
     for (;;) {
         try {
