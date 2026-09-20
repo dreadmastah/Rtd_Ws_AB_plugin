@@ -17,6 +17,8 @@ int main(int argc, char** argv) {
     std::string case_id = "1";
     auto expected = astu::core::DecisionCode::OrderRoutingDisabled;
     double trigger_price = 100'000.0;
+    auto action = astu::core::SignalAction::Buy;
+    auto side = astu::core::PositionSide::Long;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -30,6 +32,10 @@ int main(int argc, char** argv) {
             expected = astu::ipc::decision_from_string(argv[++i]);
         } else if (arg == "--trigger-price" && i + 1 < argc) {
             trigger_price = std::stod(argv[++i]);
+        } else if (arg == "--action" && i + 1 < argc) {
+            action = astu::ipc::action_from_string(argv[++i]);
+        } else if (arg == "--side" && i + 1 < argc) {
+            side = astu::ipc::side_from_string(argv[++i]);
         } else {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
@@ -45,8 +51,8 @@ int main(int argc, char** argv) {
     seed.strategy_id = "live-pipe-smoke";
     seed.strategy_version = "1";
     seed.symbol = symbol;
-    seed.action = astu::core::SignalAction::Buy;
-    seed.side = astu::core::PositionSide::Long;
+    seed.action = action;
+    seed.side = side;
     seed.source_periodicity = "M1";
     seed.source_bar_time_utc_ms = now - 60'000;
     seed.signal_time_utc_ms = now;
