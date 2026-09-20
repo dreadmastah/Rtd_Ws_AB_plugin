@@ -82,6 +82,9 @@
     "initialMargin": {
       "type": "number",
       "minimum": 0
+    },
+    "netDirectionalNotional": {
+      "type": "number"
     }
   }
 }
