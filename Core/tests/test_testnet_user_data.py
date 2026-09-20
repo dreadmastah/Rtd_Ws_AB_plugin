@@ -2,6 +2,7 @@
 from __future__ import annotations
 import importlib.util
 import json
+import sys
 import tempfile
 from pathlib import Path
 
@@ -10,6 +11,7 @@ MOD = ROOT / "account" / "binance_usdm_testnet_user_data.py"
 spec = importlib.util.spec_from_file_location("testnet_user_data", MOD)
 assert spec and spec.loader
 m = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = m
 spec.loader.exec_module(m)
 
 def write(path: Path, obj: dict) -> None:
@@ -21,7 +23,7 @@ def main() -> int:
         root = Path(td)
         journal = root / "journal.jsonl"
         order_id = "SIMORD-0123456789abcdef0123456789abcdef"
-        client_id = m.deterministic_client = "ASTU-0123456789abcdef0123456789abcdef"
+        client_id = "ASTU-123456789abcdef0123456789abcdef"
         journal.write_text(json.dumps({
             "schemaVersion":1,
             "eventType":"TESTNET_ORDER_SUBMISSION_ATTEMPT",
