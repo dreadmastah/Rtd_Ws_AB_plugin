@@ -62,6 +62,23 @@ set BINANCE_API_SECRET=...
 python Core\stack\autotrader_sim_launcher.py --risk-mode readonly --instrument-mode public
 ```
 
+## Projected pending and symbol limits
+
+The supervisor forwards two optional simulation risk limits to the execution host:
+
+```cmd
+python Core\stack\autotrader_sim_launcher.py ^
+  --risk-mode fixture ^
+  --max-pending-entry-scale-in-reservations 4 ^
+  --max-symbol-notional 2500
+```
+
+A value of `0` disables that specific limit.
+
+When `--max-symbol-notional` is enabled in fixture/read-only mode, the execution host requires a fresh reconciled `PositionSnapshot.v1` for the requested symbol so current symbol notional can be combined with active reservations. Missing/stale/unreconciled symbol exposure fails closed.
+
+The pending-entry/scale-in limit counts active simulation exposure reservations. It does not claim to be an exchange open-order count; exchange private-order reconciliation remains outside this no-submission increment.
+
 ## Synthetic projected-risk controls
 
 The execution host synthetic mode exposes test-only limits for projected-risk acceptance:
