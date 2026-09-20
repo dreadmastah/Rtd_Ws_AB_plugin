@@ -259,11 +259,25 @@ def write_atomic(path: Path, obj: dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
-def load_fixture(path: Path) -> list[dict[str, Any]]:
+def load_fixture(path: Path, *, now_ms: int) -> list[dict[str, Any]]:
     obj = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(obj, list):
         raise IncomeReconcilerError("income fixture must contain a JSON array")
-    return obj
+    rows: list[dict[str, Any]] = []
+    for raw in obj:
+        if not isinstance(raw, dict):
+            raise IncomeReconcilerError("income fixture contains non-object row")
+        row = dict(raw)
+        if "timeOffsetMs" in row:
+            try:
+                offset = int(row.pop("timeOffsetMs"))
+            except (TypeError, ValueError) as exc:
+                raise IncomeReconcilerError(
+                    "income fixture has invalid timeOffsetMs"
+                ) from exc
+            row["time"] = now_ms + offset
+        rows.append(row)
+    return rows
 
 
 def signed_get_income_page(
@@ -431,7 +445,7 @@ def main() -> int:
         now_ms = int(time.time() * 1000)
         try:
             rows = (
-                load_fixture(args.fixture)
+                load_fixture(args.fixture, now_ms=now_ms)
                 if fixture_mode
                 else signed_get_week_income(
                     base_url=args.base_url,
