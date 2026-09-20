@@ -119,7 +119,24 @@ public:
             << (response.would_increase_exposure ? "true" : "false")
             << ",\"simulatedQuantity\":" << response.simulated_quantity
             << ",\"simulatedNotional\":" << response.simulated_notional
-            << ",\"orderRoutingEnabled\":false"
+            << ",\"orderRoutingEnabled\":"
+            << (response.order_routing_enabled ? "true" : "false")
+            << ",\"executionEnvironment\":\""
+            << astu::ipc::json_escape(
+                   response.execution_environment)
+            << "\""
+            << ",\"exchangeClientOrderId\":\""
+            << astu::ipc::json_escape(
+                   response.exchange_client_order_id)
+            << "\""
+            << ",\"exchangeOrderId\":\""
+            << astu::ipc::json_escape(
+                   response.exchange_order_id)
+            << "\""
+            << ",\"exchangeOrderStatus\":\""
+            << astu::ipc::json_escape(
+                   response.exchange_order_status)
+            << "\""
             << ",\"reason\":\"" << astu::ipc::json_escape(response.reason) << "\""
             << "}\n";
 
