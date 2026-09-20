@@ -14,6 +14,7 @@ struct ExposureReservationSummary {
     std::uint32_t reserved_position_slots{0};
     std::uint64_t symbol_active_reservations{0};
     double symbol_reserved_gross_notional{0.0};
+    double reserved_available_balance{0.0};
 };
 
 class ExposureReservationRiskOverlay {
@@ -53,6 +54,12 @@ public:
                     reservations.symbol_reserved_gross_notional));
         risk.max_symbol_notional =
             std::max(0.0, max_symbol_notional);
+        risk.available_balance = std::max(
+            0.0,
+            risk.available_balance -
+                std::max(
+                    0.0,
+                    reservations.reserved_available_balance));
         return risk;
     }
 };
