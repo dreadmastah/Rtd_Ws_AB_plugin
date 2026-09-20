@@ -9,10 +9,16 @@
 int main(int argc, char** argv) {
 #ifdef _WIN32
     bool expect_duplicate = false;
+    std::string case_id = "1";
+    auto expected = astu::core::DecisionCode::OrderRoutingDisabled;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--expect-duplicate") {
             expect_duplicate = true;
+        } else if (arg == "--case-id" && i + 1 < argc) {
+            case_id = argv[++i];
+        } else if (arg == "--expect" && i + 1 < argc) {
+            expected = astu::ipc::decision_from_string(argv[++i]);
         } else {
             std::cerr << "unknown argument: " << arg << "\n";
             return 2;
@@ -22,12 +28,12 @@ int main(int argc, char** argv) {
         std::chrono::system_clock::now().time_since_epoch()).count();
 
     astu::ipc::SimulationRequest request;
-    request.request_id = "PIPE-SMOKE-REQ-1";
-    request.idempotency_key = "PIPE-SMOKE-IDEMPOTENCY-1";
+    request.request_id = "PIPE-SMOKE-REQ-" + case_id;
+    request.idempotency_key = "PIPE-SMOKE-IDEMPOTENCY-" + case_id;
 
     auto& intent = request.intent;
-    intent.signal_id = "PIPE-SMOKE-SIGNAL-1";
-    intent.analysis_run_id = "PIPE-SMOKE-AA-1";
+    intent.signal_id = "PIPE-SMOKE-SIGNAL-" + case_id;
+    intent.analysis_run_id = "PIPE-SMOKE-AA-" + case_id;
     intent.strategy_id = "pipe-smoke";
     intent.strategy_version = "1";
     intent.universe_id = "wsrtd-r2-bootstrap";
@@ -59,10 +65,10 @@ int main(int argc, char** argv) {
         std::cout << "simulatedQuantity=" << response.simulated_quantity << "\n";
         std::cout << "simulatedNotional=" << response.simulated_notional << "\n";
         std::cout << "reason=" << response.reason << "\n";
-        const auto expected = expect_duplicate
+        const auto effective_expected = expect_duplicate
             ? astu::core::DecisionCode::DuplicateRequest
-            : astu::core::DecisionCode::OrderRoutingDisabled;
-        return response.decision_code == expected ? 0 : 1;
+            : expected;
+        return response.decision_code == effective_expected ? 0 : 1;
     } catch (const std::exception& exc) {
         std::cerr << "pipe smoke failed: " << exc.what() << "\n";
         return 2;
