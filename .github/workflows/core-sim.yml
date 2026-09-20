@@ -42,6 +42,7 @@ jobs:
           python -m py_compile Core/stack/autotrader_sim_launcher.py
           python -m py_compile Core/instrument/binance_usdm_instrument_rules.py
           python -m py_compile Core/order_state/simulated_order_state_source.py
+          python -m py_compile Core/operator/account_risk_view.py
 
       - name: Authoritative simulation order snapshot source
         shell: bash
@@ -204,6 +205,12 @@ jobs:
 
       - name: Realized income reconciliation semantics
         run: python Core/account/tests/test_income_reconciler.py
+
+      - name: Account Risk operator view semantics
+        run: python Core/tests/test_account_risk_view.py
+
+      - name: Account Risk operator view schema
+        run: python Core/tests/test_account_risk_view_schema.py
 
       - name: Read-only realized income fixture
         shell: bash
