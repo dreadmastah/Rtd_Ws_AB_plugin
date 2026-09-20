@@ -20,7 +20,11 @@ class ExposureReservationRiskOverlay {
 public:
     static astu::core::AccountRiskSnapshot apply(
         astu::core::AccountRiskSnapshot risk,
-        const ExposureReservationSummary& reservations) noexcept {
+        const ExposureReservationSummary& reservations,
+        std::uint64_t max_pending_entry_scale_in_reservations = 0,
+        bool symbol_exposure_reconciled = false,
+        double reconciled_symbol_notional = 0.0,
+        double max_symbol_notional = 0.0) noexcept {
         risk.gross_notional = std::max(
             0.0,
             risk.gross_notional +
@@ -34,6 +38,21 @@ public:
             std::min<std::uint64_t>(
                 projected_positions,
                 std::numeric_limits<std::uint32_t>::max()));
+
+        risk.pending_entry_scale_in_reservations =
+            reservations.active_reservations;
+        risk.max_pending_entry_scale_in_reservations =
+            max_pending_entry_scale_in_reservations;
+        risk.symbol_exposure_reconciled =
+            symbol_exposure_reconciled;
+        risk.symbol_notional = std::max(
+            0.0,
+            reconciled_symbol_notional +
+                std::max(
+                    0.0,
+                    reservations.symbol_reserved_gross_notional));
+        risk.max_symbol_notional =
+            std::max(0.0, max_symbol_notional);
         return risk;
     }
 };
