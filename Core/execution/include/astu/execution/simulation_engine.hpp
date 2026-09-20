@@ -329,8 +329,20 @@ public:
             return risk_result;
         }
         const double quantity = PositionSizer::simulate_quantity(intent, risk);
+        const double notional = quantity * intent.trigger_price;
+        if (!std::isfinite(quantity) || !std::isfinite(notional) ||
+            quantity <= 0.0 || notional <= 0.0) {
+            return {
+                astu::core::DecisionCode::SizingRejected,
+                false,
+                astu::core::increases_exposure(intent.action),
+                0.0,
+                0.0,
+                "legacy simulation sizing produced no positive projected quantity",
+            };
+        }
         return OrderManager::simulate_only(
-            intent, quantity, quantity * intent.trigger_price);
+            intent, quantity, notional);
     }
 
     static astu::core::SimulationDecision run_with_instrument(
