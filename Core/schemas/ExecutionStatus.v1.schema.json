@@ -24,6 +24,8 @@
     "trackedOrders",
     "recoveredOrdersAtStartup",
     "orderTransitionCount",
+    "reconciliationEventCount",
+    "recoveredReconciliationEventsAtStartup",
     "lastDecisionCode",
     "detail"
   ],
@@ -114,6 +116,14 @@
       "minimum": 0
     },
     "trackedOrders": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "recoveredReconciliationEventsAtStartup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reconciliationEventCount": {
       "type": "integer",
       "minimum": 0
     }
