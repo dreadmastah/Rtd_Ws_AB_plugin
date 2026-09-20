@@ -22,7 +22,9 @@ del /q "%FIRST%" >nul 2>nul
 rem Phase A: effective leverage.
 start "ASTU Effective Leverage Host" /b "%HOST%" ^
   --synthetic ^
-  --synthetic-available-balance 5 ^
+  --synthetic-available-balance 1000 ^
+  --synthetic-margin-balance 5 ^
+  --synthetic-initial-margin 0 ^
   --synthetic-max-gross-notional 100000 ^
   --max-effective-leverage 2 ^
   --journal "%JOURNAL%" ^
@@ -55,7 +57,9 @@ del /q "%STATUS%" >nul 2>nul
 rem Phase B: margin utilization with durable projected margin.
 start "ASTU Margin Utilization Host 1" /b "%HOST%" ^
   --synthetic ^
-  --synthetic-available-balance 10 ^
+  --synthetic-available-balance 1000 ^
+  --synthetic-margin-balance 10 ^
+  --synthetic-initial-margin 0 ^
   --synthetic-max-gross-notional 100000 ^
   --simulation-margin-reservation-rate 0.5 ^
   --max-margin-utilization 0.5 ^
@@ -94,7 +98,9 @@ ping -n 2 127.0.0.1 >nul
 
 start "ASTU Margin Utilization Host 2" /b "%HOST%" ^
   --synthetic ^
-  --synthetic-available-balance 10 ^
+  --synthetic-available-balance 1000 ^
+  --synthetic-margin-balance 10 ^
+  --synthetic-initial-margin 0 ^
   --synthetic-max-gross-notional 100000 ^
   --simulation-margin-reservation-rate 0.5 ^
   --max-margin-utilization 0.5 ^
