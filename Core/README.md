@@ -12,7 +12,7 @@ This code cannot submit an exchange order. It contains no Binance private API cl
 - `trade_plugin/` - `SignalIntentBuilder` scaffold for the future Trade.dll boundary.
 - `wsrtd/` - adapter from observable R2 cache/freshness state to `DataStatus`.
 - `execution/` - fail-closed intent validation, account risk gate, deterministic simulation sizing, instrument filters, durable journal, and disabled order manager.
-- `account/` - read-only private-account boundary plus stale/missing fail-closed risk snapshot provider.
+- `account/` - read-only private-account boundary plus stale/missing fail-closed risk and per-symbol position snapshot providers.
 - `instrument/` - versioned symbol constraints provider for quantity step, min/max quantity and notional filters.
 - `schemas/` - JSON Schema Draft 2020-12 contracts for `SignalIntent.v1` and `DataStatus.v1`.
 - `tests/` - deterministic simulation-only checks.
@@ -44,7 +44,7 @@ The stack now publishes two local runtime layers:
 
 The runtime `cacheReady` flag is a compatibility readiness signal derived from an observed successful full bounded receiver hydration in the current WSRTD server process. It is not a direct DLL-memory cache inspection.
 
-The live host now consumes a separate reconciled `AccountRiskSnapshot.v1` file. Missing, stale, malformed, or unreconciled account state fails closed before sizing. The `--synthetic` mode still uses a deterministic risk snapshot strictly for transport tests. Order routing remains disabled.
+The live host now consumes a separate reconciled `AccountRiskSnapshot.v1` file plus optional per-symbol `PositionSnapshot.v1` files from the same read-only account reconciliation cycle. Missing, stale, malformed, or unreconciled account state fails closed before sizing. Scale-In and Scale-Out additionally require reconciled symbol position state; a flat, hedged, side-conflicting, missing, or stale position fails closed. The `--synthetic` mode still uses deterministic state strictly for transport tests. Order routing remains disabled.
 
 ## Durable execution journal and replay guard
 
@@ -112,6 +112,20 @@ Missing, stale, malformed or symbol-mismatched instrument constraints fail close
 
 The existing execution transport can opt into an instrument provider; legacy transport tests remain on the prior synthetic sizing path until a public exchange-info publisher is wired to the runtime.
 
+## Reconciled position-state semantics
+
+The read-only Binance account reconciler now publishes one `PositionSnapshot.v1` per selected bootstrap symbol. The snapshot is derived from the same account response as `AccountRiskSnapshot.v1` and records `FLAT`, `LONG`, `SHORT`, `HEDGED`, or fail-closed `UNKNOWN` state.
+
+For the current simulation semantics:
+
+- `SCALE_IN` requires a reconciled, non-flat position on the same side as the SignalIntent.
+- `SCALE_OUT` requires the same and caps simulated quantity at the reconciled absolute position quantity.
+- hedged/ambiguous position state returns `POSITION_CONFLICT`;
+- missing/stale/unreconciled position state returns `POSITION_UNAVAILABLE`;
+- ordinary BUY/SELL signals retain the existing validation path and do not invent a position-side interpretation beyond the SignalIntent fields.
+
+This deliberately avoids guessing broader BUY/SELL position semantics that are not yet locked into the compatibility contract.
+
 ## Current next implementation step
 
-After this deterministic sizing/filter contract is green in CI, the next increment is to publish current Binance USD-M public instrument filters into local `InstrumentConstraints.v1` snapshots and wire the live execution host to require them. Exchange order submission remains absent.
+With data identity, account risk, public instrument rules, and scale-action position state connected, the next simulation-only increment is an explicit order-intent/FSM model: deterministic client order identity, NEW/CANCELLED/FILLED simulation states, transition validation, and restart recovery without any exchange submission endpoint.
