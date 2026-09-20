@@ -118,6 +118,23 @@ public:
             }
         }
         if (exposure &&
+            risk.max_net_directional_notional > 0.0) {
+            if (!risk.net_directional_reconciled) {
+                return {DecisionCode::AccountNotReconciled, false, exposure,
+                        0.0, 0.0,
+                        "configured net directional limit requires reconciled signed exposure"};
+            }
+            const double direction =
+                intent.side == astu::core::PositionSide::Long
+                    ? 1.0
+                    : -1.0;
+            if (direction * risk.net_directional_notional >=
+                risk.max_net_directional_notional) {
+                return {DecisionCode::RiskBlocked, false, exposure, 0.0, 0.0,
+                        "maximum net directional exposure reached"};
+            }
+        }
+        if (exposure &&
             risk.minimum_available_balance_reserve > 0.0 &&
             risk.available_balance <=
                 risk.minimum_available_balance_reserve) {
@@ -305,6 +322,23 @@ public:
                         risk.symbol_notional));
         }
         if (astu::core::increases_exposure(intent.action) &&
+            risk.max_net_directional_notional > 0.0) {
+            if (!risk.net_directional_reconciled) {
+                return 0.0;
+            }
+            const double direction =
+                intent.side == astu::core::PositionSide::Long
+                    ? 1.0
+                    : -1.0;
+            budget = std::min(
+                budget,
+                std::max(
+                    0.0,
+                    risk.max_net_directional_notional -
+                        direction *
+                            risk.net_directional_notional));
+        }
+        if (astu::core::increases_exposure(intent.action) &&
             risk.max_effective_leverage > 0.0) {
             if (!risk.margin_metrics_reconciled ||
                 risk.margin_balance <= 0.0) {
@@ -386,6 +420,23 @@ public:
             budget = std::min(budget, symbol_headroom);
         }
 
+        if (astu::core::increases_exposure(intent.action) &&
+            risk.max_net_directional_notional > 0.0) {
+            if (!risk.net_directional_reconciled) {
+                return out;
+            }
+            const double direction =
+                intent.side == astu::core::PositionSide::Long
+                    ? 1.0
+                    : -1.0;
+            budget = std::min(
+                budget,
+                std::max(
+                    0.0,
+                    risk.max_net_directional_notional -
+                        direction *
+                            risk.net_directional_notional));
+        }
         if (astu::core::increases_exposure(intent.action) &&
             risk.max_effective_leverage > 0.0) {
             if (!risk.margin_metrics_reconciled ||
