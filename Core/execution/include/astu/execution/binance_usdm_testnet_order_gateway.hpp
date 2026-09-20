@@ -114,10 +114,24 @@ inline std::string decimal_text(double value) {
         throw std::invalid_argument(
             "order quantity must be finite and positive");
     }
+
+    // Binance quantity parameters are decimal strings. Avoid emitting the
+    // binary floating-point round-trip tail (for example,
+    // 0.10199999999999999 for the logical step-rounded value 0.102).
     std::ostringstream out;
-    out << std::setprecision(
-        std::numeric_limits<double>::max_digits10) << value;
-    return out.str();
+    out << std::fixed << std::setprecision(15) << value;
+    auto text = out.str();
+    while (!text.empty() && text.back() == '0') {
+        text.pop_back();
+    }
+    if (!text.empty() && text.back() == '.') {
+        text.pop_back();
+    }
+    if (text.empty() || text == "0") {
+        throw std::invalid_argument(
+            "order quantity rounds to zero decimal text");
+    }
+    return text;
 }
 
 inline std::string build_testnet_order_query_params(
