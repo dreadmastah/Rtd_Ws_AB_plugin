@@ -312,3 +312,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_projected_risk_limits_smoke.cmd
+
+      - name: Windows available-balance margin reservation smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_available_balance_reservation_smoke.cmd
