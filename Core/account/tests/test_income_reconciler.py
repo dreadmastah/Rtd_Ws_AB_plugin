@@ -79,7 +79,25 @@ def main() -> int:
     assert state["messageType"] == "RealizedPnlAccumulatorState.v1"
     assert state["dailyRealizedTradePnl"] == snapshot["dailyRealizedTradePnl"]
     assert state["weeklyRealizedTradePnl"] == snapshot["weeklyRealizedTradePnl"]
+    assert state["dailyRealizedTradeLossConsumed"] == 20.0
+    assert state["weeklyRealizedTradeLossConsumed"] == 50.0
     assert state["ignoredIncomeRecords"] == 1
+
+    recovered_rows = [dict(item) for item in rows]
+    recovered_rows[0]["income"] = "30.0"
+    recovered_rows[4]["income"] = "25.0"
+    recovered_snapshot, recovered_state = income.aggregate_income(
+        recovered_rows,
+        now_ms=now_ms,
+        source="TEST_FIXTURE",
+        prior_state=state,
+    )
+    assert recovered_snapshot["dailyRealizedTradePnl"] > 0
+    assert recovered_snapshot["weeklyRealizedTradePnl"] > 0
+    assert recovered_snapshot["dailyRealizedTradeLoss"] == 20.0
+    assert recovered_snapshot["weeklyRealizedTradeLoss"] == 50.0
+    assert recovered_state["dailyRealizedTradeLossConsumed"] == 20.0
+    assert recovered_state["weeklyRealizedTradeLossConsumed"] == 50.0
 
     with tempfile.TemporaryDirectory() as tmp:
         status_path = Path(tmp) / "status.json"
@@ -90,6 +108,22 @@ def main() -> int:
         persisted_state = json.loads(state_path.read_text(encoding="utf-8"))
         assert persisted_status == snapshot
         assert persisted_state == state
+
+    mixed_asset = [
+        row("REALIZED_PNL", -1.0, day_start + 1, 12),
+    ]
+    mixed_asset[0]["asset"] = "USDC"
+    mixed_failed = False
+    try:
+        income.aggregate_income(
+            mixed_asset,
+            now_ms=now_ms,
+            source="TEST_FIXTURE",
+            settlement_asset="USDT",
+        )
+    except income.IncomeReconcilerError:
+        mixed_failed = True
+    assert mixed_failed
 
     invalid = [row("REALIZED_PNL", -1.0, day_start + 1, 11)]
     invalid[0]["income"] = "nan"
