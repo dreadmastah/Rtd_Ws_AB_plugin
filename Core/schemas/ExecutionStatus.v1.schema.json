@@ -50,6 +50,26 @@
     "maxMarginUtilization",
     "reservedNetDirectionalNotional",
     "maxNetDirectionalNotional",
+    "accountLossBaselineEnabled",
+    "accountLossBaselineFile",
+    "accountLossMetricsReady",
+    "accountLossUtcDayIndex",
+    "accountLossUtcWeekStartDayIndex",
+    "dailyStartRiskCapital",
+    "weeklyStartRiskCapital",
+    "dailyStartMarginBalance",
+    "weeklyStartMarginBalance",
+    "highWaterMarginBalance",
+    "dailyRiskCapitalLoss",
+    "weeklyRiskCapitalLoss",
+    "dailyTotalPnlLoss",
+    "weeklyTotalPnlLoss",
+    "accountDrawdown",
+    "maxDailyRiskCapitalLoss",
+    "maxWeeklyRiskCapitalLoss",
+    "maxDailyTotalPnlLoss",
+    "maxWeeklyTotalPnlLoss",
+    "maxAccountDrawdown",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -293,6 +313,84 @@
       "type": "number"
     },
     "maxNetDirectionalNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "accountLossBaselineEnabled": {
+      "type": "boolean"
+    },
+    "accountLossBaselineFile": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "accountLossMetricsReady": {
+      "type": "boolean"
+    },
+    "accountLossUtcDayIndex": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "accountLossUtcWeekStartDayIndex": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dailyStartRiskCapital": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyStartRiskCapital": {
+      "type": "number",
+      "minimum": 0
+    },
+    "dailyStartMarginBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyStartMarginBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "highWaterMarginBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "dailyRiskCapitalLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyRiskCapitalLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "dailyTotalPnlLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyTotalPnlLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "accountDrawdown": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxDailyRiskCapitalLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxWeeklyRiskCapitalLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxDailyTotalPnlLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxWeeklyTotalPnlLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxAccountDrawdown": {
       "type": "number",
       "minimum": 0
     }
