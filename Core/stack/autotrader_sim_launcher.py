@@ -35,6 +35,7 @@ FIXTURE = ROOT / "account" / "tests" / "fixtures" / "binance_usdm_account_v3.jso
 INSTRUMENT_PUBLISHER = ROOT / "instrument" / "binance_usdm_instrument_rules.py"
 INSTRUMENT_FIXTURE = ROOT / "instrument" / "tests" / "fixtures" / "binance_usdm_exchange_info_bootstrap12.json"
 INSTRUMENT_DIR = RUNTIME / "instrument_constraints"
+ORDER_SNAPSHOT_DIR = RUNTIME / "authoritative_order_snapshots"
 
 RUNTIME.mkdir(parents=True, exist_ok=True)
 LOGS.mkdir(parents=True, exist_ok=True)
@@ -128,6 +129,11 @@ def run(args: argparse.Namespace) -> int:
     journal = Path(args.journal).resolve()
     execution_status_file = Path(args.execution_status_file).resolve()
     instrument_dir = Path(args.instrument_dir).resolve()
+    order_snapshot_dir = (
+        Path(args.order_snapshot_dir).resolve()
+        if args.order_snapshot_dir
+        else None
+    )
 
     if not host.exists():
         print(f"ASTU_SIM_STACK_FATAL=missing execution host {host}")
@@ -269,6 +275,13 @@ def run(args: argparse.Namespace) -> int:
                 "--max-position-status-age-ms",
                 str(args.max_position_status_age_ms),
             ])
+        if order_snapshot_dir is not None:
+            host_command.extend([
+                "--order-snapshot-dir",
+                str(order_snapshot_dir),
+                "--max-order-snapshot-age-ms",
+                str(args.max_order_snapshot_age_ms),
+            ])
         children["execution"] = start_child("execution", host_command)
         save_pids(children)
 
@@ -283,6 +296,11 @@ def run(args: argparse.Namespace) -> int:
         print(f"INSTRUMENT_MODE={args.instrument_mode}")
         if instrument_command is not None:
             print(f"INSTRUMENT_STATUS_DIR={instrument_dir}")
+        if order_snapshot_dir is not None:
+            print(f"ORDER_SNAPSHOT_DIR={order_snapshot_dir}")
+            print("ORDER_SNAPSHOT_PROVIDER=FILE_BACKED_AUTHORITATIVE_SIMULATION_ORDER_STATE")
+        else:
+            print("ORDER_SNAPSHOT_PROVIDER=DISABLED")
         print("ORDER_ROUTING_ENABLED=false")
 
         while not stop_requested:
@@ -366,6 +384,15 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--instrument-dir", default=str(INSTRUMENT_DIR))
     ap.add_argument("--instrument-poll-seconds", type=float, default=3600.0)
     ap.add_argument("--max-instrument-status-age-ms", type=int, default=86400000)
+    ap.add_argument(
+        "--order-snapshot-dir",
+        default="",
+        help=(
+            "Optional directory containing AuthoritativeSimulationOrderSnapshot.v1 "
+            "files used only for startup reconciliation."
+        ),
+    )
+    ap.add_argument("--max-order-snapshot-age-ms", type=int, default=7000)
     ap.add_argument("--max-status-age-ms", type=int, default=5000)
     ap.add_argument("--max-risk-status-age-ms", type=int, default=7000)
     ap.add_argument("--restart-delay-seconds", type=float, default=2.0)
