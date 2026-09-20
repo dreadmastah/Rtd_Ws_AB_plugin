@@ -187,8 +187,17 @@ def validate_status(status: dict[str, Any]) -> None:
         raise ValueError("unsupported ExecutionStatus schemaVersion")
     if status.get("messageType") != "ExecutionStatus.v1":
         raise ValueError("expected ExecutionStatus.v1")
-    if status.get("orderRoutingEnabled") is not False:
-        raise ValueError("operator view refuses status with orderRoutingEnabled != false")
+    routing_enabled = _boolean(status, "orderRoutingEnabled")
+    environment = _string(status, "executionEnvironment")
+    if routing_enabled and environment != "BINANCE_USDM_TESTNET":
+        raise ValueError(
+            "operator view refuses routing outside BINANCE_USDM_TESTNET"
+        )
+    if not routing_enabled and environment not in (
+        "SIMULATION_ONLY",
+        "BINANCE_USDM_TESTNET",
+    ):
+        raise ValueError("unsupported executionEnvironment")
     generated = _integer(status, "generatedUnixMs")
     if generated <= 0:
         raise ValueError("generatedUnixMs must be positive")
@@ -480,7 +489,8 @@ def build_view(
         "lifecycleState": _string(status, "lifecycleState"),
         "riskProvider": _string(status, "riskProvider"),
         "realizedPnlProvider": _string(status, "realizedPnlProvider"),
-        "orderRoutingEnabled": False,
+        "orderRoutingEnabled": _boolean(status, "orderRoutingEnabled"),
+        "executionEnvironment": _string(status, "executionEnvironment"),
         "gateState": gate_state,
         "blockReasons": reasons,
         "periods": {
@@ -656,6 +666,7 @@ def build_error_view(
         "riskProvider": "UNKNOWN",
         "realizedPnlProvider": "UNKNOWN",
         "orderRoutingEnabled": False,
+        "executionEnvironment": "SIMULATION_ONLY",
         "gateState": "ACCOUNT_NOT_RECONCILED",
         "blockReasons": [f"ACCOUNT_NOT_RECONCILED:EXECUTION_STATUS_ERROR:{reason}"],
         "periods": {
@@ -837,7 +848,8 @@ small {{ opacity: .8; }}
 </header>
 <div class="notice">
 <strong>No order controls exist in this view.</strong>
-orderRoutingEnabled=false. This page only renders local ExecutionStatus.v1 evidence.
+Environment: {esc(str(view['executionEnvironment']))}. Routing enabled: {esc(_fmt(view['orderRoutingEnabled']))}.
+This page only renders local ExecutionStatus.v1 evidence.
 </div>
 <div class="grid">
 <div class="card"><dl>
