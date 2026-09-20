@@ -14,6 +14,8 @@
     "riskProvider",
     "instrumentProvider",
     "instrumentRulesRequired",
+    "positionProvider",
+    "positionStateRequiredForScaleActions",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -23,26 +25,82 @@
     "detail"
   ],
   "properties": {
-    "schemaVersion": {"const": 1},
-    "messageType": {"const": "ExecutionStatus.v1"},
-    "generatedUnixMs": {"type": "integer", "minimum": 1},
-    "processId": {"type": "integer", "minimum": 1},
-    "lifecycleState": {
-      "enum": ["STARTING", "READY", "DEGRADED", "STOPPING"]
+    "schemaVersion": {
+      "const": 1
     },
-    "dataProvider": {"type": "string", "minLength": 1, "maxLength": 128},
-    "riskProvider": {"type": "string", "minLength": 1, "maxLength": 128},
-    "instrumentProvider": {"type": "string", "minLength": 1, "maxLength": 128},
-    "instrumentRulesRequired": {"type": "boolean"},
-    "journalPath": {"type": "string", "minLength": 1, "maxLength": 1024},
-    "journalReady": {"type": "boolean"},
-    "pipeReady": {"type": "boolean"},
-    "orderRoutingEnabled": {"const": false},
-    "requestsSeen": {"type": "integer", "minimum": 0},
+    "messageType": {
+      "const": "ExecutionStatus.v1"
+    },
+    "generatedUnixMs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "processId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "lifecycleState": {
+      "enum": [
+        "STARTING",
+        "READY",
+        "DEGRADED",
+        "STOPPING"
+      ]
+    },
+    "dataProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "riskProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "instrumentProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "instrumentRulesRequired": {
+      "type": "boolean"
+    },
+    "journalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "journalReady": {
+      "type": "boolean"
+    },
+    "pipeReady": {
+      "type": "boolean"
+    },
+    "orderRoutingEnabled": {
+      "const": false
+    },
+    "requestsSeen": {
+      "type": "integer",
+      "minimum": 0
+    },
     "lastDecisionCode": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "maxLength": 64
     },
-    "detail": {"type": "string", "maxLength": 512}
+    "detail": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "positionProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "positionStateRequiredForScaleActions": {
+      "const": true
+    }
   }
 }
