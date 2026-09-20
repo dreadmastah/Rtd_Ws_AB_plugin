@@ -616,21 +616,16 @@ def run_live(args: argparse.Namespace, authority: Authority) -> int:
             ws.connect()
             authority.mark_connected(now_ms())
             keepalive_due = time.monotonic() + args.keepalive_seconds
-            ping_interval = max(
-                1.0,
-                min(
-                    args.timeout_seconds / 2.0,
-                    authority.max_liveness_ms / 3000.0,
-                ),
-            )
-            ping_due = time.monotonic() + ping_interval
             while True:
-                if time.monotonic() >= ping_due:
+                try:
+                    kind, payload = ws.recv_message()
+                except (socket.timeout, TimeoutError):
+                    current = now_ms()
+                    # A locally-sent ping is not proof of remote liveness.
+                    # Publish the unchanged receive age, then request a pong.
+                    authority.publish(current)
                     ws.send_ping()
-                    authority.mark_frame(now_ms())
-                    authority.publish(now_ms())
-                    ping_due = time.monotonic() + ping_interval
-                kind, payload = ws.recv_message()
+                    continue
                 current = now_ms()
                 authority.mark_frame(current)
                 if kind == "text":
