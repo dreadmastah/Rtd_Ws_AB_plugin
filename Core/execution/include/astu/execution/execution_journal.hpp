@@ -48,9 +48,17 @@ public:
 
     explicit ExecutionJournal(
         std::filesystem::path path,
-        std::size_t replay_capacity = 100'000)
+        std::size_t replay_capacity = 100'000,
+        double default_margin_reservation_rate = 0.0)
         : path_(std::move(path)),
-          replay_capacity_(replay_capacity) {
+          replay_capacity_(replay_capacity),
+          default_margin_reservation_rate_(
+              default_margin_reservation_rate) {
+        if (!std::isfinite(default_margin_reservation_rate_) ||
+            default_margin_reservation_rate_ < 0.0) {
+            throw std::invalid_argument(
+                "default margin reservation rate must be finite and non-negative");
+        }
         if (!path_.parent_path().empty()) {
             std::filesystem::create_directories(path_.parent_path());
         }
@@ -232,6 +240,16 @@ public:
 
         const bool position_slot =
             reserves_new_position_slot(request.intent.action);
+        const double margin_reservation_rate =
+            default_margin_reservation_rate_;
+        const double reserved_available_balance =
+            response.simulated_notional *
+            margin_reservation_rate;
+        if (!std::isfinite(reserved_available_balance) ||
+            reserved_available_balance < 0.0) {
+            throw std::invalid_argument(
+                "invalid available-balance reservation");
+        }
         std::ostringstream out;
         out << std::setprecision(17);
         out
@@ -258,6 +276,10 @@ public:
             << response.simulated_quantity
             << ",\"reservedGrossNotional\":"
             << response.simulated_notional
+            << ",\"marginReservationRate\":"
+            << margin_reservation_rate
+            << ",\"reservedAvailableBalance\":"
+            << reserved_available_balance
             << ",\"reservesPositionSlot\":"
             << (position_slot ? "true" : "false")
             << ",\"simulationOnly\":true"
@@ -273,6 +295,8 @@ public:
                 request.intent.side,
                 response.simulated_quantity,
                 response.simulated_notional,
+                reserved_available_balance,
+                margin_reservation_rate,
                 position_slot,
                 true,
             });
@@ -293,6 +317,8 @@ public:
             ++summary.active_reservations;
             summary.reserved_gross_notional +=
                 reservation.reserved_gross_notional;
+            summary.reserved_available_balance +=
+                reservation.reserved_available_balance;
             if (reservation.reserves_position_slot &&
                 summary.reserved_position_slots <
                     std::numeric_limits<std::uint32_t>::max()) {
@@ -617,6 +643,8 @@ private:
         astu::core::PositionSide side{astu::core::PositionSide::Long};
         double reserved_quantity{0.0};
         double reserved_gross_notional{0.0};
+        double reserved_available_balance{0.0};
+        double margin_reservation_rate{0.0};
         bool reserves_position_slot{false};
         bool active{false};
     };
@@ -708,6 +736,8 @@ private:
             << "\""
             << ",\"releasedGrossNotional\":"
             << it->second.reserved_gross_notional
+            << ",\"releasedAvailableBalance\":"
+            << it->second.reserved_available_balance
             << ",\"releasedPositionSlot\":"
             << (it->second.reserves_position_slot ? "true" : "false")
             << ",\"terminalState\":\""
@@ -740,6 +770,28 @@ private:
             astu::ipc::require_double(obj, "reservedQuantity");
         const auto notional =
             astu::ipc::require_double(obj, "reservedGrossNotional");
+        double margin_reservation_rate =
+            default_margin_reservation_rate_;
+        double reserved_available_balance =
+            notional * margin_reservation_rate;
+        const auto rate_it = obj.find("marginReservationRate");
+        const auto balance_it =
+            obj.find("reservedAvailableBalance");
+        if ((rate_it == obj.end()) !=
+            (balance_it == obj.end())) {
+            throw std::runtime_error(
+                "exposure reservation margin fields are incomplete");
+        }
+        if (rate_it != obj.end()) {
+            margin_reservation_rate =
+                astu::ipc::require_double(
+                    obj,
+                    "marginReservationRate");
+            reserved_available_balance =
+                astu::ipc::require_double(
+                    obj,
+                    "reservedAvailableBalance");
+        }
         const bool position_slot =
             astu::ipc::require_bool(obj, "reservesPositionSlot");
 
@@ -747,6 +799,13 @@ private:
             !astu::core::increases_exposure(action) ||
             !std::isfinite(quantity) || quantity <= 0.0 ||
             !std::isfinite(notional) || notional <= 0.0 ||
+            !std::isfinite(margin_reservation_rate) ||
+            margin_reservation_rate < 0.0 ||
+            !std::isfinite(reserved_available_balance) ||
+            reserved_available_balance < 0.0 ||
+            std::fabs(
+                reserved_available_balance -
+                notional * margin_reservation_rate) > 1e-9 ||
             position_slot != reserves_new_position_slot(action) ||
             !astu::ipc::require_bool(obj, "simulationOnly") ||
             astu::ipc::require_bool(
@@ -779,6 +838,8 @@ private:
                     side,
                     quantity,
                     notional,
+                    reserved_available_balance,
+                    margin_reservation_rate,
                     position_slot,
                     true,
                 }).second) {
@@ -803,6 +864,13 @@ private:
             astu::ipc::require_double(
                 obj,
                 "releasedGrossNotional");
+        std::optional<double> released_available_balance;
+        if (obj.find("releasedAvailableBalance") != obj.end()) {
+            released_available_balance =
+                astu::ipc::require_double(
+                    obj,
+                    "releasedAvailableBalance");
+        }
         const bool released_position_slot =
             astu::ipc::require_bool(
                 obj,
@@ -812,6 +880,9 @@ private:
             !is_terminal_order_state(terminal_state) ||
             !std::isfinite(released_notional) ||
             released_notional <= 0.0 ||
+            (released_available_balance.has_value() &&
+             (!std::isfinite(*released_available_balance) ||
+              *released_available_balance < 0.0)) ||
             !astu::ipc::require_bool(obj, "simulationOnly") ||
             astu::ipc::require_bool(
                 obj,
@@ -831,6 +902,9 @@ private:
                     "exposure reservation release without reservable simulation order intent");
             }
             const auto& intent = intent_it->second;
+            const double reconstructed_available_balance =
+                intent.notional *
+                default_margin_reservation_rate_;
             exposure_reservations_.emplace(
                 order_id,
                 ExposureReservationRecord{
@@ -839,6 +913,8 @@ private:
                     intent.side,
                     intent.quantity,
                     intent.notional,
+                    reconstructed_available_balance,
+                    default_margin_reservation_rate_,
                     reserves_new_position_slot(intent.action),
                     true,
                 });
@@ -860,6 +936,10 @@ private:
             std::fabs(
                 reservation_it->second.reserved_gross_notional -
                 released_notional) > 1e-9 ||
+            (released_available_balance.has_value() &&
+             std::fabs(
+                 reservation_it->second.reserved_available_balance -
+                 *released_available_balance) > 1e-9) ||
             reservation_it->second.reserves_position_slot !=
                 released_position_slot) {
             throw std::runtime_error(
@@ -910,6 +990,9 @@ private:
                     intent.side,
                     intent.quantity,
                     intent.notional,
+                    intent.notional *
+                        default_margin_reservation_rate_,
+                    default_margin_reservation_rate_,
                     reserves_new_position_slot(intent.action),
                     true,
                 });
@@ -1171,6 +1254,7 @@ private:
 
     std::filesystem::path path_;
     std::size_t replay_capacity_{100'000};
+    double default_margin_reservation_rate_{0.0};
     mutable std::mutex mu_;
     std::deque<std::string> order_;
     std::unordered_set<std::string> seen_;
