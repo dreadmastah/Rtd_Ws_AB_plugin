@@ -30,6 +30,8 @@ REALIZED_PNL_FILE = RUNTIME / "realized_pnl_status.v1.json"
 REALIZED_PNL_STATE = RUNTIME / "realized_pnl_accumulator.v1.json"
 POSITION_DIR = RUNTIME / "position_status"
 EXECUTION_STATUS_FILE = RUNTIME / "execution_status.v1.json"
+SYMBOL_RISK_STATUS_FILE = RUNTIME / "symbol_risk_status.v1.json"
+SYMBOL_RISK_UNIVERSE_FILE = REPO / "CleanRoomR2" / "stack" / "bootstrap_symbols.tls"
 DEFAULT_STATUS_DIR = REPO / "CleanRoomR2" / "stack" / "runtime" / "autotrader_status"
 DEFAULT_HOST = REPO / "build" / "core" / "Release" / "astu_execution_pipe_host.exe"
 GATEWAY = ROOT / "account" / "binance_usdm_readonly_gateway.py"
@@ -137,6 +139,8 @@ def run(args: argparse.Namespace) -> int:
     position_dir = Path(args.position_dir).resolve()
     journal = Path(args.journal).resolve()
     execution_status_file = Path(args.execution_status_file).resolve()
+    symbol_risk_status_file = Path(args.symbol_risk_status_file).resolve()
+    symbol_risk_universe_file = Path(args.symbol_risk_universe_file).resolve()
     account_risk_view_json = Path(args.account_risk_view_json).resolve()
     account_risk_view_html = Path(args.account_risk_view_html).resolve()
     instrument_dir = Path(args.instrument_dir).resolve()
@@ -359,6 +363,10 @@ def run(args: argparse.Namespace) -> int:
             str(args.max_risk_status_age_ms),
             "--execution-status-file",
             str(execution_status_file),
+            "--symbol-risk-status-file",
+            str(symbol_risk_status_file),
+            "--symbol-risk-universe-file",
+            str(symbol_risk_universe_file),
             "--max-pending-entry-scale-in-reservations",
             str(args.max_pending_entry_scale_in_reservations),
             "--max-symbol-notional",
@@ -431,7 +439,11 @@ def run(args: argparse.Namespace) -> int:
                 str(account_risk_view_json),
                 "--output-html",
                 str(account_risk_view_html),
+                "--symbol-risk-status-file",
+                str(symbol_risk_status_file),
                 "--max-source-age-ms",
+                str(args.account_risk_view_max_source_age_ms),
+                "--max-symbol-risk-age-ms",
                 str(args.account_risk_view_max_source_age_ms),
                 "--poll-seconds",
                 str(args.account_risk_view_poll_seconds),
@@ -456,6 +468,8 @@ def run(args: argparse.Namespace) -> int:
             print(f"POSITION_STATUS_DIR={position_dir}")
         print(f"EXECUTION_JOURNAL={journal}")
         print(f"EXECUTION_STATUS_FILE={execution_status_file}")
+        print(f"SYMBOL_RISK_STATUS_FILE={symbol_risk_status_file}")
+        print(f"SYMBOL_RISK_UNIVERSE_FILE={symbol_risk_universe_file}")
         print(f"ACCOUNT_RISK_VIEW_MODE={args.account_risk_view_mode}")
         if args.account_risk_view_mode == "local":
             print(f"ACCOUNT_RISK_VIEW_JSON={account_risk_view_json}")
@@ -553,6 +567,14 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--execution-status-file",
         default=str(EXECUTION_STATUS_FILE),
+    )
+    ap.add_argument(
+        "--symbol-risk-status-file",
+        default=str(SYMBOL_RISK_STATUS_FILE),
+    )
+    ap.add_argument(
+        "--symbol-risk-universe-file",
+        default=str(SYMBOL_RISK_UNIVERSE_FILE),
     )
     ap.add_argument(
         "--account-risk-view-mode",
