@@ -74,6 +74,7 @@
     "realizedPnlRequired",
     "realizedPnlStatusFile",
     "realizedPnlReady",
+    "realizedPnlSettlementAsset",
     "dailyRealizedTradePnl",
     "weeklyRealizedTradePnl",
     "dailyRealizedTradeLoss",
@@ -474,6 +475,10 @@
     "maxWeeklyRealizedTradeLoss": {
       "type": "number",
       "minimum": 0
+    },
+    "realizedPnlSettlementAsset": {
+      "type": "string",
+      "maxLength": 16
     }
   }
 }
