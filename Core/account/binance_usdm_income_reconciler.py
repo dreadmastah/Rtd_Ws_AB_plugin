@@ -268,7 +268,15 @@ def load_fixture(path: Path, *, now_ms: int) -> list[dict[str, Any]]:
         if not isinstance(raw, dict):
             raise IncomeReconcilerError("income fixture contains non-object row")
         row = dict(raw)
-        if "timeOffsetMs" in row:
+        if "dayOffsetMs" in row:
+            try:
+                offset = int(row.pop("dayOffsetMs"))
+            except (TypeError, ValueError) as exc:
+                raise IncomeReconcilerError(
+                    "income fixture has invalid dayOffsetMs"
+                ) from exc
+            row["time"] = utc_day_start_ms(now_ms) + offset
+        elif "timeOffsetMs" in row:
             try:
                 offset = int(row.pop("timeOffsetMs"))
             except (TypeError, ValueError) as exc:
