@@ -36,6 +36,96 @@
       "notional": "0",
       "isolatedWallet": "0",
       "updateTime": 0
+    },
+    {
+      "symbol": "SOLUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "BNBUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "XRPUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "ADAUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "TRXUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "LINKUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "1000SHIBUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "DOTUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
     }
   ]
 }
