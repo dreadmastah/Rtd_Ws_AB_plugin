@@ -59,6 +59,16 @@ public:
                 astu::ipc::require_double(obj, "availableBalance");
             risk.gross_notional =
                 astu::ipc::require_double(obj, "grossNotional");
+            const auto net_directional_it =
+                obj.find("netDirectionalNotional");
+            if (net_directional_it != obj.end()) {
+                risk.net_directional_notional =
+                    astu::ipc::require_double(
+                        obj,
+                        "netDirectionalNotional");
+                risk.net_directional_reconciled =
+                    std::isfinite(risk.net_directional_notional);
+            }
             risk.max_gross_notional =
                 astu::ipc::require_double(obj, "maxGrossNotional");
             risk.open_positions = static_cast<std::uint32_t>(
