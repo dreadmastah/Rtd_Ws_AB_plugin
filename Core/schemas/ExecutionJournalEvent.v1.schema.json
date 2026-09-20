@@ -500,6 +500,14 @@
         },
         "exchangeSubmissionAttempted": {
           "const": false
+        },
+        "marginReservationRate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "reservedAvailableBalance": {
+          "type": "number",
+          "minimum": 0
         }
       }
     },
@@ -563,6 +571,10 @@
         "reason": {
           "type": "string",
           "maxLength": 512
+        },
+        "releasedAvailableBalance": {
+          "type": "number",
+          "minimum": 0
         }
       }
     }
