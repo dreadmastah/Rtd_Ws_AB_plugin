@@ -41,6 +41,8 @@
     "exposureReservationReleaseCount",
     "exposureReservationImplicitReleaseCount",
     "exposureReservationReconstructedCount",
+    "maxPendingEntryScaleInReservations",
+    "maxSymbolNotional",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -249,6 +251,14 @@
     },
     "exposureReservationReconstructedCount": {
       "type": "integer",
+      "minimum": 0
+    },
+    "maxPendingEntryScaleInReservations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxSymbolNotional": {
+      "type": "number",
       "minimum": 0
     }
   }
