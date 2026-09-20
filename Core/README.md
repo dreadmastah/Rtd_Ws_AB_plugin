@@ -342,6 +342,52 @@ The deterministic acceptance coverage proves:
 
 No exchange order submission, cancel, leverage/margin mutation or `SUBMITTING` transition is introduced.
 
+## Available-balance / margin reservations
+
+Projected exposure reservations now also reserve an execution-local available-balance budget.
+
+Two configurable settings control this simulation policy:
+
+```text
+--minimum-available-balance-reserve VALUE
+--simulation-margin-reservation-rate RATE
+```
+
+with equivalent environment variables:
+
+```text
+ASTU_MINIMUM_AVAILABLE_BALANCE_RESERVE
+ASTU_SIMULATION_MARGIN_RESERVATION_RATE
+```
+
+Both default to `0`. The architecture requires margin/reserve checks and a minimum available-balance reserve, but it does not prescribe a universal margin-per-notional formula, so this compatibility layer does not invent exchange leverage policy. When enabled, `simulationMarginReservationRate` is an explicit execution-local simulation policy: an accepted exposure-increasing order reserves
+
+`simulatedNotional * simulationMarginReservationRate`
+
+from the reconciled available balance.
+
+A positive minimum available-balance reserve requires a positive simulation margin reservation rate. This prevents a configuration that claims to protect projected free balance without defining how new simulated notional consumes that balance.
+
+Before each later risk evaluation, active reservations are subtracted from the fresh reconciled `availableBalance`. Exposure-increasing sizing is then capped by:
+
+`(projectedAvailableBalance - minimumAvailableBalanceReserve) / simulationMarginReservationRate`
+
+when the rate is enabled. If projected available balance is already at or below the minimum reserve, the request is rejected as `RISK_BLOCKED`.
+
+Reservation journal records now carry the reservation rate and exact reserved available-balance amount. Terminal `FILLED`, `CANCELED`, or `REJECTED` reconciliation writes the corresponding released available-balance amount. Replay restores those persisted amounts, so the same free-balance headroom remains unavailable after process restart.
+
+For compatibility with reservation records created immediately before this increment, missing balance fields are reconstructed using the currently configured simulation margin reservation rate. New records persist the exact amount and therefore replay independently of later configuration changes.
+
+`ExecutionStatus.v1` now exposes:
+
+- `reservedAvailableBalance`;
+- `minimumAvailableBalanceReserve`;
+- `simulationMarginReservationRate`.
+
+The deterministic Windows acceptance uses a synthetic account with available balance 7, minimum free reserve 2 and margin reservation rate 0.5. A 10-notional accepted simulation reserves 5 balance units, leaving exactly the 2-unit safety reserve. Another exposure-increasing intent is blocked. Restart reconstructs the 5-unit reservation and remains blocked. Terminal fill reconciliation releases it, after which a later entry can again consume the restored headroom.
+
+This is only projected simulation accounting. It does not change Binance leverage, margin mode, balances or any other exchange state.
+
 ## Current next implementation step
 
-After this projected portfolio/symbol reservation layer is validated, the next simulation-only risk increment should reserve available-balance/margin budget as well as notional. That increment should combine reconciled available balance with active entry reservations, enforce a configurable minimum free-balance reserve, rebuild the reserved balance on restart, and release it only through terminal reconciliation. It should remain entirely pre-submission and simulation-only.
+After this available-balance reservation layer is validated, the next simulation-only risk increment should add explicit maximum effective-leverage and maximum margin-utilization checks using reconciled account metrics plus active projected reservations. The implementation should keep the policy values configurable and fail closed when the required account fields are unavailable, without adding any leverage-setting or margin-mode mutation endpoint.
