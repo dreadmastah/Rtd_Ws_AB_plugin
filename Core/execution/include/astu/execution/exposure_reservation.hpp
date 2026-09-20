@@ -25,7 +25,9 @@ public:
         std::uint64_t max_pending_entry_scale_in_reservations = 0,
         bool symbol_exposure_reconciled = false,
         double reconciled_symbol_notional = 0.0,
-        double max_symbol_notional = 0.0) noexcept {
+        double max_symbol_notional = 0.0,
+        double minimum_available_balance_reserve = 0.0,
+        double margin_reservation_rate = 0.0) noexcept {
         risk.gross_notional = std::max(
             0.0,
             risk.gross_notional +
@@ -60,6 +62,10 @@ public:
                 std::max(
                     0.0,
                     reservations.reserved_available_balance));
+        risk.minimum_available_balance_reserve =
+            std::max(0.0, minimum_available_balance_reserve);
+        risk.margin_reservation_rate =
+            std::max(0.0, margin_reservation_rate);
         return risk;
     }
 };
