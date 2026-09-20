@@ -333,3 +333,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_net_directional_risk_smoke.cmd
+
+      - name: Windows persisted loss budget and drawdown smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_loss_drawdown_risk_smoke.cmd
