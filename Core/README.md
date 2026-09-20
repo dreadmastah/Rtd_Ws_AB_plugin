@@ -388,6 +388,57 @@ The deterministic Windows acceptance uses a synthetic account with available bal
 
 This is only projected simulation accounting. It does not change Binance leverage, margin mode, balances or any other exchange state.
 
+## Effective leverage and margin-utilization enforcement
+
+The read-only account reconciler now publishes two additional account-health inputs when the source provides them:
+
+- `marginBalance` from the reconciled account margin balance;
+- `initialMargin` from reconciled total initial margin.
+
+They remain account observations, not sizing capital. The existing Risk Capital path is unchanged.
+
+Because Architecture R3.1 names maximum effective leverage and maximum margin utilization but does not prescribe equations, this simulation layer makes its compatibility formulas explicit:
+
+```text
+projectedEffectiveLeverage =
+    projectedGrossNotional / marginBalance
+
+projectedMarginUtilization =
+    projectedInitialMargin / marginBalance
+
+projectedInitialMargin =
+    reconciledInitialMargin + activeReservedAvailableBalance
+```
+
+For sizing a new exposure-increasing intent, the candidate notional is additionally capped by the remaining headroom implied by each configured limit. Margin-utilization headroom uses the configured simulation margin reservation rate to translate remaining margin capacity back into notional capacity.
+
+Configuration:
+
+```text
+--max-effective-leverage VALUE
+--max-margin-utilization RATIO
+```
+
+with environment equivalents:
+
+```text
+ASTU_MAX_EFFECTIVE_LEVERAGE
+ASTU_MAX_MARGIN_UTILIZATION
+```
+
+A value of `0` disables the corresponding limit. `maxMarginUtilization` must be in `0..1`. A positive margin-utilization limit requires a positive `simulationMarginReservationRate` so projected initial-margin consumption is defined.
+
+If either leverage/margin limit is enabled and reconciled margin metrics are unavailable, new exposure fails closed as `ACCOUNT_NOT_RECONCILED`. If the current projected ratio is already at or above a configured limit, new exposure is `RISK_BLOCKED`.
+
+Active reservations are included in both calculations:
+
+- reserved gross notional raises projected effective leverage;
+- reserved available-balance/margin raises projected initial margin and margin utilization.
+
+The deterministic acceptance coverage proves effective-leverage blocking, margin-utilization blocking, strict sizing reduction to remaining leverage headroom, missing-margin-metric fail-closed behavior, restart persistence of projected margin, terminal release, and later capacity reuse.
+
+No Binance leverage-setting, margin-mode mutation, order submission, cancel request, transfer, or automatic `SUBMITTING` transition is added.
+
 ## Current next implementation step
 
-After this available-balance reservation layer is validated, the next simulation-only risk increment should add explicit maximum effective-leverage and maximum margin-utilization checks using reconciled account metrics plus active projected reservations. The implementation should keep the policy values configurable and fail closed when the required account fields are unavailable, without adding any leverage-setting or margin-mode mutation endpoint.
+After this leverage/margin-health layer is validated, the next simulation-only portfolio-risk increment should add maximum net directional exposure. The read-only account snapshot should publish reconciled signed net notional, active exposure reservations should contribute a deterministic signed projection from SignalIntent side, and sizing should be capped by remaining long/short directional headroom without changing the current no-submission boundary.
