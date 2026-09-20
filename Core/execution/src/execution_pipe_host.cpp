@@ -15,6 +15,7 @@
 #include "astu/execution/execution_journal.hpp"
 #include "astu/execution/execution_pipe_server.hpp"
 #include "astu/execution/execution_status.hpp"
+#include "astu/execution/exposure_reservation.hpp"
 #include "astu/execution/reconciliation_pipe_server.hpp"
 #include "astu/execution/runtime_order_reconciler.hpp"
 #include "astu/execution/simulation_order_lifecycle.hpp"
@@ -198,6 +199,8 @@ int main(int argc, char** argv) {
         journal->recovered_order_count();
     const auto recovered_reconciliation_events_at_startup =
         journal->reconciliation_event_count();
+    const auto recovered_reservation_summary =
+        journal->exposure_reservation_summary();
 
     astu::execution::StartupOrderReconciliationReport
         startup_order_report;
@@ -225,6 +228,16 @@ int main(int argc, char** argv) {
             static_cast<std::uint64_t>(
                 journal->recovered_order_count());
     }
+
+    auto base_risk_provider = std::move(risk_provider);
+    risk_provider =
+        [base_risk_provider = std::move(base_risk_provider), journal](
+            const astu::core::SignalIntent& intent) mutable {
+            auto risk = base_risk_provider(intent);
+            return astu::execution::ExposureReservationRiskOverlay::apply(
+                risk,
+                journal->exposure_reservation_summary());
+        };
 
     auto order_lifecycle =
         std::make_shared<astu::execution::SimulationOrderLifecycle>(journal);
@@ -265,6 +278,15 @@ int main(int argc, char** argv) {
         startup_order_report.matched_orders,
         startup_order_report.marked_unknown,
         startup_order_report.unresolved_orders);
+    execution_status->set_exposure_reservation_metrics(
+        recovered_reservation_summary.active_reservations,
+        recovered_reservation_summary.active_reservations,
+        recovered_reservation_summary.reserved_gross_notional,
+        recovered_reservation_summary.reserved_position_slots,
+        journal->exposure_reservation_create_count(),
+        journal->exposure_reservation_release_count(),
+        journal->exposure_reservation_implicit_release_count(),
+        journal->exposure_reservation_reconstructed_count());
     execution_status->set_runtime_order_reconciliation(
         startup_order_snapshot_required,
         0,
@@ -379,7 +401,8 @@ int main(int argc, char** argv) {
          journal,
          execution_status,
          recovered_orders_at_startup,
-         recovered_reconciliation_events_at_startup](
+         recovered_reconciliation_events_at_startup,
+         recovered_reservation_summary](
             std::stop_token stop) {
             while (!stop.stop_requested()) {
                 try {
@@ -390,6 +413,17 @@ int main(int argc, char** argv) {
                         journal->order_transition_count(),
                         recovered_reconciliation_events_at_startup,
                         journal->reconciliation_event_count());
+                    const auto reservations =
+                        journal->exposure_reservation_summary();
+                    execution_status->set_exposure_reservation_metrics(
+                        recovered_reservation_summary.active_reservations,
+                        reservations.active_reservations,
+                        reservations.reserved_gross_notional,
+                        reservations.reserved_position_slots,
+                        journal->exposure_reservation_create_count(),
+                        journal->exposure_reservation_release_count(),
+                        journal->exposure_reservation_implicit_release_count(),
+                        journal->exposure_reservation_reconstructed_count());
                     execution_status->publish();
                 } catch (const std::exception& exc) {
                     execution_status->set_degraded(
@@ -416,7 +450,8 @@ int main(int argc, char** argv) {
             return journal->accept_idempotency_key(key);
         },
         [journal, order_lifecycle, execution_status, recovered_orders_at_startup,
-         recovered_reconciliation_events_at_startup](
+         recovered_reconciliation_events_at_startup,
+         recovered_reservation_summary](
             const astu::ipc::SimulationRequest& request,
             const astu::ipc::SimulationResponse& response,
             std::int64_t utc_ms) {
@@ -425,6 +460,10 @@ int main(int argc, char** argv) {
                     astu::core::DecisionCode::OrderRoutingDisabled &&
                 response.accepted_for_simulation) {
                 journal->append_simulation_order_intent(
+                    request,
+                    response,
+                    utc_ms);
+                journal->append_exposure_reservation(
                     request,
                     response,
                     utc_ms);
@@ -437,6 +476,17 @@ int main(int argc, char** argv) {
                 journal->order_transition_count(),
                 recovered_reconciliation_events_at_startup,
                 journal->reconciliation_event_count());
+            const auto reservations =
+                journal->exposure_reservation_summary();
+            execution_status->set_exposure_reservation_metrics(
+                recovered_reservation_summary.active_reservations,
+                reservations.active_reservations,
+                reservations.reserved_gross_notional,
+                reservations.reserved_position_slots,
+                journal->exposure_reservation_create_count(),
+                journal->exposure_reservation_release_count(),
+                journal->exposure_reservation_implicit_release_count(),
+                journal->exposure_reservation_reconstructed_count());
         },
         std::move(instrument_provider),
         std::move(position_provider));
@@ -503,6 +553,12 @@ int main(int argc, char** argv) {
               << journal->recovered_order_intent_count() << "\n";
     std::cout << "RECOVERED_RECONCILIATION_EVENTS_AT_STARTUP="
               << recovered_reconciliation_events_at_startup << "\n";
+    std::cout << "RECOVERED_ACTIVE_EXPOSURE_RESERVATIONS_AT_STARTUP="
+              << recovered_reservation_summary.active_reservations << "\n";
+    std::cout << "RECOVERED_RESERVED_GROSS_NOTIONAL_AT_STARTUP="
+              << recovered_reservation_summary.reserved_gross_notional << "\n";
+    std::cout << "RECOVERED_RESERVED_POSITION_SLOTS_AT_STARTUP="
+              << recovered_reservation_summary.reserved_position_slots << "\n";
     std::cout << "STARTUP_ORDER_SNAPSHOT_PROVIDER="
               << startup_order_snapshot_provider_name << "\n";
     if (startup_order_snapshot_required) {
