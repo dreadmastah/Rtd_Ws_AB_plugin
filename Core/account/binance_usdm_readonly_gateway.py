@@ -11,6 +11,11 @@ output/logs.
 Current compatibility endpoint:
   GET /fapi/v3/account
 
+Binance Account Information V3 is sparse: positions are returned only for
+symbols with an open position or open order. A selected symbol omitted from a
+successful V3 account response is therefore reconciled as FLAT rather than
+treated as a missing-data failure.
+
 Signed REST requests use HMAC-SHA256 over the query string, X-MBX-APIKEY,
 timestamp, and recvWindow.
 """
@@ -241,17 +246,11 @@ def account_to_position_snapshots(
         if symbol:
             grouped.setdefault(symbol, []).append(raw)
 
-    missing = [symbol for symbol in symbols if symbol not in grouped]
-    if missing:
-        raise GatewayError(
-            "account snapshot missing selected position symbols: " + ",".join(missing)
-        )
-
     now_ms = int(time.time() * 1000)
     snapshots: dict[str, dict[str, Any]] = {}
     for symbol in symbols:
         active: list[tuple[str, float, float]] = []
-        for raw in grouped[symbol]:
+        for raw in grouped.get(symbol, []):
             amount = as_position_float(raw, "positionAmt")
             if abs(amount) <= 0.0:
                 continue
@@ -277,7 +276,13 @@ def account_to_position_snapshots(
             mode = "FLAT"
             quantity = 0.0
             notional = 0.0
-            detail = "private account position reconciled flat"
+            if symbol in grouped:
+                detail = "private account position reconciled flat"
+            else:
+                detail = (
+                    "private account position reconciled flat; symbol absent "
+                    "from sparse Account Information V3 positions"
+                )
         else:
             modes = {item[0] for item in active}
             quantity = sum(item[1] for item in active)
