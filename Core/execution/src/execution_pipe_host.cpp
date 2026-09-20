@@ -212,6 +212,12 @@ int main(int argc, char** argv) {
             << "projected risk numeric settings must be finite and non-negative\n";
         return 2;
     }
+    if (minimum_available_balance_reserve > 0.0 &&
+        margin_reservation_rate <= 0.0) {
+        std::cerr
+            << "minimum available-balance reserve requires a positive simulation margin reservation rate\n";
+        return 2;
+    }
 
     astu::ipc::SimulationDispatcher::DataProvider data_provider;
     if (synthetic) {
