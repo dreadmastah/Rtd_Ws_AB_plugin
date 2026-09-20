@@ -1,6 +1,7 @@
 name: Core Simulation CI
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - chatgpt/core-autotrader-scaffold-sim-only
