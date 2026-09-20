@@ -6,6 +6,7 @@
 #include <deque>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <mutex>
 #include <optional>
 #include <sstream>
@@ -85,6 +86,7 @@ public:
         }
 
         std::ostringstream out;
+        out << std::setprecision(17);
         out
             << "{"
             << "\"schemaVersion\":1"
@@ -132,6 +134,7 @@ public:
         }
 
         std::ostringstream out;
+        out << std::setprecision(17);
         out
             << "{"
             << "\"schemaVersion\":1"
@@ -243,6 +246,7 @@ public:
         const auto transition_sequence = state_it->second.sequence + 1;
 
         std::ostringstream out;
+        out << std::setprecision(17);
         out
             << "{"
             << "\"schemaVersion\":1"
@@ -323,6 +327,7 @@ public:
         }
 
         std::ostringstream out;
+        out << std::setprecision(17);
         out
             << "{"
             << "\"schemaVersion\":1"
