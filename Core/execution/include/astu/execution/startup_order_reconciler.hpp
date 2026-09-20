@@ -89,7 +89,7 @@ public:
             }
 
             journal->append_reconciliation_event(
-                startup_event_id(order_id, snapshot),
+                startup_event_id(order_id, snapshot, utc_ms),
                 order_id,
                 "MARK_UNKNOWN",
                 OrderState::UnknownReconcileRequired,
@@ -108,8 +108,10 @@ private:
 
     static std::string startup_event_id(
         const std::string& order_id,
-        const AuthoritativeSimulationOrderSnapshot& snapshot) {
+        const AuthoritativeSimulationOrderSnapshot& snapshot,
+        std::int64_t utc_ms) {
         return "STARTUP-RECON-" + order_id + "-" +
+            std::to_string(utc_ms) + "-" +
             std::to_string(snapshot.generated_unix_ms);
     }
 
