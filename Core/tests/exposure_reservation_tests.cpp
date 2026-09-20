@@ -28,7 +28,8 @@ namespace {
 astu::ipc::SimulationRequest request(
     std::string suffix,
     astu::core::SignalAction action = astu::core::SignalAction::Buy,
-    std::string symbol = "BTCUSDT") {
+    std::string symbol = "BTCUSDT",
+    astu::core::PositionSide side = astu::core::PositionSide::Long) {
     astu::ipc::SimulationRequest request;
     request.request_id = "RES-REQ-" + suffix;
     request.idempotency_key = "RES-IDEMP-" + suffix;
@@ -41,7 +42,7 @@ astu::ipc::SimulationRequest request(
     i.universe_version = 1;
     i.symbol = std::move(symbol);
     i.action = action;
-    i.side = astu::core::PositionSide::Long;
+    i.side = side;
     i.source_periodicity = "M1";
     i.source_bar_time_utc_ms = 1'000;
     i.signal_time_utc_ms = 1'100;
@@ -138,7 +139,8 @@ astu::ipc::SimulationDispatcher reservation_dispatcher(
     double minimum_available_balance_reserve = 0.0,
     double margin_reservation_rate = 0.0,
     double max_effective_leverage = 0.0,
-    double max_margin_utilization = 0.0) {
+    double max_margin_utilization = 0.0,
+    double max_net_directional_notional = 0.0) {
     auto lifecycle =
         std::make_shared<astu::execution::SimulationOrderLifecycle>(
             journal);
@@ -155,7 +157,8 @@ astu::ipc::SimulationDispatcher reservation_dispatcher(
          minimum_available_balance_reserve,
          margin_reservation_rate,
          max_effective_leverage,
-         max_margin_utilization](
+         max_margin_utilization,
+         max_net_directional_notional](
             const astu::core::SignalIntent& intent) {
             const bool symbol_reconciled =
                 max_symbol_notional <= 0.0 ||
@@ -175,7 +178,8 @@ astu::ipc::SimulationDispatcher reservation_dispatcher(
                 minimum_available_balance_reserve,
                 margin_reservation_rate,
                 max_effective_leverage,
-                max_margin_utilization);
+                max_margin_utilization,
+                max_net_directional_notional);
         },
         4096,
         [journal](const std::string& key) {
