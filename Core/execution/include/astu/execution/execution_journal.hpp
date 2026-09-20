@@ -666,6 +666,196 @@ private:
         }
     }
 
+    bool release_exposure_reservation_unlocked(
+        const std::string& simulation_order_id,
+        std::int64_t utc_ms,
+        astu::execution::OrderState terminal_state,
+        const std::string& reason) {
+        const auto it =
+            exposure_reservations_.find(simulation_order_id);
+        if (it == exposure_reservations_.end() ||
+            !it->second.active) {
+            return false;
+        }
+        if (!is_terminal_order_state(terminal_state)) {
+            throw std::invalid_argument(
+                "exposure reservation release requires terminal order state");
+        }
+
+        std::ostringstream out;
+        out << std::setprecision(17);
+        out
+            << "{"
+            << "\"schemaVersion\":1"
+            << ",\"eventType\":\"EXPOSURE_RESERVATION_RELEASED\""
+            << ",\"utcMs\":" << utc_ms
+            << ",\"simulationOrderId\":\""
+            << astu::ipc::json_escape(simulation_order_id)
+            << "\""
+            << ",\"symbol\":\""
+            << astu::ipc::json_escape(it->second.symbol)
+            << "\""
+            << ",\"releasedGrossNotional\":"
+            << it->second.reserved_gross_notional
+            << ",\"releasedPositionSlot\":"
+            << (it->second.reserves_position_slot ? "true" : "false")
+            << ",\"terminalState\":\""
+            << order_state_to_string(terminal_state)
+            << "\""
+            << ",\"simulationOnly\":true"
+            << ",\"exchangeSubmissionAttempted\":false"
+            << ",\"reason\":\""
+            << astu::ipc::json_escape(reason)
+            << "\""
+            << "}\n";
+
+        append_durable(out.str());
+        it->second.active = false;
+        ++exposure_reservation_release_count_;
+        return true;
+    }
+
+    void replay_exposure_reservation_created_unlocked(
+        const astu::ipc::JsonObject& obj) {
+        const auto order_id =
+            astu::ipc::require_string(obj, "simulationOrderId");
+        const auto symbol =
+            astu::ipc::require_string(obj, "symbol");
+        const auto action = astu::ipc::action_from_string(
+            astu::ipc::require_string(obj, "action"));
+        const auto side = astu::ipc::side_from_string(
+            astu::ipc::require_string(obj, "side"));
+        const auto quantity =
+            astu::ipc::require_double(obj, "reservedQuantity");
+        const auto notional =
+            astu::ipc::require_double(obj, "reservedGrossNotional");
+        const bool position_slot =
+            astu::ipc::require_bool(obj, "reservesPositionSlot");
+
+        if (order_id.empty() || symbol.empty() ||
+            !astu::core::increases_exposure(action) ||
+            !std::isfinite(quantity) || quantity <= 0.0 ||
+            !std::isfinite(notional) || notional <= 0.0 ||
+            position_slot != reserves_new_position_slot(action) ||
+            !astu::ipc::require_bool(obj, "simulationOnly") ||
+            astu::ipc::require_bool(
+                obj,
+                "exchangeSubmissionAttempted")) {
+            throw std::runtime_error(
+                "execution journal invalid exposure reservation creation");
+        }
+
+        const auto intent_it = order_intents_.find(order_id);
+        if (intent_it == order_intents_.end()) {
+            throw std::runtime_error(
+                "exposure reservation missing simulation order intent");
+        }
+        const auto& intent = intent_it->second;
+        if (intent.symbol != symbol ||
+            intent.action != action ||
+            intent.side != side ||
+            std::fabs(intent.quantity - quantity) > 1e-12 ||
+            std::fabs(intent.notional - notional) > 1e-9) {
+            throw std::runtime_error(
+                "exposure reservation does not match simulation order intent");
+        }
+
+        if (!exposure_reservations_.emplace(
+                order_id,
+                ExposureReservationRecord{
+                    symbol,
+                    action,
+                    side,
+                    quantity,
+                    notional,
+                    position_slot,
+                    true,
+                }).second) {
+            throw std::runtime_error(
+                "duplicate exposure reservation creation");
+        }
+        ++exposure_reservation_create_count_;
+    }
+
+    void replay_exposure_reservation_released_unlocked(
+        const astu::ipc::JsonObject& obj) {
+        const auto order_id =
+            astu::ipc::require_string(obj, "simulationOrderId");
+        const auto symbol =
+            astu::ipc::require_string(obj, "symbol");
+        const auto terminal_state =
+            order_state_from_string(
+                astu::ipc::require_string(
+                    obj,
+                    "terminalState"));
+        const auto released_notional =
+            astu::ipc::require_double(
+                obj,
+                "releasedGrossNotional");
+        const bool released_position_slot =
+            astu::ipc::require_bool(
+                obj,
+                "releasedPositionSlot");
+
+        if (order_id.empty() || symbol.empty() ||
+            !is_terminal_order_state(terminal_state) ||
+            !std::isfinite(released_notional) ||
+            released_notional <= 0.0 ||
+            !astu::ipc::require_bool(obj, "simulationOnly") ||
+            astu::ipc::require_bool(
+                obj,
+                "exchangeSubmissionAttempted")) {
+            throw std::runtime_error(
+                "execution journal invalid exposure reservation release");
+        }
+
+        const auto reservation_it =
+            exposure_reservations_.find(order_id);
+        if (reservation_it == exposure_reservations_.end() ||
+            !reservation_it->second.active) {
+            throw std::runtime_error(
+                "exposure reservation release without active reservation");
+        }
+        const auto state_it = order_states_.find(order_id);
+        if (state_it == order_states_.end() ||
+            state_it->second.state != terminal_state) {
+            throw std::runtime_error(
+                "exposure reservation terminal state mismatch");
+        }
+        if (reservation_it->second.symbol != symbol ||
+            std::fabs(
+                reservation_it->second.reserved_gross_notional -
+                released_notional) > 1e-9 ||
+            reservation_it->second.reserves_position_slot !=
+                released_position_slot) {
+            throw std::runtime_error(
+                "exposure reservation release amount mismatch");
+        }
+
+        reservation_it->second.active = false;
+        ++exposure_reservation_release_count_;
+    }
+
+    void finalize_exposure_reservations_after_replay_unlocked() {
+        for (auto& [order_id, reservation] :
+             exposure_reservations_) {
+            if (!reservation.active) {
+                continue;
+            }
+            const auto intent_it = order_intents_.find(order_id);
+            const auto state_it = order_states_.find(order_id);
+            if (intent_it == order_intents_.end() ||
+                state_it == order_states_.end()) {
+                throw std::runtime_error(
+                    "active exposure reservation missing persistent order state/intent");
+            }
+            if (is_terminal_order_state(state_it->second.state)) {
+                reservation.active = false;
+                ++exposure_reservation_implicit_release_count_;
+            }
+        }
+    }
+
     void replay_simulation_order_intent_unlocked(
         const astu::ipc::JsonObject& obj) {
         const auto order_id =
@@ -928,8 +1118,13 @@ private:
     std::unordered_map<std::string, ReconciliationRecoveryState>
         reconciliation_progress_;
     std::unordered_set<std::string> reconciliation_event_ids_;
+    std::unordered_map<std::string, ExposureReservationRecord>
+        exposure_reservations_;
     std::uint64_t order_transition_count_{0};
     std::uint64_t reconciliation_event_count_{0};
+    std::uint64_t exposure_reservation_create_count_{0};
+    std::uint64_t exposure_reservation_release_count_{0};
+    std::uint64_t exposure_reservation_implicit_release_count_{0};
 };
 
 }  // namespace astu::execution
