@@ -40,7 +40,7 @@ DEFAULT_POSITIONS = Path("Core/runtime/position_status")
 DEFAULT_REST_BASE = "https://testnet.binancefuture.com"
 DEFAULT_WS_TEMPLATE = os.getenv(
     "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE",
-    "wss://fstream.binancefuture.com/private/ws/{listenKey}",
+    "",
 )
 
 
@@ -597,6 +597,12 @@ def run_live(args: argparse.Namespace, authority: Authority) -> int:
     api_key = os.getenv("ASTU_BINANCE_TESTNET_API_KEY", "")
     if not api_key:
         raise UserDataError("ASTU_BINANCE_TESTNET_API_KEY is required")
+
+    if not args.ws_url_template.strip():
+        raise UserDataError(
+            "live Testnet user-data stream requires an explicit "
+            "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE"
+        )
 
     while True:
         listen_key = start_listen_key(args.rest_base_url, api_key, args.timeout_seconds)
