@@ -499,7 +499,7 @@ int main() {
                 risk,
                 rules,
                 3'000);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::OrderRoutingDisabled);
         REQUIRE(decision.accepted_for_simulation);
         REQUIRE(std::fabs(decision.simulated_notional - 3.0) <
@@ -640,7 +640,7 @@ int main() {
                 risk,
                 rules,
                 3'300);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::OrderRoutingDisabled);
         REQUIRE(decision.accepted_for_simulation);
         REQUIRE(std::fabs(decision.simulated_notional - 6.0) <
@@ -769,7 +769,7 @@ int main() {
                 risk,
                 rules,
                 3'600);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::OrderRoutingDisabled);
         REQUIRE(std::fabs(decision.simulated_notional - 5.0) <
                 1e-12);
@@ -787,7 +787,7 @@ int main() {
                 ready_data(req.intent),
                 risk,
                 3'700);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::AccountNotReconciled);
         REQUIRE(!decision.accepted_for_simulation);
     }
@@ -935,7 +935,7 @@ int main() {
                 risk,
                 rules,
                 3'900);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::OrderRoutingDisabled);
         REQUIRE(std::fabs(decision.simulated_notional - 2.0) <
                 1e-12);
@@ -972,7 +972,7 @@ int main() {
                 risk,
                 rules,
                 3'901);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::OrderRoutingDisabled);
         REQUIRE(std::fabs(decision.simulated_notional - 2.0) <
                 1e-12);
@@ -995,7 +995,7 @@ int main() {
                 ready_data(req.intent),
                 risk,
                 3'902);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::AccountNotReconciled);
         REQUIRE(!decision.accepted_for_simulation);
     }
