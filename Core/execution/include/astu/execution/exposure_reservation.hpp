@@ -27,7 +27,9 @@ public:
         double reconciled_symbol_notional = 0.0,
         double max_symbol_notional = 0.0,
         double minimum_available_balance_reserve = 0.0,
-        double margin_reservation_rate = 0.0) noexcept {
+        double margin_reservation_rate = 0.0,
+        double max_effective_leverage = 0.0,
+        double max_margin_utilization = 0.0) noexcept {
         risk.gross_notional = std::max(
             0.0,
             risk.gross_notional +
@@ -66,6 +68,16 @@ public:
             std::max(0.0, minimum_available_balance_reserve);
         risk.margin_reservation_rate =
             std::max(0.0, margin_reservation_rate);
+        if (risk.margin_metrics_reconciled) {
+            risk.initial_margin = std::max(
+                0.0,
+                risk.initial_margin +
+                    std::max(0.0, reservations.reserved_available_balance));
+        }
+        risk.max_effective_leverage =
+            std::max(0.0, max_effective_leverage);
+        risk.max_margin_utilization =
+            std::max(0.0, max_margin_utilization);
         return risk;
     }
 };
