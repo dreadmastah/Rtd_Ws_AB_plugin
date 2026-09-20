@@ -128,7 +128,8 @@ public:
         double minimum_available_balance_reserve,
         double margin_reservation_rate,
         double max_effective_leverage,
-        double max_margin_utilization) {
+        double max_margin_utilization,
+        double max_net_directional_notional) {
         std::lock_guard<std::mutex> lock(mu_);
         max_pending_entry_scale_in_reservations_ =
             max_pending_entry_scale_in_reservations;
@@ -141,6 +142,8 @@ public:
             max_effective_leverage;
         max_margin_utilization_ =
             max_margin_utilization;
+        max_net_directional_notional_ =
+            max_net_directional_notional;
     }
 
     void set_exposure_reservation_metrics(
@@ -148,6 +151,7 @@ public:
         std::uint64_t active_reservations,
         double reserved_gross_notional,
         double reserved_available_balance,
+        double reserved_net_directional_notional,
         std::uint32_t reserved_position_slots,
         std::uint64_t create_count,
         std::uint64_t release_count,
@@ -159,6 +163,8 @@ public:
         active_exposure_reservations_ = active_reservations;
         reserved_gross_notional_ = reserved_gross_notional;
         reserved_available_balance_ = reserved_available_balance;
+        reserved_net_directional_notional_ =
+            reserved_net_directional_notional;
         reserved_position_slots_ = reserved_position_slots;
         exposure_reservation_create_count_ = create_count;
         exposure_reservation_release_count_ = release_count;
@@ -205,6 +211,7 @@ public:
         std::uint64_t active_exposure_reservations = 0;
         double reserved_gross_notional = 0.0;
         double reserved_available_balance = 0.0;
+        double reserved_net_directional_notional = 0.0;
         std::uint32_t reserved_position_slots = 0;
         std::uint64_t exposure_reservation_create_count = 0;
         std::uint64_t exposure_reservation_release_count = 0;
@@ -216,6 +223,7 @@ public:
         double margin_reservation_rate = 0.0;
         double max_effective_leverage = 0.0;
         double max_margin_utilization = 0.0;
+        double max_net_directional_notional = 0.0;
         {
             std::lock_guard<std::mutex> lock(mu_);
             lifecycle = lifecycle_state_;
@@ -263,6 +271,8 @@ public:
                 reserved_gross_notional_;
             reserved_available_balance =
                 reserved_available_balance_;
+            reserved_net_directional_notional =
+                reserved_net_directional_notional_;
             reserved_position_slots =
                 reserved_position_slots_;
             exposure_reservation_create_count =
@@ -285,6 +295,8 @@ public:
                 max_effective_leverage_;
             max_margin_utilization =
                 max_margin_utilization_;
+            max_net_directional_notional =
+                max_net_directional_notional_;
         }
 
         std::ostringstream out;
@@ -342,6 +354,8 @@ public:
             << reserved_gross_notional
             << ",\"reservedAvailableBalance\":"
             << reserved_available_balance
+            << ",\"reservedNetDirectionalNotional\":"
+            << reserved_net_directional_notional
             << ",\"reservedPositionSlots\":"
             << reserved_position_slots
             << ",\"exposureReservationCreateCount\":"
@@ -364,6 +378,8 @@ public:
             << max_effective_leverage
             << ",\"maxMarginUtilization\":"
             << max_margin_utilization
+            << ",\"maxNetDirectionalNotional\":"
+            << max_net_directional_notional
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -470,6 +486,7 @@ private:
     std::uint64_t active_exposure_reservations_{0};
     double reserved_gross_notional_{0.0};
     double reserved_available_balance_{0.0};
+    double reserved_net_directional_notional_{0.0};
     std::uint32_t reserved_position_slots_{0};
     std::uint64_t exposure_reservation_create_count_{0};
     std::uint64_t exposure_reservation_release_count_{0};
@@ -481,6 +498,7 @@ private:
     double margin_reservation_rate_{0.0};
     double max_effective_leverage_{0.0};
     double max_margin_utilization_{0.0};
+    double max_net_directional_notional_{0.0};
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
