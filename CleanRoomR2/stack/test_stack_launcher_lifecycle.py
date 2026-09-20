@@ -96,7 +96,7 @@ class HiddenTasklistTests(unittest.TestCase):
         with mock.patch.object(stack_launcher.os, "name", "posix"), mock.patch.object(
             stack_launcher.subprocess, "run"
         ) as run, mock.patch.object(stack_launcher.os, "kill") as kill:
-            self.assertEqual(stack_launcher.windows_hidden_subprocess_flags(), 0)
+            self.assertEqual(stack_launcher.windows_hidden_flags(), 0)
             self.assertFalse(stack_launcher.process_name_running("Broker.exe"))
             self.assertTrue(stack_launcher.pid_alive(4321))
             run.assert_not_called()

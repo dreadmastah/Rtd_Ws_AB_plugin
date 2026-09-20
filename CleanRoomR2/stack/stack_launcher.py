@@ -22,6 +22,36 @@ PAUSEFILE = RUNTIME / "maintenance_pause"
 RUNTIME.mkdir(exist_ok=True)
 LOGS.mkdir(exist_ok=True)
 
+WINDOWS_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+WINDOWS_CREATE_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
+
+def windows_hidden_flags(*, new_process_group: bool = False) -> int:
+    if os.name != "nt":
+        return 0
+    flags = WINDOWS_CREATE_NO_WINDOW
+    if new_process_group:
+        flags |= WINDOWS_CREATE_NEW_PROCESS_GROUP
+    return flags
+
+
+def console_python() -> str:
+    if os.name == "nt":
+        candidates = [
+            BASE / ".venv" / "Scripts" / "python.exe",
+            Path(sys.executable).with_name("python.exe"),
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+    return sys.executable
+
+
+if os.name == "nt" and sys.stdout is None:
+    sys.stdout = open(LOGS / "headless_entrypoint.log", "a", encoding="utf-8", buffering=1)
+if os.name == "nt" and sys.stderr is None:
+    sys.stderr = sys.stdout
+
 
 def instance_key(dbname: str, relay_port: int) -> str:
     return f"{dbname.strip().upper()}:{int(relay_port)}"
@@ -127,10 +157,6 @@ def instance_running(dbname: str, relay_port: int) -> bool:
     return True
 
 
-def windows_hidden_subprocess_flags() -> int:
-    return subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-
-
 def pid_alive(pid: int) -> bool:
     if pid <= 0:
         return False
@@ -140,7 +166,7 @@ def pid_alive(pid: int) -> bool:
             capture_output=True,
             text=True,
             check=False,
-            creationflags=windows_hidden_subprocess_flags(),
+            creationflags=windows_hidden_flags(),
         )
         out = (cp.stdout or "").strip()
         return bool(out) and not out.upper().startswith("INFO:")
@@ -159,7 +185,7 @@ def process_name_running(image_name: str) -> bool:
         capture_output=True,
         text=True,
         check=False,
-        creationflags=windows_hidden_subprocess_flags(),
+        creationflags=windows_hidden_flags(),
     )
     out = (cp.stdout or "").strip()
     return bool(out) and not out.upper().startswith("INFO:")
@@ -286,14 +312,22 @@ def stop_from_pidfile(dbname: str, relay_port: int) -> int:
             child = pid_value(data, name)
             if child and pid_alive(child):
                 if os.name == "nt":
-                    subprocess.run(["taskkill", "/PID", str(child), "/T", "/F"], check=False)
+                    subprocess.run(
+                        ["taskkill", "/PID", str(child), "/T", "/F"],
+                        check=False,
+                        creationflags=windows_hidden_flags(),
+                    )
                 else:
                     try:
                         os.kill(child, signal.SIGKILL)
                     except OSError:
                         pass
         if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(launcher), "/F"], check=False)
+            subprocess.run(
+                ["taskkill", "/PID", str(launcher), "/F"],
+                check=False,
+                creationflags=windows_hidden_flags(),
+            )
         else:
             try:
                 os.kill(launcher, signal.SIGKILL)
@@ -319,6 +353,7 @@ def configure_registry(dbname: str, relay_port: int) -> bool:
         ["cmd.exe", "/d", "/c", str(script), dbname, str(relay_port)],
         cwd=BASE,
         check=False,
+        creationflags=windows_hidden_flags(),
     )
     return cp.returncode == 0
 
@@ -340,15 +375,13 @@ def ensure_running(dbname: str, relay_port: int) -> int:
 
     log_path = LOGS / "autostart_supervisor.log"
     fh = open(log_path, "a", encoding="utf-8", buffering=1)
-    flags = 0
+    flags = windows_hidden_flags(new_process_group=True)
     kwargs: dict[str, object] = {}
-    if os.name == "nt":
-        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
-    else:
+    if os.name != "nt":
         kwargs["start_new_session"] = True
     p = subprocess.Popen(
         [
-            sys.executable,
+            console_python(),
             "-u",
             str(Path(__file__).resolve()),
             "--dbname",
@@ -439,12 +472,13 @@ def run_supervisor_locked(
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, on_signal)
 
+    child_python = console_python()
     specs = {
-        "relay": [sys.executable, "-u", str(BASE / "wsrtd_relay.py")],
-        "server": [sys.executable, "-u", str(BASE / "binance_usdm_server.py")],
+        "relay": [child_python, "-u", str(BASE / "wsrtd_relay.py")],
+        "server": [child_python, "-u", str(BASE / "binance_usdm_server.py")],
     }
     if bool(CFG.get("identity_bridge", {}).get("enabled", False)):
-        specs["identity"] = [sys.executable, "-u", str(BASE / "identity_bridge.py")]
+        specs["identity"] = [child_python, "-u", str(BASE / "identity_bridge.py")]
 
     child_env = {
         **os.environ,
@@ -458,7 +492,7 @@ def run_supervisor_locked(
         path = LOGS / f"{name}_supervisor.log"
         fh = open(path, "a", encoding="utf-8", buffering=1)
         log_handles[name] = fh
-        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+        flags = windows_hidden_flags(new_process_group=True)
         p = subprocess.Popen(
             specs[name],
             cwd=BASE,
