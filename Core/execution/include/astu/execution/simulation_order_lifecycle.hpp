@@ -103,6 +103,9 @@ public:
 
         case DecisionCode::SimulatedAccepted:
         case DecisionCode::OrderRoutingDisabled:
+        case DecisionCode::TestnetSubmitted:
+        case DecisionCode::TestnetRejected:
+        case DecisionCode::TestnetUnknown:
             ensure_state(
                 request,
                 response.simulation_order_id,
