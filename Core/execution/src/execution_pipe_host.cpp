@@ -41,6 +41,9 @@ astu::core::AccountRiskSnapshot synthetic_risk(
     risk.max_gross_notional = max_gross_notional;
     risk.open_positions = 0;
     risk.max_open_positions = max_open_positions;
+    risk.margin_metrics_reconciled = true;
+    risk.margin_balance = available_balance;
+    risk.initial_margin = 0.0;
     return risk;
 }
 
@@ -81,6 +84,8 @@ int main(int argc, char** argv) {
     double max_symbol_notional = 0.0;
     double minimum_available_balance_reserve = 0.0;
     double margin_reservation_rate = 0.0;
+    double max_effective_leverage = 0.0;
+    double max_margin_utilization = 0.0;
     std::uint64_t max_status_age_ms = 5'000;
     std::filesystem::path journal_path =
         "Core/runtime/execution_journal.v1.jsonl";
@@ -143,6 +148,14 @@ int main(int argc, char** argv) {
         env && *env) {
         margin_reservation_rate = std::stod(env);
     }
+    if (const char* env = std::getenv("ASTU_MAX_EFFECTIVE_LEVERAGE");
+        env && *env) {
+        max_effective_leverage = std::stod(env);
+    }
+    if (const char* env = std::getenv("ASTU_MAX_MARGIN_UTILIZATION");
+        env && *env) {
+        max_margin_utilization = std::stod(env);
+    }
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -168,6 +181,10 @@ int main(int argc, char** argv) {
         } else if (arg == "--simulation-margin-reservation-rate" &&
                    i + 1 < argc) {
             margin_reservation_rate = std::stod(argv[++i]);
+        } else if (arg == "--max-effective-leverage" && i + 1 < argc) {
+            max_effective_leverage = std::stod(argv[++i]);
+        } else if (arg == "--max-margin-utilization" && i + 1 < argc) {
+            max_margin_utilization = std::stod(argv[++i]);
         } else if (arg == "--status-dir" && i + 1 < argc) {
             status_dir = argv[++i];
         } else if (arg == "--max-status-age-ms" && i + 1 < argc) {
@@ -207,15 +224,21 @@ int main(int argc, char** argv) {
         !std::isfinite(minimum_available_balance_reserve) ||
         minimum_available_balance_reserve < 0.0 ||
         !std::isfinite(margin_reservation_rate) ||
-        margin_reservation_rate < 0.0) {
+        margin_reservation_rate < 0.0 ||
+        !std::isfinite(max_effective_leverage) ||
+        max_effective_leverage < 0.0 ||
+        !std::isfinite(max_margin_utilization) ||
+        max_margin_utilization < 0.0 ||
+        max_margin_utilization > 1.0) {
         std::cerr
             << "projected risk numeric settings must be finite and non-negative\n";
         return 2;
     }
-    if (minimum_available_balance_reserve > 0.0 &&
+    if ((minimum_available_balance_reserve > 0.0 ||
+         max_margin_utilization > 0.0) &&
         margin_reservation_rate <= 0.0) {
         std::cerr
-            << "minimum available-balance reserve requires a positive simulation margin reservation rate\n";
+            << "free-balance or margin-utilization limits require a positive simulation margin reservation rate\n";
         return 2;
     }
 
@@ -321,7 +344,9 @@ int main(int argc, char** argv) {
          max_pending_entry_scale_in_reservations,
          max_symbol_notional,
          minimum_available_balance_reserve,
-         margin_reservation_rate](
+         margin_reservation_rate,
+         max_effective_leverage,
+         max_margin_utilization](
             const astu::core::SignalIntent& intent) mutable {
             auto risk = base_risk_provider(intent);
 
@@ -354,7 +379,9 @@ int main(int argc, char** argv) {
                 reconciled_symbol_notional,
                 max_symbol_notional,
                 minimum_available_balance_reserve,
-                margin_reservation_rate);
+                margin_reservation_rate,
+                max_effective_leverage,
+                max_margin_utilization);
         };
 
     auto order_lifecycle =
@@ -410,7 +437,9 @@ int main(int argc, char** argv) {
         max_pending_entry_scale_in_reservations,
         max_symbol_notional,
         minimum_available_balance_reserve,
-        margin_reservation_rate);
+        margin_reservation_rate,
+        max_effective_leverage,
+        max_margin_utilization);
     execution_status->set_runtime_order_reconciliation(
         startup_order_snapshot_required,
         0,
@@ -665,6 +694,10 @@ int main(int argc, char** argv) {
               << minimum_available_balance_reserve << "\n";
     std::cout << "SIMULATION_MARGIN_RESERVATION_RATE="
               << margin_reservation_rate << "\n";
+    std::cout << "MAX_EFFECTIVE_LEVERAGE="
+              << max_effective_leverage << "\n";
+    std::cout << "MAX_MARGIN_UTILIZATION="
+              << max_margin_utilization << "\n";
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
     if (!instrument_status_dir.empty()) {
