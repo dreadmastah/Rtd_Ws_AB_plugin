@@ -4,7 +4,7 @@ This subtree is the first bounded attachment between the existing CleanRoomR2 WS
 
 ## Safety boundary
 
-This code cannot submit an exchange order. It contains no Binance private API client, no credentials, no signing, and no production/Testnet routing. The terminal simulated path is `OrderRoutingDisabled`.
+This code cannot submit an exchange order. It contains a disabled-by-default Binance USD-M read-only account reconciler for risk/position state, but no order, cancel, leverage, margin-mode, transfer, Testnet-routing, or production-routing operation. Credentials are read only from environment variables when read-only reconciliation is explicitly enabled. The terminal simulated path is `OrderRoutingDisabled`.
 
 ## Component map
 
