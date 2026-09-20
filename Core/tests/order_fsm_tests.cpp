@@ -154,12 +154,14 @@ int main() {
         accepted_order_id = response.simulation_order_id;
 
         lifecycle.observe(req, response, 2'000);
+        journal->append_simulation_order_intent(req, response, 2'000);
         journal->append(req, response, 2'000);
 
         const auto state = journal->order_state(accepted_order_id);
         REQUIRE(state.has_value());
         REQUIRE(*state == OrderState::Sizing);
         REQUIRE(journal->recovered_order_count() == 1);
+        REQUIRE(journal->recovered_order_intent_count() == 1);
         REQUIRE(journal->order_transition_count() == 4);
 
         bool invalid_rejected = false;
@@ -182,6 +184,7 @@ int main() {
             std::make_shared<astu::execution::ExecutionJournal>(
                 journal_path, 100);
         REQUIRE(journal->recovered_order_count() == 1);
+        REQUIRE(journal->recovered_order_intent_count() == 1);
         REQUIRE(journal->order_transition_count() == 4);
         const auto state = journal->order_state(accepted_order_id);
         REQUIRE(state.has_value());
@@ -208,6 +211,7 @@ int main() {
             (std::istreambuf_iterator<char>(in)),
             std::istreambuf_iterator<char>());
         REQUIRE(text.find("ORDER_STATE_TRANSITION") != std::string::npos);
+        REQUIRE(text.find("SIMULATION_ORDER_INTENT") != std::string::npos);
         REQUIRE(text.find("INTENT_RECEIVED") != std::string::npos);
         REQUIRE(text.find("RISK_APPROVED") != std::string::npos);
         REQUIRE(text.find("SIZING") != std::string::npos);
