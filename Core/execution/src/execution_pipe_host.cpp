@@ -29,13 +29,14 @@ namespace {
 
 astu::core::AccountRiskSnapshot synthetic_risk(
     const astu::core::SignalIntent&,
+    double available_balance,
     double max_gross_notional,
     std::uint32_t max_open_positions) {
     astu::core::AccountRiskSnapshot risk;
     risk.reconciled = true;
     risk.risk_state = astu::core::RiskState::Normal;
     risk.risk_capital = 10'000.0;
-    risk.available_balance = 10'000.0;
+    risk.available_balance = available_balance;
     risk.gross_notional = 0.0;
     risk.max_gross_notional = max_gross_notional;
     risk.open_positions = 0;
@@ -73,10 +74,13 @@ int main(int argc, char** argv) {
     bool synthetic = false;
     std::filesystem::path status_dir =
         "CleanRoomR2/stack/runtime/autotrader_status";
+    double synthetic_available_balance = 10'000.0;
     double synthetic_max_gross_notional = 100'000.0;
     std::uint32_t synthetic_max_open_positions = 10;
     std::uint64_t max_pending_entry_scale_in_reservations = 0;
     double max_symbol_notional = 0.0;
+    double minimum_available_balance_reserve = 0.0;
+    double margin_reservation_rate = 0.0;
     std::uint64_t max_status_age_ms = 5'000;
     std::filesystem::path journal_path =
         "Core/runtime/execution_journal.v1.jsonl";
@@ -128,11 +132,24 @@ int main(int argc, char** argv) {
         env && *env) {
         max_symbol_notional = std::stod(env);
     }
+    if (const char* env = std::getenv(
+            "ASTU_MINIMUM_AVAILABLE_BALANCE_RESERVE");
+        env && *env) {
+        minimum_available_balance_reserve =
+            std::stod(env);
+    }
+    if (const char* env = std::getenv(
+            "ASTU_SIMULATION_MARGIN_RESERVATION_RATE");
+        env && *env) {
+        margin_reservation_rate = std::stod(env);
+    }
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "--synthetic") {
             synthetic = true;
+        } else if (arg == "--synthetic-available-balance" && i + 1 < argc) {
+            synthetic_available_balance = std::stod(argv[++i]);
         } else if (arg == "--synthetic-max-gross-notional" && i + 1 < argc) {
             synthetic_max_gross_notional = std::stod(argv[++i]);
         } else if (arg == "--synthetic-max-open-positions" && i + 1 < argc) {
@@ -144,6 +161,13 @@ int main(int argc, char** argv) {
                 std::stoull(argv[++i]);
         } else if (arg == "--max-symbol-notional" && i + 1 < argc) {
             max_symbol_notional = std::stod(argv[++i]);
+        } else if (arg == "--minimum-available-balance-reserve" &&
+                   i + 1 < argc) {
+            minimum_available_balance_reserve =
+                std::stod(argv[++i]);
+        } else if (arg == "--simulation-margin-reservation-rate" &&
+                   i + 1 < argc) {
+            margin_reservation_rate = std::stod(argv[++i]);
         } else if (arg == "--status-dir" && i + 1 < argc) {
             status_dir = argv[++i];
         } else if (arg == "--max-status-age-ms" && i + 1 < argc) {
@@ -176,10 +200,16 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (!std::isfinite(max_symbol_notional) ||
-        max_symbol_notional < 0.0) {
+    if (!std::isfinite(synthetic_available_balance) ||
+        synthetic_available_balance < 0.0 ||
+        !std::isfinite(max_symbol_notional) ||
+        max_symbol_notional < 0.0 ||
+        !std::isfinite(minimum_available_balance_reserve) ||
+        minimum_available_balance_reserve < 0.0 ||
+        !std::isfinite(margin_reservation_rate) ||
+        margin_reservation_rate < 0.0) {
         std::cerr
-            << "max-symbol-notional must be finite and non-negative\n";
+            << "projected risk numeric settings must be finite and non-negative\n";
         return 2;
     }
 
@@ -196,11 +226,13 @@ int main(int argc, char** argv) {
     astu::ipc::SimulationDispatcher::RiskProvider risk_provider;
     if (synthetic) {
         risk_provider =
-            [synthetic_max_gross_notional,
+            [synthetic_available_balance,
+             synthetic_max_gross_notional,
              synthetic_max_open_positions](
                 const astu::core::SignalIntent& intent) {
                 return synthetic_risk(
                     intent,
+                    synthetic_available_balance,
                     synthetic_max_gross_notional,
                     synthetic_max_open_positions);
             };
@@ -237,7 +269,8 @@ int main(int argc, char** argv) {
 
     auto journal = std::make_shared<astu::execution::ExecutionJournal>(
         journal_path,
-        100'000);
+        100'000,
+        margin_reservation_rate);
     const auto recovered_orders_at_startup =
         journal->recovered_order_count();
     const auto recovered_reconciliation_events_at_startup =
@@ -280,7 +313,9 @@ int main(int argc, char** argv) {
          projected_position_provider,
          synthetic,
          max_pending_entry_scale_in_reservations,
-         max_symbol_notional](
+         max_symbol_notional,
+         minimum_available_balance_reserve,
+         margin_reservation_rate](
             const astu::core::SignalIntent& intent) mutable {
             auto risk = base_risk_provider(intent);
 
@@ -311,7 +346,9 @@ int main(int argc, char** argv) {
                 max_pending_entry_scale_in_reservations,
                 symbol_exposure_reconciled,
                 reconciled_symbol_notional,
-                max_symbol_notional);
+                max_symbol_notional,
+                minimum_available_balance_reserve,
+                margin_reservation_rate);
         };
 
     auto order_lifecycle =
@@ -357,6 +394,7 @@ int main(int argc, char** argv) {
         recovered_reservation_summary.active_reservations,
         recovered_reservation_summary.active_reservations,
         recovered_reservation_summary.reserved_gross_notional,
+        recovered_reservation_summary.reserved_available_balance,
         recovered_reservation_summary.reserved_position_slots,
         journal->exposure_reservation_create_count(),
         journal->exposure_reservation_release_count(),
@@ -364,7 +402,9 @@ int main(int argc, char** argv) {
         journal->exposure_reservation_reconstructed_count());
     execution_status->set_projected_risk_limits(
         max_pending_entry_scale_in_reservations,
-        max_symbol_notional);
+        max_symbol_notional,
+        minimum_available_balance_reserve,
+        margin_reservation_rate);
     execution_status->set_runtime_order_reconciliation(
         startup_order_snapshot_required,
         0,
@@ -497,6 +537,7 @@ int main(int argc, char** argv) {
                         recovered_reservation_summary.active_reservations,
                         reservations.active_reservations,
                         reservations.reserved_gross_notional,
+                        reservations.reserved_available_balance,
                         reservations.reserved_position_slots,
                         journal->exposure_reservation_create_count(),
                         journal->exposure_reservation_release_count(),
@@ -560,6 +601,7 @@ int main(int argc, char** argv) {
                 recovered_reservation_summary.active_reservations,
                 reservations.active_reservations,
                 reservations.reserved_gross_notional,
+                reservations.reserved_available_balance,
                 reservations.reserved_position_slots,
                 journal->exposure_reservation_create_count(),
                 journal->exposure_reservation_release_count(),
@@ -602,6 +644,8 @@ int main(int argc, char** argv) {
         std::cout << "RISK_STATUS_FILE=" << risk_status_file.string() << "\n";
         std::cout << "MAX_RISK_STATUS_AGE_MS=" << max_risk_status_age_ms << "\n";
     } else {
+        std::cout << "SYNTHETIC_AVAILABLE_BALANCE="
+                  << synthetic_available_balance << "\n";
         std::cout << "SYNTHETIC_MAX_GROSS_NOTIONAL="
                   << synthetic_max_gross_notional << "\n";
         std::cout << "SYNTHETIC_MAX_OPEN_POSITIONS="
@@ -611,6 +655,10 @@ int main(int argc, char** argv) {
               << max_pending_entry_scale_in_reservations << "\n";
     std::cout << "MAX_SYMBOL_NOTIONAL="
               << max_symbol_notional << "\n";
+    std::cout << "MINIMUM_AVAILABLE_BALANCE_RESERVE="
+              << minimum_available_balance_reserve << "\n";
+    std::cout << "SIMULATION_MARGIN_RESERVATION_RATE="
+              << margin_reservation_rate << "\n";
     std::cout << "EXECUTION_JOURNAL=" << journal_path.string() << "\n";
     std::cout << "EXECUTION_STATUS_FILE=" << execution_status_file.string() << "\n";
     if (!instrument_status_dir.empty()) {
