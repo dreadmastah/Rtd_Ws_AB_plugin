@@ -124,17 +124,24 @@ public:
 
     void set_projected_risk_limits(
         std::uint64_t max_pending_entry_scale_in_reservations,
-        double max_symbol_notional) {
+        double max_symbol_notional,
+        double minimum_available_balance_reserve,
+        double margin_reservation_rate) {
         std::lock_guard<std::mutex> lock(mu_);
         max_pending_entry_scale_in_reservations_ =
             max_pending_entry_scale_in_reservations;
         max_symbol_notional_ = max_symbol_notional;
+        minimum_available_balance_reserve_ =
+            minimum_available_balance_reserve;
+        margin_reservation_rate_ =
+            margin_reservation_rate;
     }
 
     void set_exposure_reservation_metrics(
         std::uint64_t recovered_active_at_startup,
         std::uint64_t active_reservations,
         double reserved_gross_notional,
+        double reserved_available_balance,
         std::uint32_t reserved_position_slots,
         std::uint64_t create_count,
         std::uint64_t release_count,
@@ -145,6 +152,7 @@ public:
             recovered_active_at_startup;
         active_exposure_reservations_ = active_reservations;
         reserved_gross_notional_ = reserved_gross_notional;
+        reserved_available_balance_ = reserved_available_balance;
         reserved_position_slots_ = reserved_position_slots;
         exposure_reservation_create_count_ = create_count;
         exposure_reservation_release_count_ = release_count;
@@ -190,6 +198,7 @@ public:
         std::uint64_t recovered_active_exposure_reservations_at_startup = 0;
         std::uint64_t active_exposure_reservations = 0;
         double reserved_gross_notional = 0.0;
+        double reserved_available_balance = 0.0;
         std::uint32_t reserved_position_slots = 0;
         std::uint64_t exposure_reservation_create_count = 0;
         std::uint64_t exposure_reservation_release_count = 0;
@@ -197,6 +206,8 @@ public:
         std::uint64_t exposure_reservation_reconstructed_count = 0;
         std::uint64_t max_pending_entry_scale_in_reservations = 0;
         double max_symbol_notional = 0.0;
+        double minimum_available_balance_reserve = 0.0;
+        double margin_reservation_rate = 0.0;
         {
             std::lock_guard<std::mutex> lock(mu_);
             lifecycle = lifecycle_state_;
@@ -242,6 +253,8 @@ public:
                 active_exposure_reservations_;
             reserved_gross_notional =
                 reserved_gross_notional_;
+            reserved_available_balance =
+                reserved_available_balance_;
             reserved_position_slots =
                 reserved_position_slots_;
             exposure_reservation_create_count =
@@ -256,6 +269,10 @@ public:
                 max_pending_entry_scale_in_reservations_;
             max_symbol_notional =
                 max_symbol_notional_;
+            minimum_available_balance_reserve =
+                minimum_available_balance_reserve_;
+            margin_reservation_rate =
+                margin_reservation_rate_;
         }
 
         std::ostringstream out;
@@ -311,6 +328,8 @@ public:
             << active_exposure_reservations
             << ",\"reservedGrossNotional\":"
             << reserved_gross_notional
+            << ",\"reservedAvailableBalance\":"
+            << reserved_available_balance
             << ",\"reservedPositionSlots\":"
             << reserved_position_slots
             << ",\"exposureReservationCreateCount\":"
@@ -325,6 +344,10 @@ public:
             << max_pending_entry_scale_in_reservations
             << ",\"maxSymbolNotional\":"
             << max_symbol_notional
+            << ",\"minimumAvailableBalanceReserve\":"
+            << minimum_available_balance_reserve
+            << ",\"simulationMarginReservationRate\":"
+            << margin_reservation_rate
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -430,6 +453,7 @@ private:
     std::uint64_t recovered_active_exposure_reservations_at_startup_{0};
     std::uint64_t active_exposure_reservations_{0};
     double reserved_gross_notional_{0.0};
+    double reserved_available_balance_{0.0};
     std::uint32_t reserved_position_slots_{0};
     std::uint64_t exposure_reservation_create_count_{0};
     std::uint64_t exposure_reservation_release_count_{0};
@@ -437,6 +461,8 @@ private:
     std::uint64_t exposure_reservation_reconstructed_count_{0};
     std::uint64_t max_pending_entry_scale_in_reservations_{0};
     double max_symbol_notional_{0.0};
+    double minimum_available_balance_reserve_{0.0};
+    double margin_reservation_rate_{0.0};
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
