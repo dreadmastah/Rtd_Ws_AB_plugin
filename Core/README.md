@@ -12,7 +12,7 @@ This code cannot submit an exchange order. It contains a disabled-by-default Bin
 - `trade_plugin/` - `SignalIntentBuilder` scaffold for the future Trade.dll boundary.
 - `wsrtd/` - adapter from observable R2 cache/freshness state to `DataStatus`.
 - `execution/` - fail-closed intent validation, account risk gate, deterministic simulation sizing, instrument filters, durable journal, and disabled order manager.
-- `account/` - read-only private-account boundary plus stale/missing fail-closed risk and per-symbol position snapshot providers.
+- `account/` - read-only private-account and income-history boundaries plus stale/missing fail-closed risk, position and realized-PnL providers.
 - `instrument/` - versioned symbol constraints provider for quantity step, min/max quantity and notional filters.
 - `order_state/` - local authoritative simulation order-state snapshot source used for startup reconciliation tests/runtime simulation.
 - `schemas/` - JSON Schema Draft 2020-12 contracts for the signal, status, risk, position, instrument, order, FSM and reconciliation messages.
@@ -576,10 +576,85 @@ UTC period rollover resets the corresponding daily/weekly starting values to the
 
 The deterministic coverage verifies baseline persistence across restart, UTC daily and weekly rollover, high-water advancement, clock-rollback fail-closed behavior, daily/weekly risk-capital and total-PnL gates, drawdown blocking, and malformed-state startup rejection. The Windows smoke proves a persisted daily Risk Capital loss block and a persisted Margin Balance high-water drawdown block across execution-host restarts.
 
-This increment does **not** claim to provide exact Binance realized-trade PnL. The current read-only account snapshot provides account metrics suitable for Risk Capital and Margin Balance baselines, but not a historical realized-income ledger. Exact architecture-grade daily/weekly realized-loss accounting still requires a separate read-only realized-PnL/income evidence source so funding, commissions, transfers and realized trade PnL can be distinguished rather than inferred from account-balance changes.
+The Risk Capital / Margin Balance compatibility budgets remain available, but exact realized-trade loss enforcement now uses a separate read-only income-history source described below.
 
 No order submission, cancellation, leverage/margin mutation, transfer, hedge request or `SUBMITTING` transition is introduced.
 
+## Read-only realized income evidence and exact realized-loss budgets
+
+`Core/account/binance_usdm_income_reconciler.py` is a second disabled-by-default private USER_DATA reader. It uses Binance USD-M:
+
+```text
+GET /fapi/v1/income
+```
+
+and has no order, cancel, transfer, leverage, margin-mode or other mutation operation.
+
+The reconciler freezes `endTime` to the current observation time, queries from the current Monday-aligned UTC week start, and paginates with the endpoint's `page` / `limit` fields. It requests all income types so classification is explicit rather than assuming every account flow is trading PnL.
+
+`RealizedPnlSnapshot.v1` separates:
+
+- `REALIZED_PNL` as realized trade PnL;
+- `FUNDING_FEE` as funding;
+- `COMMISSION` as commission;
+- `TRANSFER` and every other income type as excluded from realized-trade-loss accounting.
+
+Daily/weekly realized-trade PnL is the signed sum of only `REALIZED_PNL` rows. Exact loss-budget consumption is monotonic inside its UTC period:
+
+```text
+rawDailyRealizedTradeLoss =
+    max(0, -dailyRealizedTradePnl)
+
+dailyRealizedTradeLossConsumed =
+    max(previousDailyConsumed, rawDailyRealizedTradeLoss)
+```
+
+with the same rule for the UTC week. This means later profitable trades do not reopen a realized-loss budget that was already consumed earlier in the same period. Daily consumption resets at the next UTC day; weekly consumption resets at the next Monday-aligned UTC week.
+
+The persisted checkpoint is:
+
+```text
+Core/runtime/realized_pnl_accumulator.v1.json
+```
+
+using `RealizedPnlAccumulatorState.v1`. The state stores period identifiers, realized PnL, funding, commission, monotonic daily/weekly realized-loss consumption and record counts. On restart the new source result is checked against the persisted period/record state before it is accepted. Clock/state movement into the future, same-week record-count regression, corrupt state, or settlement-asset mismatch fails closed instead of silently resetting consumed loss.
+
+The compatibility implementation currently requires one configured settlement asset (default `USDT`). If tracked `REALIZED_PNL`, `FUNDING_FEE` or `COMMISSION` evidence contains another asset, reconciliation fails closed rather than numerically adding unlike assets. This avoids pretending BNB/USDC/etc. income is directly interchangeable without an explicit conversion policy.
+
+Exact realized-loss controls are:
+
+```text
+--max-daily-realized-trade-loss VALUE
+--max-weekly-realized-trade-loss VALUE
+```
+
+with environment equivalents:
+
+```text
+ASTU_MAX_DAILY_REALIZED_TRADE_LOSS
+ASTU_MAX_WEEKLY_REALIZED_TRADE_LOSS
+```
+
+and the local evidence file/freshness controls:
+
+```text
+--realized-pnl-status-file PATH
+--max-realized-pnl-status-age-ms MS
+
+ASTU_REALIZED_PNL_STATUS_FILE
+ASTU_MAX_REALIZED_PNL_STATUS_AGE_MS
+```
+
+A configured exact realized-loss limit requires a fresh `RealizedPnlSnapshot.v1` for the current UTC day/week. Missing, stale, wrong-period, malformed or unreconciled evidence returns `ACCOUNT_NOT_RECONCILED`. Once daily or weekly consumed realized-trade loss reaches its configured threshold, additional exposure-increasing intents return `RISK_BLOCKED`.
+
+`ExecutionStatus.v1` now reports the realized-PnL provider, readiness/file, realized trade PnL/loss, funding, commission, net classified trading income, source record counts and the exact daily/weekly realized-loss limits.
+
+The supervisor exposes a separate `--realized-pnl-mode disabled|fixture|readonly`. Exact realized-loss limits are rejected at supervisor startup if that source mode is disabled. Live mode uses the same explicit `ASTU_BINANCE_PRIVATE_READONLY_ENABLED=1` gate and environment-only API credentials as the account reconciler.
+
+This layer intentionally keeps realized trade PnL, funding and commissions separate. Funding/commission are visible evidence and are included in `dailyNetTradingIncome` / `weeklyNetTradingIncome`, but the exact **realized-trade-loss** limits use only `REALIZED_PNL`. Transfers and unrealized PnL never enter that gate.
+
+The deterministic coverage proves income-type classification, transfer exclusion, transaction-ID deduplication, mixed-settlement-asset fail-closed behavior, monotonic consumed-loss persistence across apparent PnL recovery, stale/wrong-period provider rejection, daily/weekly exact loss blocking, missing-evidence fail-closed behavior, and no exchange-submission path.
+
 ## Current next implementation step
 
-The next simulation-only risk increment should add an explicit read-only realized-PnL evidence source and persisted daily/weekly realized-PnL accumulators. It should reconcile realized trade PnL, funding and commissions without treating deposits/transfers or unrealized PnL as realized trading loss, then feed the existing UTC loss-budget gate while preserving the same no-submission boundary.
+The account-risk categories in Architecture R3.1 are now represented in the simulation path. The next hardening increment should secure the local Named Pipe boundary with remote-client rejection and an explicit current-user-only Windows DACL, then add acceptance coverage proving another user/remote endpoint cannot access the execution or reconciliation pipes. This remains transport hardening only; it must not enable order routing.
