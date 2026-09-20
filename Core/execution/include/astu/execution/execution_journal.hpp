@@ -280,7 +280,8 @@ public:
         return true;
     }
 
-    ExposureReservationSummary exposure_reservation_summary() const {
+    ExposureReservationSummary exposure_reservation_summary(
+        const std::string& symbol = {}) const {
         std::lock_guard<std::mutex> lock(mu_);
         ExposureReservationSummary summary;
         for (const auto& [order_id, reservation] :
@@ -296,6 +297,11 @@ public:
                 summary.reserved_position_slots <
                     std::numeric_limits<std::uint32_t>::max()) {
                 ++summary.reserved_position_slots;
+            }
+            if (!symbol.empty() && reservation.symbol == symbol) {
+                ++summary.symbol_active_reservations;
+                summary.symbol_reserved_gross_notional +=
+                    reservation.reserved_gross_notional;
             }
         }
         return summary;
