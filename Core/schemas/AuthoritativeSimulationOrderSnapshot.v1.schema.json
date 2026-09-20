@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:AuthoritativeSimulationOrderSnapshot.v1",
+  "title": "AuthoritativeSimulationOrderSnapshot.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "generatedUnixMs",
+    "ready",
+    "source",
+    "simulationOrderId",
+    "state",
+    "cumulativeFilledQuantity",
+    "detail"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "messageType": {"const": "AuthoritativeSimulationOrderSnapshot.v1"},
+    "generatedUnixMs": {"type": "integer", "minimum": 1},
+    "ready": {"type": "boolean"},
+    "source": {"type": "string", "minLength": 1, "maxLength": 128},
+    "simulationOrderId": {"type": "string", "minLength": 1, "maxLength": 64},
+    "state": {
+      "enum": [
+        "INTENT_RECEIVED",
+        "VALIDATING",
+        "RISK_APPROVED",
+        "SIZING",
+        "SUBMITTING",
+        "ACKNOWLEDGED",
+        "WORKING",
+        "PARTIAL",
+        "FILLED",
+        "CANCELED",
+        "REJECTED",
+        "UNKNOWN_RECONCILE_REQUIRED"
+      ]
+    },
+    "cumulativeFilledQuantity": {"type": "number", "minimum": 0},
+    "detail": {"type": "string", "maxLength": 512}
+  }
+}
