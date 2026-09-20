@@ -101,6 +101,15 @@ int main() {
         const auto other = astu::execution::deterministic_simulation_order_id(
             r.request_id, "IDEMP-OTHER", r.intent);
         REQUIRE(other != id1);
+
+        auto retry_intent = r.intent;
+        retry_intent.data_generation += 999;
+        retry_intent.signal_time_utc_ms += 60'000;
+        retry_intent.expires_utc_ms += 60'000;
+        const auto retry_id =
+            astu::execution::deterministic_simulation_order_id(
+                r.request_id, r.idempotency_key, retry_intent);
+        REQUIRE(retry_id == id1);
     }
 
     {
