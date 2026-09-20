@@ -141,6 +141,7 @@ def run(args: argparse.Namespace) -> int:
         or args.max_effective_leverage < 0
         or args.max_margin_utilization < 0
         or args.max_margin_utilization > 1
+        or args.max_net_directional_notional < 0
         or (
             (
                 args.minimum_available_balance_reserve > 0
@@ -293,6 +294,8 @@ def run(args: argparse.Namespace) -> int:
             str(args.max_effective_leverage),
             "--max-margin-utilization",
             str(args.max_margin_utilization),
+            "--max-net-directional-notional",
+            str(args.max_net_directional_notional),
         ]
         if instrument_command is not None:
             host_command.extend([
@@ -334,6 +337,7 @@ def run(args: argparse.Namespace) -> int:
         print(f"SIMULATION_MARGIN_RESERVATION_RATE={args.simulation_margin_reservation_rate}")
         print(f"MAX_EFFECTIVE_LEVERAGE={args.max_effective_leverage}")
         print(f"MAX_MARGIN_UTILIZATION={args.max_margin_utilization}")
+        print(f"MAX_NET_DIRECTIONAL_NOTIONAL={args.max_net_directional_notional}")
         print(f"INSTRUMENT_MODE={args.instrument_mode}")
         if instrument_command is not None:
             print(f"INSTRUMENT_STATUS_DIR={instrument_dir}")
@@ -475,6 +479,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.0,
         help="0 disables projected margin-utilization enforcement; otherwise use 0..1.",
+    )
+    ap.add_argument(
+        "--max-net-directional-notional",
+        type=float,
+        default=0.0,
+        help="0 disables the symmetric absolute signed-net-notional limit.",
     )
     ap.add_argument("--restart-delay-seconds", type=float, default=2.0)
     return ap.parse_args()
