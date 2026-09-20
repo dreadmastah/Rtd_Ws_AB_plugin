@@ -33,6 +33,13 @@
     "runtimeOrderTerminalSkipped",
     "runtimeOrderConcurrentStateChanges",
     "runtimeOrderSweepErrors",
+    "recoveredActiveExposureReservationsAtStartup",
+    "activeExposureReservations",
+    "reservedGrossNotional",
+    "reservedPositionSlots",
+    "exposureReservationCreateCount",
+    "exposureReservationReleaseCount",
+    "exposureReservationImplicitReleaseCount",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -208,6 +215,34 @@
       "minimum": 0
     },
     "runtimeOrderSweepErrors": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "recoveredActiveExposureReservationsAtStartup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "activeExposureReservations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reservedGrossNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "reservedPositionSlots": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exposureReservationCreateCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exposureReservationReleaseCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exposureReservationImplicitReleaseCount": {
       "type": "integer",
       "minimum": 0
     }
