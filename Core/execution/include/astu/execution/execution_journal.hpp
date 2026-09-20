@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "astu/execution/order_fsm.hpp"
 #include "astu/ipc/flat_json.hpp"
@@ -373,6 +374,17 @@ public:
     std::uint64_t order_transition_count() const {
         std::lock_guard<std::mutex> lock(mu_);
         return order_transition_count_;
+    }
+
+    std::vector<std::string> tracked_order_ids() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        std::vector<std::string> out;
+        out.reserve(order_states_.size());
+        for (const auto& [order_id, state] : order_states_) {
+            (void)state;
+            out.push_back(order_id);
+        }
+        return out;
     }
 
     std::size_t replay_size() const {
