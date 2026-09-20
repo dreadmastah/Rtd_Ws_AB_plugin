@@ -97,6 +97,14 @@ int main() {
     ok = contains(text, "\"currentMarginBalance\":10250") && ok;
     ok = contains(text, "\"currentInitialMargin\":100") && ok;
     ok = contains(text, "\"projectedInitialMargin\":130") && ok;
+    ok = contains(
+             text,
+             "\"projectedEffectiveLeverage\":0.12682926829268293") &&
+         ok;
+    ok = contains(
+             text,
+             "\"projectedMarginUtilization\":0.012682926829268292") &&
+         ok;
     ok = contains(text, "\"accountNetDirectionalReady\":true") && ok;
     ok = contains(text, "\"currentNetDirectionalNotional\":1000") && ok;
     ok = contains(text, "\"projectedNetDirectionalNotional\":1100") && ok;
