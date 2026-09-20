@@ -74,6 +74,26 @@ struct DataStatus {
     std::string detail;
 };
 
+struct RealizedPnlSnapshot {
+    bool reconciled{false};
+    std::string source;
+    std::uint64_t utc_day_start_unix_ms{0};
+    std::uint64_t utc_week_start_unix_ms{0};
+    double daily_realized_trade_pnl{0.0};
+    double weekly_realized_trade_pnl{0.0};
+    double daily_realized_trade_loss{0.0};
+    double weekly_realized_trade_loss{0.0};
+    double daily_funding_fee{0.0};
+    double weekly_funding_fee{0.0};
+    double daily_commission{0.0};
+    double weekly_commission{0.0};
+    double daily_net_trading_income{0.0};
+    double weekly_net_trading_income{0.0};
+    std::uint64_t records_in_current_week{0};
+    std::uint64_t ignored_income_records{0};
+    std::string detail;
+};
+
 struct AccountRiskSnapshot {
     bool reconciled{false};
     RiskState risk_state{RiskState::Emergency};
@@ -118,6 +138,12 @@ struct AccountRiskSnapshot {
     double max_daily_total_pnl_loss{0.0};
     double max_weekly_total_pnl_loss{0.0};
     double max_account_drawdown{0.0};
+
+    bool realized_pnl_evidence_reconciled{false};
+    double daily_realized_trade_loss{0.0};
+    double weekly_realized_trade_loss{0.0};
+    double max_daily_realized_trade_loss{0.0};
+    double max_weekly_realized_trade_loss{0.0};
 };
 
 struct PositionSnapshot {
