@@ -6,6 +6,7 @@
 #include <thread>
 #include <utility>
 
+#include "astu/account/live_position_provider.hpp"
 #include "astu/account/live_risk_provider.hpp"
 #include "astu/core/contracts.hpp"
 #include "astu/execution/execution_journal.hpp"
@@ -66,6 +67,8 @@ int main(int argc, char** argv) {
         "Core/runtime/execution_status.v1.json";
     std::filesystem::path instrument_status_dir;
     std::uint64_t max_instrument_status_age_ms = 86'400'000;
+    std::filesystem::path position_status_dir;
+    std::uint64_t max_position_status_age_ms = 7'000;
 
     if (const char* env = std::getenv("ASTU_STATUS_DIR"); env && *env) {
         status_dir = env;
@@ -81,6 +84,9 @@ int main(int argc, char** argv) {
     }
     if (const char* env = std::getenv("ASTU_INSTRUMENT_STATUS_DIR"); env && *env) {
         instrument_status_dir = env;
+    }
+    if (const char* env = std::getenv("ASTU_POSITION_STATUS_DIR"); env && *env) {
+        position_status_dir = env;
     }
 
     for (int i = 1; i < argc; ++i) {
@@ -103,6 +109,10 @@ int main(int argc, char** argv) {
             instrument_status_dir = argv[++i];
         } else if (arg == "--max-instrument-status-age-ms" && i + 1 < argc) {
             max_instrument_status_age_ms = std::stoull(argv[++i]);
+        } else if (arg == "--position-status-dir" && i + 1 < argc) {
+            position_status_dir = argv[++i];
+        } else if (arg == "--max-position-status-age-ms" && i + 1 < argc) {
+            max_position_status_age_ms = std::stoull(argv[++i]);
         } else {
             std::cerr << "unknown/missing argument: " << arg << "\n";
             return 2;
@@ -142,6 +152,17 @@ int main(int argc, char** argv) {
             };
     }
 
+    astu::ipc::SimulationDispatcher::PositionProvider position_provider;
+    if (!position_status_dir.empty()) {
+        astu::account::LivePositionProvider provider(
+            position_status_dir,
+            max_position_status_age_ms);
+        position_provider =
+            [provider](const astu::core::SignalIntent& intent) {
+                return provider(intent);
+            };
+    }
+
     auto journal = std::make_shared<astu::execution::ExecutionJournal>(
         journal_path,
         100'000);
@@ -155,6 +176,10 @@ int main(int argc, char** argv) {
             ? "LEGACY_SIMULATION_SIZING"
             : "FILE_BACKED_PUBLIC_FILTERS";
     const bool instrument_rules_required = !instrument_status_dir.empty();
+    const std::string position_provider_name =
+        position_status_dir.empty()
+            ? "NONE"
+            : "FILE_BACKED_RECONCILED_POSITIONS";
 
     auto execution_status =
         std::make_shared<astu::execution::ExecutionStatusPublisher>(
@@ -163,6 +188,7 @@ int main(int argc, char** argv) {
             risk_provider_name,
             instrument_provider_name,
             instrument_rules_required,
+            position_provider_name,
             journal_path.string());
     execution_status->publish();
 
@@ -180,7 +206,8 @@ int main(int argc, char** argv) {
             journal->append(request, response, utc_ms);
             execution_status->record_response(response);
         },
-        std::move(instrument_provider));
+        std::move(instrument_provider),
+        std::move(position_provider));
 
     execution_status->set_ready(true, true);
     execution_status->publish();
@@ -222,6 +249,14 @@ int main(int argc, char** argv) {
                   << max_instrument_status_age_ms << "\n";
     } else {
         std::cout << "INSTRUMENT_PROVIDER=" << instrument_provider_name << "\n";
+    }
+    if (!position_status_dir.empty()) {
+        std::cout << "POSITION_PROVIDER=" << position_provider_name << "\n";
+        std::cout << "POSITION_STATUS_DIR=" << position_status_dir.string() << "\n";
+        std::cout << "MAX_POSITION_STATUS_AGE_MS="
+                  << max_position_status_age_ms << "\n";
+    } else {
+        std::cout << "POSITION_PROVIDER=" << position_provider_name << "\n";
     }
     std::cout << "REPLAY_KEYS_LOADED=" << journal->replay_size() << "\n";
 
