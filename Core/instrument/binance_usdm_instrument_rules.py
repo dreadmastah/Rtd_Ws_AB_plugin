@@ -63,14 +63,16 @@ def build_constraint(symbol_obj: dict[str, Any], now_ms: int) -> dict[str, Any]:
 
     price = filters.get("PRICE_FILTER")
     lot = filters.get("LOT_SIZE")
+    market_lot = filters.get("MARKET_LOT_SIZE")
     min_notional_filter = filters.get("MIN_NOTIONAL")
     if not isinstance(price, dict) or not isinstance(lot, dict):
         raise ValueError(f"{symbol}: PRICE_FILTER/LOT_SIZE missing")
+    quantity_filter = market_lot if isinstance(market_lot, dict) else lot
 
     tick = decimal_value(price.get("tickSize"))
-    step = decimal_value(lot.get("stepSize"))
-    min_qty = decimal_value(lot.get("minQty"))
-    max_qty = decimal_value(lot.get("maxQty"))
+    step = decimal_value(quantity_filter.get("stepSize"))
+    min_qty = decimal_value(quantity_filter.get("minQty"))
+    max_qty = decimal_value(quantity_filter.get("maxQty"))
     min_notional = 0.0
     if isinstance(min_notional_filter, dict):
         raw = min_notional_filter.get("notional", min_notional_filter.get("minNotional", 0))
@@ -92,7 +94,11 @@ def build_constraint(symbol_obj: dict[str, Any], now_ms: int) -> dict[str, Any]:
         "maxQuantity": max_qty,
         "minNotional": min_notional,
         "maxNotional": 0.0,
-        "detail": "public exchangeInfo PRICE_FILTER + LOT_SIZE + MIN_NOTIONAL",
+        "detail": (
+            "public exchangeInfo PRICE_FILTER + "
+            + ("MARKET_LOT_SIZE" if isinstance(market_lot, dict) else "LOT_SIZE")
+            + " + MIN_NOTIONAL"
+        ),
     }
 
 
