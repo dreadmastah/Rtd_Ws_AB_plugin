@@ -564,6 +564,11 @@ int main(int argc, char** argv) {
             "Testnet order routing requires account, position, instrument and authoritative order evidence");
     }
 
+    if (testnet_order_routing_enabled) {
+        throw std::invalid_argument(
+            "Binance Testnet routing activation is fail-closed until the authoritative Binance Testnet order/user-data reconciliation source is implemented; the current order snapshot source is simulation-only");
+    }
+
     const bool account_loss_limits_enabled =
         max_daily_risk_capital_loss > 0.0 ||
         max_weekly_risk_capital_loss > 0.0 ||
