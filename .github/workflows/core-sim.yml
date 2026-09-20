@@ -40,6 +40,7 @@ jobs:
           python -m py_compile Core/account/binance_usdm_readonly_gateway.py
           python -m py_compile Core/stack/autotrader_sim_launcher.py
           python -m py_compile Core/instrument/binance_usdm_instrument_rules.py
+          python -m py_compile Core/order_state/simulated_order_state_source.py
 
       - name: Identity bridge one-shot
         shell: bash
@@ -265,3 +266,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_reconciliation_pipe_smoke.cmd
+
+      - name: Windows authoritative startup order snapshot smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_startup_order_snapshot_smoke.cmd
