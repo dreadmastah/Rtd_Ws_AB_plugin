@@ -200,6 +200,46 @@ public:
         account_drawdown_ = account_drawdown;
     }
 
+    void set_realized_pnl_status(
+        std::string provider,
+        bool required,
+        std::string status_file,
+        bool ready,
+        double daily_realized_trade_pnl,
+        double weekly_realized_trade_pnl,
+        double daily_realized_trade_loss,
+        double weekly_realized_trade_loss,
+        double daily_funding_fee,
+        double weekly_funding_fee,
+        double daily_commission,
+        double weekly_commission,
+        double daily_net_trading_income,
+        double weekly_net_trading_income,
+        std::uint64_t records_in_current_week,
+        std::uint64_t ignored_income_records,
+        double max_daily_realized_trade_loss,
+        double max_weekly_realized_trade_loss) {
+        std::lock_guard<std::mutex> lock(mu_);
+        realized_pnl_provider_ = std::move(provider);
+        realized_pnl_required_ = required;
+        realized_pnl_status_file_ = std::move(status_file);
+        realized_pnl_ready_ = ready;
+        daily_realized_trade_pnl_ = daily_realized_trade_pnl;
+        weekly_realized_trade_pnl_ = weekly_realized_trade_pnl;
+        daily_realized_trade_loss_ = daily_realized_trade_loss;
+        weekly_realized_trade_loss_ = weekly_realized_trade_loss;
+        daily_funding_fee_ = daily_funding_fee;
+        weekly_funding_fee_ = weekly_funding_fee;
+        daily_commission_ = daily_commission;
+        weekly_commission_ = weekly_commission;
+        daily_net_trading_income_ = daily_net_trading_income;
+        weekly_net_trading_income_ = weekly_net_trading_income;
+        realized_pnl_records_in_current_week_ = records_in_current_week;
+        realized_pnl_ignored_income_records_ = ignored_income_records;
+        max_daily_realized_trade_loss_ = max_daily_realized_trade_loss;
+        max_weekly_realized_trade_loss_ = max_weekly_realized_trade_loss;
+    }
+
     void set_exposure_reservation_metrics(
         std::uint64_t recovered_active_at_startup,
         std::uint64_t active_reservations,
@@ -298,6 +338,24 @@ public:
         double max_daily_total_pnl_loss = 0.0;
         double max_weekly_total_pnl_loss = 0.0;
         double max_account_drawdown = 0.0;
+        std::string realized_pnl_provider;
+        bool realized_pnl_required = false;
+        std::string realized_pnl_status_file;
+        bool realized_pnl_ready = false;
+        double daily_realized_trade_pnl = 0.0;
+        double weekly_realized_trade_pnl = 0.0;
+        double daily_realized_trade_loss = 0.0;
+        double weekly_realized_trade_loss = 0.0;
+        double daily_funding_fee = 0.0;
+        double weekly_funding_fee = 0.0;
+        double daily_commission = 0.0;
+        double weekly_commission = 0.0;
+        double daily_net_trading_income = 0.0;
+        double weekly_net_trading_income = 0.0;
+        std::uint64_t realized_pnl_records_in_current_week = 0;
+        std::uint64_t realized_pnl_ignored_income_records = 0;
+        double max_daily_realized_trade_loss = 0.0;
+        double max_weekly_realized_trade_loss = 0.0;
         {
             std::lock_guard<std::mutex> lock(mu_);
             lifecycle = lifecycle_state_;
@@ -411,6 +469,28 @@ public:
                 max_weekly_total_pnl_loss_;
             max_account_drawdown =
                 max_account_drawdown_;
+            realized_pnl_provider = realized_pnl_provider_;
+            realized_pnl_required = realized_pnl_required_;
+            realized_pnl_status_file = realized_pnl_status_file_;
+            realized_pnl_ready = realized_pnl_ready_;
+            daily_realized_trade_pnl = daily_realized_trade_pnl_;
+            weekly_realized_trade_pnl = weekly_realized_trade_pnl_;
+            daily_realized_trade_loss = daily_realized_trade_loss_;
+            weekly_realized_trade_loss = weekly_realized_trade_loss_;
+            daily_funding_fee = daily_funding_fee_;
+            weekly_funding_fee = weekly_funding_fee_;
+            daily_commission = daily_commission_;
+            weekly_commission = weekly_commission_;
+            daily_net_trading_income = daily_net_trading_income_;
+            weekly_net_trading_income = weekly_net_trading_income_;
+            realized_pnl_records_in_current_week =
+                realized_pnl_records_in_current_week_;
+            realized_pnl_ignored_income_records =
+                realized_pnl_ignored_income_records_;
+            max_daily_realized_trade_loss =
+                max_daily_realized_trade_loss_;
+            max_weekly_realized_trade_loss =
+                max_weekly_realized_trade_loss_;
         }
 
         std::ostringstream out;
@@ -534,6 +614,42 @@ public:
             << max_weekly_total_pnl_loss
             << ",\"maxAccountDrawdown\":"
             << max_account_drawdown
+            << ",\"realizedPnlProvider\":\""
+            << astu::ipc::json_escape(realized_pnl_provider) << "\""
+            << ",\"realizedPnlRequired\":"
+            << (realized_pnl_required ? "true" : "false")
+            << ",\"realizedPnlStatusFile\":\""
+            << astu::ipc::json_escape(realized_pnl_status_file) << "\""
+            << ",\"realizedPnlReady\":"
+            << (realized_pnl_ready ? "true" : "false")
+            << ",\"dailyRealizedTradePnl\":"
+            << daily_realized_trade_pnl
+            << ",\"weeklyRealizedTradePnl\":"
+            << weekly_realized_trade_pnl
+            << ",\"dailyRealizedTradeLoss\":"
+            << daily_realized_trade_loss
+            << ",\"weeklyRealizedTradeLoss\":"
+            << weekly_realized_trade_loss
+            << ",\"dailyFundingFee\":"
+            << daily_funding_fee
+            << ",\"weeklyFundingFee\":"
+            << weekly_funding_fee
+            << ",\"dailyCommission\":"
+            << daily_commission
+            << ",\"weeklyCommission\":"
+            << weekly_commission
+            << ",\"dailyNetTradingIncome\":"
+            << daily_net_trading_income
+            << ",\"weeklyNetTradingIncome\":"
+            << weekly_net_trading_income
+            << ",\"realizedPnlRecordsInCurrentWeek\":"
+            << realized_pnl_records_in_current_week
+            << ",\"realizedPnlIgnoredIncomeRecords\":"
+            << realized_pnl_ignored_income_records
+            << ",\"maxDailyRealizedTradeLoss\":"
+            << max_daily_realized_trade_loss
+            << ",\"maxWeeklyRealizedTradeLoss\":"
+            << max_weekly_realized_trade_loss
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -673,6 +789,24 @@ private:
     double max_daily_total_pnl_loss_{0.0};
     double max_weekly_total_pnl_loss_{0.0};
     double max_account_drawdown_{0.0};
+    std::string realized_pnl_provider_{"DISABLED"};
+    bool realized_pnl_required_{false};
+    std::string realized_pnl_status_file_;
+    bool realized_pnl_ready_{false};
+    double daily_realized_trade_pnl_{0.0};
+    double weekly_realized_trade_pnl_{0.0};
+    double daily_realized_trade_loss_{0.0};
+    double weekly_realized_trade_loss_{0.0};
+    double daily_funding_fee_{0.0};
+    double weekly_funding_fee_{0.0};
+    double daily_commission_{0.0};
+    double weekly_commission_{0.0};
+    double daily_net_trading_income_{0.0};
+    double weekly_net_trading_income_{0.0};
+    std::uint64_t realized_pnl_records_in_current_week_{0};
+    std::uint64_t realized_pnl_ignored_income_records_{0};
+    double max_daily_realized_trade_loss_{0.0};
+    double max_weekly_realized_trade_loss_{0.0};
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
