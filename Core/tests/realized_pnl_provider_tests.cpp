@@ -143,7 +143,7 @@ int main() {
             astu::execution::AccountRiskEngine::evaluate(
                 buy_intent(),
                 risk);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::AccountNotReconciled);
     }
 
@@ -156,7 +156,7 @@ int main() {
             astu::execution::AccountRiskEngine::evaluate(
                 buy_intent(),
                 risk);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::RiskBlocked);
         REQUIRE(decision.reason.find("daily realized-trade") !=
                 std::string::npos);
@@ -171,7 +171,7 @@ int main() {
             astu::execution::AccountRiskEngine::evaluate(
                 buy_intent(),
                 risk);
-        REQUIRE(decision.decision_code ==
+        REQUIRE(decision.code ==
                 DecisionCode::RiskBlocked);
         REQUIRE(decision.reason.find("weekly realized-trade") !=
                 std::string::npos);
