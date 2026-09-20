@@ -250,3 +250,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: Core\tools\run_execution_restart_smoke.cmd
+
+      - name: Windows simulation order FSM restart smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_order_fsm_restart_smoke.cmd
