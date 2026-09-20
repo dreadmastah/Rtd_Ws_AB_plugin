@@ -144,6 +144,7 @@ def aggregate_income(
     now_ms: int,
     source: str,
     settlement_asset: str = "USDT",
+    prior_state: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     day_start = utc_day_start_ms(now_ms)
     week_start = utc_week_start_ms(now_ms)
@@ -197,6 +198,34 @@ def aggregate_income(
         1 for row in normalized if row["incomeType"] not in included_types
     )
 
+    daily_loss_consumed = max(0.0, -daily["realized"])
+    weekly_loss_consumed = max(0.0, -weekly["realized"])
+    if prior_state is not None:
+        prior_day = int(prior_state["utcDayStartUnixMs"])
+        prior_week = int(prior_state["utcWeekStartUnixMs"])
+        prior_updated = int(prior_state["updatedUnixMs"])
+        if prior_day > day_start or prior_week > week_start or prior_updated > now_ms:
+            raise IncomeReconcilerError(
+                "persisted realized PnL state is ahead of current UTC time"
+            )
+        if (
+            prior_week == week_start
+            and int(prior_state["recordsInCurrentWeek"]) > len(normalized)
+        ):
+            raise IncomeReconcilerError(
+                "current income history regressed below persisted weekly record count"
+            )
+        if prior_day == day_start:
+            daily_loss_consumed = max(
+                daily_loss_consumed,
+                float(prior_state["dailyRealizedTradeLossConsumed"]),
+            )
+        if prior_week == week_start:
+            weekly_loss_consumed = max(
+                weekly_loss_consumed,
+                float(prior_state["weeklyRealizedTradeLossConsumed"]),
+            )
+
     snapshot = {
         "schemaVersion": 1,
         "messageType": "RealizedPnlSnapshot.v1",
@@ -208,8 +237,8 @@ def aggregate_income(
         "utcWeekStartUnixMs": int(week_start),
         "dailyRealizedTradePnl": daily["realized"],
         "weeklyRealizedTradePnl": weekly["realized"],
-        "dailyRealizedTradeLoss": max(0.0, -daily["realized"]),
-        "weeklyRealizedTradeLoss": max(0.0, -weekly["realized"]),
+        "dailyRealizedTradeLoss": daily_loss_consumed,
+        "weeklyRealizedTradeLoss": weekly_loss_consumed,
         "dailyFundingFee": daily["funding"],
         "weeklyFundingFee": weekly["funding"],
         "dailyCommission": daily["commission"],
@@ -236,6 +265,8 @@ def aggregate_income(
         "utcWeekStartUnixMs": int(week_start),
         "dailyRealizedTradePnl": daily["realized"],
         "weeklyRealizedTradePnl": weekly["realized"],
+        "dailyRealizedTradeLossConsumed": daily_loss_consumed,
+        "weeklyRealizedTradeLossConsumed": weekly_loss_consumed,
         "dailyFundingFee": daily["funding"],
         "weeklyFundingFee": weekly["funding"],
         "dailyCommission": daily["commission"],
@@ -281,6 +312,70 @@ def write_atomic(path: Path, obj: dict[str, Any]) -> None:
         encoding="utf-8",
     )
     os.replace(tmp, path)
+
+
+def load_accumulator_state(
+    path: Path,
+    *,
+    settlement_asset: str,
+) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        obj = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise IncomeReconcilerError(
+            "cannot parse persisted realized PnL accumulator state"
+        ) from exc
+    if not isinstance(obj, dict):
+        raise IncomeReconcilerError(
+            "persisted realized PnL accumulator is not an object"
+        )
+    if obj.get("schemaVersion") != 1 or obj.get("messageType") != (
+        "RealizedPnlAccumulatorState.v1"
+    ):
+        raise IncomeReconcilerError(
+            "persisted realized PnL accumulator schema mismatch"
+        )
+    expected_asset = settlement_asset.strip().upper()
+    if str(obj.get("settlementAsset", "")).upper() != expected_asset:
+        raise IncomeReconcilerError(
+            "persisted realized PnL accumulator settlement asset mismatch"
+        )
+    numeric_nonnegative = [
+        "dailyRealizedTradeLossConsumed",
+        "weeklyRealizedTradeLossConsumed",
+    ]
+    integer_nonnegative = [
+        "updatedUnixMs",
+        "utcDayStartUnixMs",
+        "utcWeekStartUnixMs",
+        "recordsInCurrentWeek",
+        "ignoredIncomeRecords",
+    ]
+    for key in numeric_nonnegative:
+        try:
+            value = float(obj[key])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise IncomeReconcilerError(
+                f"persisted realized PnL accumulator invalid {key}"
+            ) from exc
+        if not math.isfinite(value) or value < 0.0:
+            raise IncomeReconcilerError(
+                f"persisted realized PnL accumulator invalid {key}"
+            )
+    for key in integer_nonnegative:
+        try:
+            value = int(obj[key])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise IncomeReconcilerError(
+                f"persisted realized PnL accumulator invalid {key}"
+            ) from exc
+        if value < 0:
+            raise IncomeReconcilerError(
+                f"persisted realized PnL accumulator invalid {key}"
+            )
+    return obj
 
 
 def load_fixture(path: Path, *, now_ms: int) -> list[dict[str, Any]]:
@@ -469,6 +564,26 @@ def main() -> int:
         print(f"OUTPUT={args.output}")
         return 4
 
+    try:
+        prior_state = load_accumulator_state(
+            args.state,
+            settlement_asset=args.settlement_asset,
+        )
+    except Exception as exc:
+        snapshot = fail_closed_snapshot(
+            source="BINANCE_USDM_INCOME_STATE_INVALID",
+            reason=(
+                "persisted income state invalid: "
+                f"{type(exc).__name__}: {exc}"
+            ),
+        )
+        write_atomic(args.output, snapshot)
+        print(
+            "BINANCE_INCOME_READONLY=FAIL_CLOSED "
+            f"error={type(exc).__name__}: {exc}"
+        )
+        return 5
+
     while True:
         source = (
             "BINANCE_USDM_INCOME_V1_FIXTURE"
@@ -495,8 +610,10 @@ def main() -> int:
                 now_ms=now_ms,
                 source=source,
                 settlement_asset=args.settlement_asset,
+                prior_state=prior_state,
             )
             write_atomic(args.state, state)
+            prior_state = state
             write_atomic(args.output, snapshot)
             print(
                 "BINANCE_INCOME_READONLY=RECONCILED "
