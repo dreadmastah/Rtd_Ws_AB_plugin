@@ -79,6 +79,22 @@ public:
             std::memory_order_relaxed);
     }
 
+    void set_startup_order_reconciliation(
+        std::string provider,
+        bool required,
+        std::uint64_t tracked,
+        std::uint64_t matched,
+        std::uint64_t marked_unknown,
+        std::uint64_t unresolved) {
+        std::lock_guard<std::mutex> lock(mu_);
+        startup_order_snapshot_provider_ = std::move(provider);
+        startup_order_snapshot_required_ = required;
+        startup_order_tracked_ = tracked;
+        startup_order_matched_ = matched;
+        startup_order_marked_unknown_ = marked_unknown;
+        startup_order_unresolved_ = unresolved;
+    }
+
     void record_response(const astu::ipc::SimulationResponse& response) {
         requests_seen_.fetch_add(1, std::memory_order_relaxed);
         std::lock_guard<std::mutex> lock(mu_);
@@ -95,6 +111,12 @@ public:
         std::string last_decision;
         bool journal_ready = false;
         bool pipe_ready = false;
+        std::string startup_order_snapshot_provider;
+        bool startup_order_snapshot_required = false;
+        std::uint64_t startup_order_tracked = 0;
+        std::uint64_t startup_order_matched = 0;
+        std::uint64_t startup_order_marked_unknown = 0;
+        std::uint64_t startup_order_unresolved = 0;
         {
             std::lock_guard<std::mutex> lock(mu_);
             lifecycle = lifecycle_state_;
@@ -102,6 +124,16 @@ public:
             last_decision = last_decision_code_;
             journal_ready = journal_ready_;
             pipe_ready = pipe_ready_;
+            startup_order_snapshot_provider =
+                startup_order_snapshot_provider_;
+            startup_order_snapshot_required =
+                startup_order_snapshot_required_;
+            startup_order_tracked = startup_order_tracked_;
+            startup_order_matched = startup_order_matched_;
+            startup_order_marked_unknown =
+                startup_order_marked_unknown_;
+            startup_order_unresolved =
+                startup_order_unresolved_;
         }
 
         std::ostringstream out;
@@ -118,6 +150,17 @@ public:
             << ",\"instrumentRulesRequired\":" << (instrument_rules_required_ ? "true" : "false")
             << ",\"positionProvider\":\"" << astu::ipc::json_escape(position_provider_) << "\""
             << ",\"positionStateRequiredForScaleActions\":true"
+            << ",\"startupOrderSnapshotProvider\":\""
+            << astu::ipc::json_escape(startup_order_snapshot_provider)
+            << "\""
+            << ",\"startupOrderSnapshotRequired\":"
+            << (startup_order_snapshot_required ? "true" : "false")
+            << ",\"startupOrderTracked\":" << startup_order_tracked
+            << ",\"startupOrderMatched\":" << startup_order_matched
+            << ",\"startupOrderMarkedUnknown\":"
+            << startup_order_marked_unknown
+            << ",\"startupOrderUnresolved\":"
+            << startup_order_unresolved
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -203,6 +246,12 @@ private:
     std::string lifecycle_state_{"STARTING"};
     std::string detail_{"simulation execution host starting"};
     std::string last_decision_code_;
+    std::string startup_order_snapshot_provider_{"DISABLED"};
+    bool startup_order_snapshot_required_{false};
+    std::uint64_t startup_order_tracked_{0};
+    std::uint64_t startup_order_matched_{0};
+    std::uint64_t startup_order_marked_unknown_{0};
+    std::uint64_t startup_order_unresolved_{0};
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
