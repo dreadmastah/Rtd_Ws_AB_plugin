@@ -122,6 +122,26 @@ public:
         runtime_order_sweep_errors_ = sweep_errors;
     }
 
+    void set_exposure_reservation_metrics(
+        std::uint64_t recovered_active_at_startup,
+        std::uint64_t active_reservations,
+        double reserved_gross_notional,
+        std::uint32_t reserved_position_slots,
+        std::uint64_t create_count,
+        std::uint64_t release_count,
+        std::uint64_t implicit_release_count) {
+        std::lock_guard<std::mutex> lock(mu_);
+        recovered_active_exposure_reservations_at_startup_ =
+            recovered_active_at_startup;
+        active_exposure_reservations_ = active_reservations;
+        reserved_gross_notional_ = reserved_gross_notional;
+        reserved_position_slots_ = reserved_position_slots;
+        exposure_reservation_create_count_ = create_count;
+        exposure_reservation_release_count_ = release_count;
+        exposure_reservation_implicit_release_count_ =
+            implicit_release_count;
+    }
+
     void record_response(const astu::ipc::SimulationResponse& response) {
         requests_seen_.fetch_add(1, std::memory_order_relaxed);
         std::lock_guard<std::mutex> lock(mu_);
@@ -155,6 +175,13 @@ public:
         std::uint64_t runtime_order_terminal_skipped = 0;
         std::uint64_t runtime_order_concurrent_state_changes = 0;
         std::uint64_t runtime_order_sweep_errors = 0;
+        std::uint64_t recovered_active_exposure_reservations_at_startup = 0;
+        std::uint64_t active_exposure_reservations = 0;
+        double reserved_gross_notional = 0.0;
+        std::uint32_t reserved_position_slots = 0;
+        std::uint64_t exposure_reservation_create_count = 0;
+        std::uint64_t exposure_reservation_release_count = 0;
+        std::uint64_t exposure_reservation_implicit_release_count = 0;
         {
             std::lock_guard<std::mutex> lock(mu_);
             lifecycle = lifecycle_state_;
@@ -194,6 +221,20 @@ public:
                 runtime_order_concurrent_state_changes_;
             runtime_order_sweep_errors =
                 runtime_order_sweep_errors_;
+            recovered_active_exposure_reservations_at_startup =
+                recovered_active_exposure_reservations_at_startup_;
+            active_exposure_reservations =
+                active_exposure_reservations_;
+            reserved_gross_notional =
+                reserved_gross_notional_;
+            reserved_position_slots =
+                reserved_position_slots_;
+            exposure_reservation_create_count =
+                exposure_reservation_create_count_;
+            exposure_reservation_release_count =
+                exposure_reservation_release_count_;
+            exposure_reservation_implicit_release_count =
+                exposure_reservation_implicit_release_count_;
         }
 
         std::ostringstream out;
@@ -243,6 +284,20 @@ public:
             << runtime_order_concurrent_state_changes
             << ",\"runtimeOrderSweepErrors\":"
             << runtime_order_sweep_errors
+            << ",\"recoveredActiveExposureReservationsAtStartup\":"
+            << recovered_active_exposure_reservations_at_startup
+            << ",\"activeExposureReservations\":"
+            << active_exposure_reservations
+            << ",\"reservedGrossNotional\":"
+            << reserved_gross_notional
+            << ",\"reservedPositionSlots\":"
+            << reserved_position_slots
+            << ",\"exposureReservationCreateCount\":"
+            << exposure_reservation_create_count
+            << ",\"exposureReservationReleaseCount\":"
+            << exposure_reservation_release_count
+            << ",\"exposureReservationImplicitReleaseCount\":"
+            << exposure_reservation_implicit_release_count
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
@@ -345,6 +400,13 @@ private:
     std::uint64_t runtime_order_terminal_skipped_{0};
     std::uint64_t runtime_order_concurrent_state_changes_{0};
     std::uint64_t runtime_order_sweep_errors_{0};
+    std::uint64_t recovered_active_exposure_reservations_at_startup_{0};
+    std::uint64_t active_exposure_reservations_{0};
+    double reserved_gross_notional_{0.0};
+    std::uint32_t reserved_position_slots_{0};
+    std::uint64_t exposure_reservation_create_count_{0};
+    std::uint64_t exposure_reservation_release_count_{0};
+    std::uint64_t exposure_reservation_implicit_release_count_{0};
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
