@@ -15,14 +15,24 @@ if errorlevel 1 (
   if errorlevel 1 exit /b 1
 )
 
-call configure_plugin_registry.cmd "%DBNAME%"
-if errorlevel 1 exit /b 1
-
 echo.
-echo WSRTD stack starting for AmiBroker DB name "%DBNAME%".
+echo WSRTD headless stack launch requested for AmiBroker DB name "%DBNAME%".
 echo Bootstrap list: bootstrap_symbols.tls
 echo Relay: ws://127.0.0.1:10101
-echo Press Ctrl+C in this window to stop relay and Binance sender.
+echo Runtime: background/no-console
 echo.
-".venv\Scripts\python.exe" -u stack_launcher.py
-exit /b %errorlevel%
+
+".venv\Scripts\python.exe" stack_launcher.py --ensure-running --dbname "%DBNAME%"
+if errorlevel 1 (
+  echo WSRTD_HEADLESS_LAUNCH=FAIL
+  exit /b 1
+)
+timeout /t 3 /nobreak >nul
+".venv\Scripts\python.exe" stack_launcher.py --status
+if errorlevel 1 (
+  echo WSRTD_HEADLESS_LAUNCH=FAIL_STATUS
+  exit /b 1
+)
+echo WSRTD_HEADLESS_LAUNCH=PASS
+echo To stop the background stack, run stop_wsrtd_stack.cmd
+exit /b 0
