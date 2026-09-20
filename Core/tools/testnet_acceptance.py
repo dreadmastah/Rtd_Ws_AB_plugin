@@ -34,7 +34,7 @@ ALLOWED_REST_HOSTS = {
     "testnet.binancefuture.com",
     "demo-fapi.binance.com",
 }
-HARD_MAX_NOTIONAL = 50.0
+HARD_MAX_NOTIONAL = 100.0
 
 
 class AcceptanceError(RuntimeError):
@@ -303,7 +303,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--symbol", default="BTCUSDT")
     ap.add_argument("--side", choices=("BUY", "SELL"), default="BUY")
     ap.add_argument("--quantity", type=float, default=0.0)
-    ap.add_argument("--max-test-notional", type=float, default=25.0)
+    ap.add_argument("--max-test-notional", type=float, default=100.0)
     ap.add_argument("--timeout-seconds", type=float, default=10.0)
     ap.add_argument("--execute-market-order", action="store_true")
     ap.add_argument("--report", type=Path, default=DEFAULT_REPORT)
