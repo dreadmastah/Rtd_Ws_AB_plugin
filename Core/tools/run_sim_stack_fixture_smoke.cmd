@@ -24,12 +24,17 @@ if errorlevel 1 (
 )
 
 del /q "%JOURNAL%" >nul 2>nul
-start "ASTU Simulation Stack Fixture" /b python "%LAUNCHER%" --risk-mode fixture --journal "%JOURNAL%" --status-dir "%STATUS%"
+start "ASTU Simulation Stack Fixture" /b python "%LAUNCHER%" --risk-mode fixture --instrument-mode fixture --journal "%JOURNAL%" --status-dir "%STATUS%"
 ping -n 3 127.0.0.1 >nul
 
-"%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT --case-id stack-fixture --expect ORDER_ROUTING_DISABLED
+"%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT --case-id stack-fixture-buy --action BUY --side LONG --expect ORDER_ROUTING_DISABLED
+set RC=%ERRORLEVEL%
+if not %RC% EQU 0 goto cleanup
+
+"%CLIENT%" --status-dir "%STATUS%" --symbol BTCUSDT --case-id stack-fixture-scale-in --action SCALE_IN --side LONG --trigger-price 1000 --expect ORDER_ROUTING_DISABLED
 set RC=%ERRORLEVEL%
 
+:cleanup
 python "%LAUNCHER%" --stop >nul 2>nul
 
 if %RC% EQU 0 (
