@@ -183,7 +183,9 @@ public:
         // Thursday => offset 3 from Monday.
         const auto days_since_monday =
             (day_index + 3ULL) % 7ULL;
-        return day_index - days_since_monday;
+        return day_index >= days_since_monday
+            ? day_index - days_since_monday
+            : 0ULL;
     }
 
 private:
