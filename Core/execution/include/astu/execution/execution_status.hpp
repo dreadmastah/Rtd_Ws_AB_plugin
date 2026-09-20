@@ -57,10 +57,14 @@ public:
     }
 
     void set_order_state_metrics(
-        std::size_t recovered_orders,
+        std::size_t recovered_orders_at_startup,
+        std::size_t tracked_orders,
         std::uint64_t order_transition_count) noexcept {
-        recovered_orders_.store(
-            static_cast<std::uint64_t>(recovered_orders),
+        recovered_orders_at_startup_.store(
+            static_cast<std::uint64_t>(recovered_orders_at_startup),
+            std::memory_order_relaxed);
+        tracked_orders_.store(
+            static_cast<std::uint64_t>(tracked_orders),
             std::memory_order_relaxed);
         order_transition_count_.store(
             order_transition_count,
@@ -110,7 +114,8 @@ public:
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
             << ",\"orderRoutingEnabled\":false"
             << ",\"requestsSeen\":" << requests_seen_.load(std::memory_order_relaxed)
-            << ",\"recoveredOrders\":" << recovered_orders_.load(std::memory_order_relaxed)
+            << ",\"recoveredOrdersAtStartup\":" << recovered_orders_at_startup_.load(std::memory_order_relaxed)
+            << ",\"trackedOrders\":" << tracked_orders_.load(std::memory_order_relaxed)
             << ",\"orderTransitionCount\":" << order_transition_count_.load(std::memory_order_relaxed)
             << ",\"lastDecisionCode\":";
         if (last_decision.empty()) {
@@ -189,7 +194,8 @@ private:
     bool journal_ready_{false};
     bool pipe_ready_{false};
     std::atomic<std::uint64_t> requests_seen_{0};
-    std::atomic<std::uint64_t> recovered_orders_{0};
+    std::atomic<std::uint64_t> recovered_orders_at_startup_{0};
+    std::atomic<std::uint64_t> tracked_orders_{0};
     std::atomic<std::uint64_t> order_transition_count_{0};
 };
 
