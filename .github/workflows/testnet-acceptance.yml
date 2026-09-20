@@ -1,10 +1,10 @@
-name: Binance Testnet Acceptance
+name: Binance Demo Trading Acceptance
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "preflight performs no order; order submits one bounded Testnet MARKET order"
+        description: "preflight performs no order; order submits one bounded Demo Trading MARKET order"
         required: true
         default: preflight
         type: choice
@@ -12,12 +12,12 @@ on:
           - preflight
           - order
       rest_base_url:
-        description: "Allowed by harness only if Binance Testnet/demo HTTPS host"
+        description: "Allowed by harness only if Binance Demo Trading HTTPS host"
         required: true
         default: "https://testnet.binancefuture.com"
         type: string
       symbol:
-        description: "USD-M Testnet symbol"
+        description: "USD-M Demo Trading symbol"
         required: true
         default: "BTCUSDT"
         type: string
@@ -40,7 +40,7 @@ on:
         default: "25"
         type: string
       confirmation:
-        description: "For order mode type exactly EXECUTE_TESTNET_ORDER"
+        description: "For order mode type exactly EXECUTE_DEMO_ORDER"
         required: false
         default: ""
         type: string
@@ -49,14 +49,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: binance-testnet-acceptance
+  group: binance-demo-trading-acceptance
   cancel-in-progress: false
 
 jobs:
   acceptance:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: testnet-acceptance
+    environment: binance-demo-trading
     env:
       ASTU_BINANCE_TESTNET_API_KEY: ${{ secrets.ASTU_BINANCE_TESTNET_API_KEY }}
       ASTU_BINANCE_TESTNET_API_SECRET: ${{ secrets.ASTU_BINANCE_TESTNET_API_SECRET }}
@@ -76,7 +76,7 @@ jobs:
           test -n "$ASTU_BINANCE_TESTNET_API_SECRET"
           test -n "$ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE"
 
-          if [ "$MODE" = "order" ] && [ "$CONFIRMATION" != "EXECUTE_TESTNET_ORDER" ]; then
+          if [ "$MODE" = "order" ] && [ "$CONFIRMATION" != "EXECUTE_DEMO_ORDER" ]; then
             echo "ORDER_ACCEPTANCE_REFUSED=confirmation_mismatch"
             exit 2
           fi
@@ -87,13 +87,13 @@ jobs:
           python -m py_compile Core/account/binance_usdm_testnet_user_data.py
           python Core/tests/test_testnet_acceptance_guard.py
 
-      - name: Credentialed Testnet preflight
+      - name: Credentialed Demo Trading preflight
         if: ${{ inputs.mode == 'preflight' }}
         shell: bash
         run: |
           python Core/tools/testnet_acceptance.py             --rest-base-url "${{ inputs.rest_base_url }}"             --ws-url-template "$ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE"             --symbol "${{ inputs.symbol }}"             --side "${{ inputs.side }}"             --max-test-notional "${{ inputs.max_test_notional }}"
 
-      - name: Credentialed bounded Testnet MARKET acceptance
+      - name: Credentialed bounded Demo Trading MARKET acceptance
         if: ${{ inputs.mode == 'order' }}
         shell: bash
         env:
@@ -105,7 +105,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: binance-testnet-acceptance-report
+          name: binance-demo-trading-acceptance-report
           path: Core/runtime/testnet_acceptance_report.v1.json
           if-no-files-found: warn
           retention-days: 14
