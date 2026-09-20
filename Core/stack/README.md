@@ -94,6 +94,22 @@ The rate is deliberately configurable rather than inferred from Binance leverage
 
 A positive `--minimum-available-balance-reserve` requires a positive `--simulation-margin-reservation-rate`. Active balance reservations survive restart through the execution journal and are released only after terminal simulated reconciliation.
 
+## Effective leverage and margin utilization
+
+The supervisor forwards two additional simulation-only account-risk limits:
+
+```cmd
+python Core\stack\autotrader_sim_launcher.py ^
+  --risk-mode fixture ^
+  --simulation-margin-reservation-rate 0.10 ^
+  --max-effective-leverage 3 ^
+  --max-margin-utilization 0.60
+```
+
+`--max-effective-leverage 0` and `--max-margin-utilization 0` disable their respective checks. Margin utilization is a ratio in `0..1` and requires a positive simulation margin reservation rate.
+
+These options only evaluate reconciled/projected account state. They do not call Binance leverage or margin-mode mutation APIs.
+
 ## Synthetic projected-risk controls
 
 The execution host synthetic mode exposes test-only limits for projected-risk acceptance:
