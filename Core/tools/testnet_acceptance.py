@@ -252,21 +252,25 @@ def submit_market_order(
     quantity: float,
     client_order_id: str,
     timeout_seconds: float,
+    reduce_only: bool = False,
 ) -> dict[str, Any]:
+    params = [
+        ("symbol", symbol),
+        ("side", side),
+        ("type", "MARKET"),
+        ("quantity", f"{quantity:.15f}".rstrip("0").rstrip(".")),
+        ("newClientOrderId", client_order_id),
+        ("newOrderRespType", "ACK"),
+    ]
+    if reduce_only:
+        params.append(("reduceOnly", "true"))
     return signed_request(
         method="POST",
         base_url=base_url,
         path="/fapi/v1/order",
         api_key=api_key,
         api_secret=api_secret,
-        params=[
-            ("symbol", symbol),
-            ("side", side),
-            ("type", "MARKET"),
-            ("quantity", f"{quantity:.15f}".rstrip("0").rstrip(".")),
-            ("newClientOrderId", client_order_id),
-            ("newOrderRespType", "ACK"),
-        ],
+        params=params,
         timeout_seconds=timeout_seconds,
     )
 
@@ -306,6 +310,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--max-test-notional", type=float, default=100.0)
     ap.add_argument("--timeout-seconds", type=float, default=10.0)
     ap.add_argument("--execute-market-order", action="store_true")
+    ap.add_argument("--reduce-only", action="store_true")
     ap.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     return ap.parse_args()
 
@@ -328,6 +333,7 @@ def main() -> int:
             "detail": "not attempted",
         },
         "orderSubmitted": False,
+        "reduceOnly": bool(args.reduce_only),
         "clientOrderId": "",
         "exchangeOrderId": "",
         "exchangeOrderStatus": "",
@@ -418,6 +424,7 @@ def main() -> int:
             quantity=args.quantity,
             client_order_id=client_order_id,
             timeout_seconds=args.timeout_seconds,
+            reduce_only=args.reduce_only,
         )
         report["orderSubmitted"] = True
         report["clientOrderId"] = client_order_id
