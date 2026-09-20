@@ -262,6 +262,21 @@ def run(args: argparse.Namespace) -> int:
         and args.arm_testnet_order_routing
     )
     demo_authority_active = args.testnet_user_data_mode == "live"
+    demo_authority_only = args.demo_authority_only
+
+    if demo_authority_only:
+        if not demo_authority_active:
+            print(
+                "ASTU_SIM_STACK_FATAL=--demo-authority-only requires "
+                "--testnet-user-data-mode live"
+            )
+            return 2
+        if args.enable_testnet_order_routing or args.arm_testnet_order_routing:
+            print(
+                "ASTU_SIM_STACK_FATAL=--demo-authority-only cannot be "
+                "combined with order-routing flags"
+            )
+            return 2
 
     if demo_authority_active:
         if args.risk_mode != "readonly":
@@ -337,12 +352,15 @@ def run(args: argparse.Namespace) -> int:
         )
         return 2
 
-    if not host.exists():
-        print(f"ASTU_SIM_STACK_FATAL=missing execution host {host}")
-        return 2
-    if not status_dir.exists():
-        print(f"ASTU_SIM_STACK_FATAL=missing WSRTD status directory {status_dir}")
-        return 3
+    if not demo_authority_only:
+        if not host.exists():
+            print(f"ASTU_SIM_STACK_FATAL=missing execution host {host}")
+            return 2
+        if not status_dir.exists():
+            print(
+                f"ASTU_SIM_STACK_FATAL=missing WSRTD status directory {status_dir}"
+            )
+            return 3
 
     old = load_pids()
     if old and int(old.get("launcher", 0) or 0) != os.getpid():
@@ -563,7 +581,7 @@ def run(args: argparse.Namespace) -> int:
             )
             time.sleep(0.5)
 
-        if routing_active:
+        if routing_active or demo_authority_only:
             converged, detail = wait_for_demo_convergence(
                 testnet_user_data_status,
                 max_age_ms=args.testnet_user_data_max_state_age_ms,
@@ -577,7 +595,9 @@ def run(args: argparse.Namespace) -> int:
                 return 4
             print("DEMO_AUTHORITY_CONVERGENCE=READY")
 
-        host_command = [
+        host_command: list[str] | None = None
+        if not demo_authority_only:
+            host_command = [
             str(host),
             "--status-dir",
             str(status_dir),
@@ -635,26 +655,26 @@ def run(args: argparse.Namespace) -> int:
             str(args.testnet_user_data_max_state_age_ms),
             "--testnet-rest-host",
             "demo-fapi.binance.com",
-        ]
-        if args.enable_testnet_order_routing:
+            ]
+        if host_command is not None and args.enable_testnet_order_routing:
             host_command.append("--enable-testnet-order-routing")
-        if args.arm_testnet_order_routing:
+        if host_command is not None and args.arm_testnet_order_routing:
             host_command.append("--arm-testnet-order-routing")
-        if instrument_command is not None:
+        if host_command is not None and instrument_command is not None:
             host_command.extend([
                 "--instrument-status-dir",
                 str(instrument_dir),
                 "--max-instrument-status-age-ms",
                 str(args.max_instrument_status_age_ms),
             ])
-        if risk_command is not None:
+        if host_command is not None and risk_command is not None:
             host_command.extend([
                 "--position-status-dir",
                 str(position_dir),
                 "--max-position-status-age-ms",
                 str(args.max_position_status_age_ms),
             ])
-        if order_snapshot_dir is not None:
+        if host_command is not None and order_snapshot_dir is not None:
             host_command.extend([
                 "--order-snapshot-dir",
                 str(order_snapshot_dir),
@@ -663,10 +683,14 @@ def run(args: argparse.Namespace) -> int:
                 "--order-reconcile-interval-ms",
                 str(args.order_reconcile_interval_ms),
             ])
-        children["execution"] = start_child("execution", host_command)
+        if host_command is not None:
+            children["execution"] = start_child("execution", host_command)
 
         account_risk_view_command: list[str] | None = None
-        if args.account_risk_view_mode == "local":
+        if (
+            not demo_authority_only
+            and args.account_risk_view_mode == "local"
+        ):
             account_risk_view_command = [
                 sys.executable,
                 "-u",
@@ -737,9 +761,15 @@ def run(args: argparse.Namespace) -> int:
         print(f"INSTRUMENT_MODE={args.instrument_mode}")
         if instrument_command is not None:
             print(f"INSTRUMENT_STATUS_DIR={instrument_dir}")
-        if order_snapshot_dir is not None:
+        if demo_authority_only:
+            print("EXECUTION_HOST=DISABLED_AUTHORITY_ONLY")
+            print("ORDER_SNAPSHOT_PROVIDER=DISABLED")
+        elif order_snapshot_dir is not None:
             print(f"ORDER_SNAPSHOT_DIR={order_snapshot_dir}")
-            print("ORDER_SNAPSHOT_PROVIDER=FILE_BACKED_AUTHORITATIVE_SIMULATION_ORDER_STATE")
+            print(
+                "ORDER_SNAPSHOT_PROVIDER="
+                "FILE_BACKED_AUTHORITATIVE_SIMULATION_ORDER_STATE"
+            )
         else:
             print("ORDER_SNAPSHOT_PROVIDER=DISABLED")
         print(
@@ -856,6 +886,15 @@ def parse_args() -> argparse.Namespace:
         "--account-risk-view-poll-seconds",
         type=float,
         default=1.0,
+    )
+    ap.add_argument(
+        "--demo-authority-only",
+        action="store_true",
+        help=(
+            "Run only the Binance USD-M Demo account/instrument/user-data "
+            "authority sidecars. The execution host is not started and order "
+            "routing cannot be enabled in this mode."
+        ),
     )
     ap.add_argument(
         "--enable-testnet-order-routing",
