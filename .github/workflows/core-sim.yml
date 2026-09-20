@@ -223,6 +223,7 @@ jobs:
               Path("Core/runtime/realized_pnl_accumulator.v1.json").read_text(encoding="utf-8")
           )
           assert status["reconciled"] is True
+          assert status["settlementAsset"] == "USDT"
           assert abs(status["dailyRealizedTradePnl"] + 60.0) < 1e-9
           assert abs(status["weeklyRealizedTradePnl"] + 60.0) < 1e-9
           assert abs(status["dailyRealizedTradeLoss"] - 60.0) < 1e-9
@@ -231,6 +232,9 @@ jobs:
           assert abs(status["dailyCommission"] + 2.0) < 1e-9
           assert status["ignoredIncomeRecords"] == 1
           assert state["messageType"] == "RealizedPnlAccumulatorState.v1"
+          assert state["settlementAsset"] == "USDT"
+          assert abs(state["dailyRealizedTradeLossConsumed"] - 60.0) < 1e-9
+          assert abs(state["weeklyRealizedTradeLossConsumed"] - 60.0) < 1e-9
           print("READONLY_REALIZED_INCOME_FIXTURE=PASS")
           PY
 
