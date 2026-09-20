@@ -130,6 +130,19 @@ add_test(
     COMMAND astu_exposure_reservation_tests
 )
 
+add_executable(
+    astu_account_loss_baseline_tests
+    tests/account_loss_baseline_tests.cpp
+)
+target_link_libraries(
+    astu_account_loss_baseline_tests
+    PRIVATE astu_core
+)
+add_test(
+    NAME astu_account_loss_baseline_tests
+    COMMAND astu_account_loss_baseline_tests
+)
+
 if(WIN32)
     add_test(
         NAME astu_trade_amibroker_exports
