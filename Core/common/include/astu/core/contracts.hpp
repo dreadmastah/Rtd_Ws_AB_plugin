@@ -83,6 +83,15 @@ struct AccountRiskSnapshot {
     double max_gross_notional{0.0};
     std::uint32_t open_positions{0};
     std::uint32_t max_open_positions{0};
+
+    // Execution-local projected-risk context. These fields are populated
+    // after reading the reconciled AccountRiskSnapshot.v1 and are not claims
+    // that the account snapshot itself contains order-reservation state.
+    std::uint64_t pending_entry_scale_in_reservations{0};
+    std::uint64_t max_pending_entry_scale_in_reservations{0};
+    bool symbol_exposure_reconciled{false};
+    double symbol_notional{0.0};
+    double max_symbol_notional{0.0};
 };
 
 struct PositionSnapshot {
