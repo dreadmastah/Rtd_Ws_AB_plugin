@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "astu/execution/exposure_reservation.hpp"
 #include "astu/execution/order_fsm.hpp"
 #include "astu/ipc/flat_json.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
@@ -186,6 +187,132 @@ public:
     std::size_t recovered_order_intent_count() const {
         std::lock_guard<std::mutex> lock(mu_);
         return order_intents_.size();
+    }
+
+    bool append_exposure_reservation(
+        const astu::ipc::SimulationRequest& request,
+        const astu::ipc::SimulationResponse& response,
+        std::int64_t utc_ms) {
+        std::lock_guard<std::mutex> lock(mu_);
+
+        if (!astu::core::increases_exposure(request.intent.action)) {
+            return false;
+        }
+        if (response.simulation_order_id.empty() ||
+            !response.accepted_for_simulation ||
+            response.order_routing_enabled ||
+            !response.would_increase_exposure ||
+            !std::isfinite(response.simulated_quantity) ||
+            !std::isfinite(response.simulated_notional) ||
+            response.simulated_quantity <= 0.0 ||
+            response.simulated_notional <= 0.0) {
+            throw std::invalid_argument(
+                "exposure reservation requires accepted exposure-increasing simulation result");
+        }
+
+        const auto intent_it =
+            order_intents_.find(response.simulation_order_id);
+        if (intent_it == order_intents_.end()) {
+            throw std::invalid_argument(
+                "exposure reservation requires normalized simulation order intent");
+        }
+        const auto state_it =
+            order_states_.find(response.simulation_order_id);
+        if (state_it == order_states_.end() ||
+            is_terminal_order_state(state_it->second.state)) {
+            throw std::invalid_argument(
+                "exposure reservation requires active simulation order state");
+        }
+        if (exposure_reservations_.contains(
+                response.simulation_order_id)) {
+            throw std::invalid_argument(
+                "exposure reservation already exists");
+        }
+
+        const bool position_slot =
+            reserves_new_position_slot(request.intent.action);
+        std::ostringstream out;
+        out << std::setprecision(17);
+        out
+            << "{"
+            << "\"schemaVersion\":1"
+            << ",\"eventType\":\"EXPOSURE_RESERVATION_CREATED\""
+            << ",\"utcMs\":" << utc_ms
+            << ",\"simulationOrderId\":\""
+            << astu::ipc::json_escape(response.simulation_order_id)
+            << "\""
+            << ",\"signalId\":\""
+            << astu::ipc::json_escape(request.intent.signal_id)
+            << "\""
+            << ",\"symbol\":\""
+            << astu::ipc::json_escape(request.intent.symbol)
+            << "\""
+            << ",\"action\":\""
+            << astu::ipc::action_to_string(request.intent.action)
+            << "\""
+            << ",\"side\":\""
+            << astu::ipc::side_to_string(request.intent.side)
+            << "\""
+            << ",\"reservedQuantity\":"
+            << response.simulated_quantity
+            << ",\"reservedGrossNotional\":"
+            << response.simulated_notional
+            << ",\"reservesPositionSlot\":"
+            << (position_slot ? "true" : "false")
+            << ",\"simulationOnly\":true"
+            << ",\"exchangeSubmissionAttempted\":false"
+            << "}\n";
+
+        append_durable(out.str());
+        exposure_reservations_.emplace(
+            response.simulation_order_id,
+            ExposureReservationRecord{
+                request.intent.symbol,
+                request.intent.action,
+                request.intent.side,
+                response.simulated_quantity,
+                response.simulated_notional,
+                position_slot,
+                true,
+            });
+        ++exposure_reservation_create_count_;
+        return true;
+    }
+
+    ExposureReservationSummary exposure_reservation_summary() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        ExposureReservationSummary summary;
+        for (const auto& [order_id, reservation] :
+             exposure_reservations_) {
+            (void)order_id;
+            if (!reservation.active) {
+                continue;
+            }
+            ++summary.active_reservations;
+            summary.reserved_gross_notional +=
+                reservation.reserved_gross_notional;
+            if (reservation.reserves_position_slot &&
+                summary.reserved_position_slots <
+                    std::numeric_limits<std::uint32_t>::max()) {
+                ++summary.reserved_position_slots;
+            }
+        }
+        return summary;
+    }
+
+    std::uint64_t exposure_reservation_create_count() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        return exposure_reservation_create_count_;
+    }
+
+    std::uint64_t exposure_reservation_release_count() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        return exposure_reservation_release_count_;
+    }
+
+    std::uint64_t exposure_reservation_implicit_release_count() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        return exposure_reservation_implicit_release_count_;
     }
 
     void append_reconciliation_event(
