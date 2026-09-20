@@ -87,6 +87,7 @@ public:
     }
 
     void publish() const {
+        std::lock_guard<std::mutex> publish_lock(publish_mu_);
         const auto generated_ms = utc_now_ms();
 
         std::string lifecycle;
@@ -198,6 +199,7 @@ private:
     std::string position_provider_;
     std::string journal_path_;
     mutable std::mutex mu_;
+    mutable std::mutex publish_mu_;
     std::string lifecycle_state_{"STARTING"};
     std::string detail_{"simulation execution host starting"};
     std::string last_decision_code_;
