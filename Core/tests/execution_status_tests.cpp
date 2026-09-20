@@ -28,6 +28,37 @@ bool contains(
     return false;
 }
 
+double json_number(
+    const std::string& text,
+    const std::string& key) {
+    const std::string marker = "\"" + key + "\":";
+    const auto pos = text.find(marker);
+    if (pos == std::string::npos) {
+        throw std::runtime_error("missing numeric JSON key: " + key);
+    }
+    return std::stod(text.substr(pos + marker.size()));
+}
+
+bool same_number(
+    const std::string& text,
+    const std::string& key,
+    double expected) {
+    try {
+        const auto actual = json_number(text, key);
+        if (actual == expected) {
+            return true;
+        }
+        std::cerr
+            << "numeric mismatch for " << key
+            << " actual=" << actual
+            << " expected=" << expected << "\n";
+        return false;
+    } catch (const std::exception& exc) {
+        std::cerr << exc.what() << "\n";
+        return false;
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -97,13 +128,15 @@ int main() {
     ok = contains(text, "\"currentMarginBalance\":10250") && ok;
     ok = contains(text, "\"currentInitialMargin\":100") && ok;
     ok = contains(text, "\"projectedInitialMargin\":130") && ok;
-    ok = contains(
+    ok = same_number(
              text,
-             "\"projectedEffectiveLeverage\":0.12682926829268293") &&
+             "projectedEffectiveLeverage",
+             1300.0 / 10250.0) &&
          ok;
-    ok = contains(
+    ok = same_number(
              text,
-             "\"projectedMarginUtilization\":0.012682926829268292") &&
+             "projectedMarginUtilization",
+             130.0 / 10250.0) &&
          ok;
     ok = contains(text, "\"accountNetDirectionalReady\":true") && ok;
     ok = contains(text, "\"currentNetDirectionalNotional\":1000") && ok;
