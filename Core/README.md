@@ -186,23 +186,22 @@ Each `SIMULATION_RECONCILIATION_EVENT` is a single durable state transition with
 
 Fill reconciliation is cumulative and monotonic. A partial fill must be greater than zero and strictly below the normalized simulation order quantity. A filled event must reconcile exactly to the normalized order quantity. Decreasing fills, overfills, duplicate event IDs, invalid state jumps, and terminal-state mutation fail closed.
 
-`astu_sim_reconcile` is currently an **offline simulation/recovery tool**. Stop the execution host before applying events to its journal, then restart the host to verify reconstruction. It does not call Binance or any other exchange endpoint.
+The running execution service now owns reconciliation journal mutation through a second simulation-only local Named Pipe:
 
-Example:
+`\\.\pipe\AstuExecutionReconcileSim.v1`
 
-```cmd
-astu_sim_reconcile.exe --journal execution_journal.v1.jsonl ^
-  --order-id SIMORD-... ^
-  --event-id EV-001 ^
-  --event MARK_UNKNOWN
-```
+It uses the same bounded 64 KiB frame envelope, CRC32C validation, local Windows Named Pipe transport, and explicit request/response schemas as the Trade-to-Execution simulation path. `SimulationReconciliationRequest.v1` carries the event identity, simulation order ID, reconciliation type, cumulative fill and detail. `SimulationReconciliationResult.v1` returns accepted/rejected state, current cumulative fill and durable transition/reconciliation counts.
 
-The reconciliation restart acceptance follows this simulation path:
+This removes concurrent external journal writing from the normal running-service workflow: reconciliation requests are applied inside `Execution.exe` against the same in-memory journal/FSM state protected by the journal mutex.
+
+`astu_sim_reconcile` remains available only as an **offline recovery/test utility**. Stop the execution host before using that utility directly against its journal. The normal live simulation acceptance uses the reconciliation Named Pipe instead.
+
+The live reconciliation acceptance follows this path while the execution host remains running:
 
 `SIZING -> UNKNOWN_RECONCILE_REQUIRED -> ACKNOWLEDGED -> WORKING -> PARTIAL -> FILLED`
 
-It then restarts the execution host and verifies the final state, cumulative fill evidence, duplicate guard, transition count, reconciliation count, and the invariant that no `SUBMITTING` transition or exchange-submission attempt occurred.
+It rejects a post-`FILLED` cancel attempt, verifies the live `ExecutionStatus.v1` transition/reconciliation counters, restarts the execution host, and verifies reconstruction of the same final state. Both the live and offline acceptance paths assert that no `SUBMITTING` transition or exchange-submission attempt occurred.
 
 ## Current next implementation step
 
-After this reconciliation head is validated, the next simulation-only increment should move reconciliation ingestion into the running execution service itself using a bounded local IPC contract, so external simulated account/order events do not write the journal concurrently. That service-side ingress should preserve the same journal/FSM validation and still contain no exchange submission endpoint.
+After this service-side reconciliation ingress is validated, the next simulation-only increment should add an authoritative simulated order-state snapshot/reconciliation source for startup. Startup should compare persistent journal state with that snapshot, place unresolved disagreements into `UNKNOWN_RECONCILE_REQUIRED`, and require reconciliation evidence before resolving them. No exchange order-submission endpoint should be added.
