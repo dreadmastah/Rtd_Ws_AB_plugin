@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <mutex>
 #include <optional>
 #include <sstream>
@@ -410,6 +411,14 @@ public:
         reconciliation_event_ids_.insert(event_id);
         ++order_transition_count_;
         ++reconciliation_event_count_;
+
+        if (is_terminal_order_state(to_state)) {
+            release_exposure_reservation_unlocked(
+                simulation_order_id,
+                utc_ms,
+                to_state,
+                "terminal reconciliation released projected exposure reservation");
+        }
     }
 
     double reconciled_filled_quantity(
@@ -556,6 +565,14 @@ private:
                     replay_reconciliation_event_unlocked(obj);
                     continue;
                 }
+                if (event_type == "EXPOSURE_RESERVATION_CREATED") {
+                    replay_exposure_reservation_created_unlocked(obj);
+                    continue;
+                }
+                if (event_type == "EXPOSURE_RESERVATION_RELEASED") {
+                    replay_exposure_reservation_released_unlocked(obj);
+                    continue;
+                }
                 if (event_type != "IDEMPOTENCY_RESERVATION" &&
                     event_type != "SIMULATION_DECISION") {
                     continue;
@@ -569,6 +586,7 @@ private:
                     "execution journal replay parse failure: " + std::string(exc.what()));
             }
         }
+        finalize_exposure_reservations_after_replay_unlocked();
     }
 
     struct OrderRecoveryState {
@@ -580,6 +598,16 @@ private:
     struct ReconciliationRecoveryState {
         std::uint64_t sequence{0};
         double cumulative_filled_quantity{0.0};
+    };
+
+    struct ExposureReservationRecord {
+        std::string symbol;
+        astu::core::SignalAction action{astu::core::SignalAction::Buy};
+        astu::core::PositionSide side{astu::core::PositionSide::Long};
+        double reserved_quantity{0.0};
+        double reserved_gross_notional{0.0};
+        bool reserves_position_slot{false};
+        bool active{false};
     };
 
     static astu::execution::OrderState
