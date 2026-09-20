@@ -1390,6 +1390,13 @@ int main(int argc, char** argv) {
         std::move(instrument_provider),
         std::move(position_provider));
 
+    execution_status->set_execution_environment(
+        (testnet_order_routing_enabled &&
+         testnet_order_routing_armed)
+            ? "BINANCE_USDM_TESTNET"
+            : "SIMULATION_ONLY",
+        testnet_order_routing_enabled &&
+            testnet_order_routing_armed);
     execution_status->set_ready(true, true);
     execution_status->publish();
 
