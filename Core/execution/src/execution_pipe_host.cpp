@@ -1344,9 +1344,8 @@ int main(int argc, char** argv) {
          recovered_reservation_summary,
          testnet_order_router](
             const astu::ipc::SimulationRequest& request,
-            const astu::ipc::SimulationResponse& observed_response,
+            astu::ipc::SimulationResponse& response,
             std::int64_t utc_ms) {
-            auto response = observed_response;
             order_lifecycle->observe(request, response, utc_ms);
             if (response.decision_code ==
                     astu::core::DecisionCode::OrderRoutingDisabled &&
