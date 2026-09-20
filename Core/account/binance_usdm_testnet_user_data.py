@@ -535,6 +535,9 @@ class WebSocket:
         masked = bytes(value ^ mask[i % 4] for i, value in enumerate(payload))
         self.sock.sendall(header + mask + masked)
 
+    def send_ping(self, payload: bytes = b"astu") -> None:
+        self.send_frame(0x9, payload)
+
     def recv_message(self) -> tuple[str, bytes]:
         fragments = bytearray()
         message_opcode = 0
@@ -613,7 +616,20 @@ def run_live(args: argparse.Namespace, authority: Authority) -> int:
             ws.connect()
             authority.mark_connected(now_ms())
             keepalive_due = time.monotonic() + args.keepalive_seconds
+            ping_interval = max(
+                1.0,
+                min(
+                    args.timeout_seconds / 2.0,
+                    authority.max_liveness_ms / 3000.0,
+                ),
+            )
+            ping_due = time.monotonic() + ping_interval
             while True:
+                if time.monotonic() >= ping_due:
+                    ws.send_ping()
+                    authority.mark_frame(now_ms())
+                    authority.publish(now_ms())
+                    ping_due = time.monotonic() + ping_interval
                 kind, payload = ws.recv_message()
                 current = now_ms()
                 authority.mark_frame(current)
