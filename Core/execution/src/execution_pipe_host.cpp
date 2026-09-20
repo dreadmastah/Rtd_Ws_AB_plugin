@@ -149,6 +149,8 @@ int main(int argc, char** argv) {
         "CleanRoomR2/stack/bootstrap_symbols.tls";
     bool testnet_order_routing_enabled = false;
     bool testnet_order_routing_armed = false;
+    std::string testnet_rest_host =
+        std::string(astu::execution::kBinanceUsdmDemoRestHost);
     std::filesystem::path testnet_convergence_status_file =
         "Core/runtime/testnet_user_data_status.v1.json";
     std::uint64_t max_testnet_convergence_age_ms = 7'000;
@@ -187,6 +189,10 @@ int main(int argc, char** argv) {
     if (const char* env = std::getenv("ASTU_TESTNET_ORDER_ROUTING_ARMED");
         env && std::string(env) == "1") {
         testnet_order_routing_armed = true;
+    }
+    if (const char* env = std::getenv("ASTU_BINANCE_TESTNET_REST_HOST");
+        env && *env) {
+        testnet_rest_host = env;
     }
     if (const char* env =
             std::getenv("ASTU_TESTNET_CONVERGENCE_STATUS_FILE");
@@ -376,6 +382,8 @@ int main(int argc, char** argv) {
             testnet_order_routing_enabled = true;
         } else if (arg == "--arm-testnet-order-routing") {
             testnet_order_routing_armed = true;
+        } else if (arg == "--testnet-rest-host" && i + 1 < argc) {
+            testnet_rest_host = argv[++i];
         } else if (arg == "--testnet-convergence-status-file" &&
                    i + 1 < argc) {
             testnet_convergence_status_file = argv[++i];
@@ -587,11 +595,15 @@ int main(int argc, char** argv) {
             "Demo Trading order routing requires account, position, instrument and authoritative order evidence");
     }
 
-    if (testnet_order_routing_enabled) {
+    if (testnet_order_routing_enabled &&
+        testnet_order_routing_armed) {
         if (max_testnet_convergence_age_ms == 0) {
             throw std::invalid_argument(
                 "Demo Trading convergence age must be positive");
         }
+        testnet_rest_host =
+            astu::execution::require_testnet_rest_host(
+                std::move(testnet_rest_host));
         const astu::execution::FileBackedTestnetConvergenceProvider
             convergence_provider(
                 testnet_convergence_status_file,
@@ -602,8 +614,6 @@ int main(int argc, char** argv) {
                 "Binance Demo Trading routing fail-closed: account/position/order user-data convergence unavailable: " +
                 convergence.detail);
         }
-        throw std::runtime_error(
-            "Binance Demo Trading routing convergence is ready, but activation remains administratively locked until live Testnet user-data transport/recovery acceptance is completed");
     }
 
     const bool account_loss_limits_enabled =
@@ -1361,7 +1371,8 @@ int main(int argc, char** argv) {
             std::make_shared<
                 astu::execution::BinanceUsdmTestnetOrderGateway>(
                     api_key,
-                    api_secret);
+                    api_secret,
+                    testnet_rest_host);
         testnet_order_router =
             std::make_shared<astu::execution::TestnetOrderRouter>(
                 journal,
@@ -1481,6 +1492,9 @@ int main(int argc, char** argv) {
               << "\n";
     std::cout << "TESTNET_CONVERGENCE_STATUS_FILE="
               << testnet_convergence_status_file.string()
+              << "\n";
+    std::cout << "TESTNET_REST_HOST="
+              << testnet_rest_host
               << "\n";
     std::cout << "MAX_TESTNET_CONVERGENCE_AGE_MS="
               << max_testnet_convergence_age_ms
