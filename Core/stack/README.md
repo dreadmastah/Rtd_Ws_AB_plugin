@@ -110,6 +110,22 @@ python Core\stack\autotrader_sim_launcher.py ^
 
 These options only evaluate reconciled/projected account state. They do not call Binance leverage or margin-mode mutation APIs.
 
+## Net directional exposure
+
+The supervisor forwards the symmetric signed-net-notional limit:
+
+```cmd
+python Core\stack\autotrader_sim_launcher.py ^
+  --risk-mode fixture ^
+  --max-net-directional-notional 5000
+```
+
+A value of `0` disables the limit. Live/fixture risk snapshots provide reconciled signed net notional, while active simulation reservations contribute signed projected notional from `SignalIntent.side`.
+
+The limit is directional rather than gross: a SHORT projected reservation can offset LONG net exposure, and vice versa. Gross-notional limits remain independently enforced.
+
+This control evaluates only simulation/account state; it does not submit an opposite-side hedge or otherwise mutate exchange positions.
+
 ## Synthetic projected-risk controls
 
 The execution host synthetic mode exposes test-only limits for projected-risk acceptance:
