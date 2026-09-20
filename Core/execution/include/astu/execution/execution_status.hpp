@@ -44,6 +44,19 @@ public:
           position_provider_(std::move(position_provider)),
           journal_path_(std::move(journal_path)) {}
 
+    void set_execution_environment(
+        std::string environment,
+        bool order_routing_enabled) {
+        if (order_routing_enabled &&
+            environment != "BINANCE_USDM_TESTNET") {
+            throw std::invalid_argument(
+                "routing may only be enabled for BINANCE_USDM_TESTNET");
+        }
+        std::lock_guard<std::mutex> lock(mu_);
+        execution_environment_ = std::move(environment);
+        order_routing_enabled_ = order_routing_enabled;
+    }
+
     void set_ready(bool journal_ready, bool pipe_ready) {
         std::lock_guard<std::mutex> lock(mu_);
         lifecycle_state_ = "READY";
@@ -332,6 +345,8 @@ public:
         std::string lifecycle;
         std::string detail;
         std::string last_decision;
+        std::string execution_environment;
+        bool order_routing_enabled = false;
         bool journal_ready = false;
         bool pipe_ready = false;
         std::string startup_order_snapshot_provider;
@@ -433,6 +448,8 @@ public:
             lifecycle = lifecycle_state_;
             detail = detail_;
             last_decision = last_decision_code_;
+            execution_environment = execution_environment_;
+            order_routing_enabled = order_routing_enabled_;
             journal_ready = journal_ready_;
             pipe_ready = pipe_ready_;
             startup_order_snapshot_provider =
@@ -806,7 +823,11 @@ public:
             << ",\"journalPath\":\"" << astu::ipc::json_escape(journal_path_) << "\""
             << ",\"journalReady\":" << (journal_ready ? "true" : "false")
             << ",\"pipeReady\":" << (pipe_ready ? "true" : "false")
-            << ",\"orderRoutingEnabled\":false"
+            << ",\"orderRoutingEnabled\":"
+            << (order_routing_enabled ? "true" : "false")
+            << ",\"executionEnvironment\":\""
+            << astu::ipc::json_escape(execution_environment)
+            << "\""
             << ",\"requestsSeen\":" << requests_seen_.load(std::memory_order_relaxed)
             << ",\"recoveredOrdersAtStartup\":" << recovered_orders_at_startup_.load(std::memory_order_relaxed)
             << ",\"trackedOrders\":" << tracked_orders_.load(std::memory_order_relaxed)
@@ -888,6 +909,8 @@ private:
     std::string lifecycle_state_{"STARTING"};
     std::string detail_{"simulation execution host starting"};
     std::string last_decision_code_;
+    std::string execution_environment_{"SIMULATION_ONLY"};
+    bool order_routing_enabled_{false};
     std::string startup_order_snapshot_provider_{"DISABLED"};
     bool startup_order_snapshot_required_{false};
     std::uint64_t startup_order_tracked_{0};
