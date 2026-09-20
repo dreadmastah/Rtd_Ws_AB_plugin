@@ -117,6 +117,19 @@ add_test(
     COMMAND astu_runtime_order_reconciliation_tests
 )
 
+add_executable(
+    astu_exposure_reservation_tests
+    tests/exposure_reservation_tests.cpp
+)
+target_link_libraries(
+    astu_exposure_reservation_tests
+    PRIVATE astu_core
+)
+add_test(
+    NAME astu_exposure_reservation_tests
+    COMMAND astu_exposure_reservation_tests
+)
+
 if(WIN32)
     add_test(
         NAME astu_trade_amibroker_exports
