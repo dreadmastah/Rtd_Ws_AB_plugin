@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:AccountRiskView.v1",
+  "title": "AccountRiskView.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "generatedUnixMs",
+    "sourceExecutionStatusPath",
+    "sourceGeneratedUnixMs",
+    "sourceAgeMs",
+    "sourceFresh",
+    "maxSourceAgeMs",
+    "lifecycleState",
+    "riskProvider",
+    "realizedPnlProvider",
+    "orderRoutingEnabled",
+    "gateState",
+    "blockReasons",
+    "periods",
+    "budgets",
+    "realizedPnlEvidence",
+    "projectedRisk",
+    "lastDecisionCode",
+    "detail"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "messageType": { "const": "AccountRiskView.v1" },
+    "generatedUnixMs": { "type": "integer", "minimum": 1 },
+    "sourceExecutionStatusPath": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "sourceGeneratedUnixMs": { "type": "integer", "minimum": 0 },
+    "sourceAgeMs": { "type": "integer" },
+    "sourceFresh": { "type": "boolean" },
+    "maxSourceAgeMs": { "type": "integer", "minimum": 1 },
+    "lifecycleState": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "riskProvider": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "realizedPnlProvider": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "orderRoutingEnabled": { "const": false },
+    "gateState": { "enum": ["CLEAR", "ACCOUNT_NOT_RECONCILED", "RISK_BLOCKED"] },
+    "blockReasons": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 320 },
+      "maxItems": 16
+    },
+    "periods": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["utcDayIndex", "utcDay", "utcWeekStartDayIndex", "utcWeekStart"],
+      "properties": {
+        "utcDayIndex": { "type": "integer", "minimum": 0 },
+        "utcDay": { "type": "string", "maxLength": 16 },
+        "utcWeekStartDayIndex": { "type": "integer", "minimum": 0 },
+        "utcWeekStart": { "type": "string", "maxLength": 16 }
+      }
+    },
+    "budgets": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "baselineKind",
+          "baselineValue",
+          "consumption",
+          "limit",
+          "headroom",
+          "consumedRatio",
+          "enabled",
+          "evidenceReady",
+          "blocked",
+          "status"
+        ],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "label": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "baselineKind": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "baselineValue": { "type": ["number", "null"] },
+          "consumption": { "type": "number", "minimum": 0 },
+          "limit": { "type": "number", "minimum": 0 },
+          "headroom": { "type": ["number", "null"], "minimum": 0 },
+          "consumedRatio": { "type": ["number", "null"], "minimum": 0 },
+          "enabled": { "type": "boolean" },
+          "evidenceReady": { "type": "boolean" },
+          "blocked": { "type": "boolean" },
+          "status": { "enum": ["DISABLED", "UNAVAILABLE", "BLOCKED", "HEADROOM"] }
+        }
+      }
+    },
+    "realizedPnlEvidence": { "type": "object" },
+    "projectedRisk": { "type": "object" },
+    "lastDecisionCode": { "type": ["string", "null"], "maxLength": 64 },
+    "detail": { "type": "string", "maxLength": 512 }
+  }
+}
