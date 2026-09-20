@@ -144,6 +144,50 @@ def stop() -> int:
     return 0
 
 
+def wait_for_demo_convergence(
+    path: Path,
+    *,
+    max_age_ms: int,
+    timeout_seconds: float,
+) -> tuple[bool, str]:
+    deadline = time.monotonic() + timeout_seconds
+    last_detail = "status unavailable"
+    while time.monotonic() < deadline:
+        try:
+            obj = json.loads(path.read_text(encoding="utf-8"))
+            generated = int(obj.get("generatedUnixMs", 0) or 0)
+            age_ms = int(time.time() * 1000) - generated
+            ready = obj.get("ready") is True
+            stream_alive = obj.get("streamAlive") is True
+            account_ok = obj.get("accountConverged") is True
+            positions_ok = obj.get("positionsConverged") is True
+            orders_ok = obj.get("ordersConverged") is True
+            unresolved = int(obj.get("unresolvedAstuOrders", -1))
+            fallback = obj.get("restFallbackRequired") is True
+            fresh = generated > 0 and 0 <= age_ms <= max_age_ms
+            if (
+                ready
+                and stream_alive
+                and account_ok
+                and positions_ok
+                and orders_ok
+                and unresolved == 0
+                and not fallback
+                and fresh
+            ):
+                return True, "Demo user-data convergence ready"
+            last_detail = (
+                f"ready={ready} streamAlive={stream_alive} "
+                f"account={account_ok} positions={positions_ok} "
+                f"orders={orders_ok} unresolved={unresolved} "
+                f"fallback={fallback} ageMs={age_ms}"
+            )
+        except Exception as exc:
+            last_detail = str(exc)
+        time.sleep(0.25)
+    return False, last_detail
+
+
 def run(args: argparse.Namespace) -> int:
     if os.name != "nt":
         print("ASTU_SIM_STACK_FATAL=Windows Named Pipe host requires Windows")
@@ -190,6 +234,7 @@ def run(args: argparse.Namespace) -> int:
         or args.testnet_user_data_max_state_age_ms <= 0
         or args.testnet_user_data_keepalive_seconds <= 0
         or args.testnet_user_data_reconnect_seconds <= 0
+        or args.testnet_convergence_wait_seconds <= 0
         or (
             (
                 args.minimum_available_balance_reserve > 0
@@ -520,6 +565,20 @@ def run(args: argparse.Namespace) -> int:
             )
             time.sleep(0.5)
 
+        if routing_active:
+            converged, detail = wait_for_demo_convergence(
+                testnet_user_data_status,
+                max_age_ms=args.testnet_user_data_max_state_age_ms,
+                timeout_seconds=args.testnet_convergence_wait_seconds,
+            )
+            if not converged:
+                print(
+                    "ASTU_SIM_STACK_FATAL=Demo authority convergence timeout: "
+                    f"{detail}"
+                )
+                return 4
+            print("DEMO_AUTHORITY_CONVERGENCE=READY")
+
         host_command = [
             str(host),
             "--status-dir",
@@ -838,6 +897,15 @@ def parse_args() -> argparse.Namespace:
         "--testnet-user-data-max-state-age-ms",
         type=int,
         default=7000,
+    )
+    ap.add_argument(
+        "--testnet-convergence-wait-seconds",
+        type=float,
+        default=30.0,
+        help=(
+            "Maximum startup wait for a fresh fully-converged Demo "
+            "user-data authority state before an armed routing host starts."
+        ),
     )
     ap.add_argument(
         "--testnet-user-data-keepalive-seconds",
