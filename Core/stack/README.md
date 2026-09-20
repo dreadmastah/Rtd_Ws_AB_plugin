@@ -178,6 +178,45 @@ and classifies `REALIZED_PNL`, `FUNDING_FEE` and `COMMISSION` separately. Transf
 
 The default settlement asset is `USDT`. Tracked income in another asset fails reconciliation closed until an explicit conversion policy exists.
 
+## Read-only Account Risk operator view
+
+The supervisor now starts a local read-only Account Risk view by default. It does not expose an HTTP server, Named Pipe command, order button, cancel action, or any exchange/account mutation route. It only reads the atomically published `ExecutionStatus.v1` file and writes:
+
+```text
+Core/runtime/account_risk_view.v1.json
+Core/runtime/account_risk_view.html
+```
+
+The projection reports:
+
+- UTC daily/weekly period identifiers and persisted starting baselines;
+- Risk Capital loss, Margin Balance compatibility loss, high-water drawdown, and exact realized-trade-loss consumption;
+- each configured limit, remaining headroom, consumed ratio, readiness and block status;
+- realized PnL, funding, commission, classified net trading income, settlement asset and record counts;
+- projected exposure reservations and configured projected-risk limits;
+- explicit `ACCOUNT_NOT_RECONCILED` and `RISK_BLOCKED` reasons derived from the current status evidence;
+- `orderRoutingEnabled=false` as a required invariant.
+
+The view fails closed when its source is missing, malformed, stale, clock-regressed, or reports routing enabled. The HTML file auto-refreshes locally and contains no form controls or mutation endpoints.
+
+Supervisor controls:
+
+```cmd
+python Core\stack\autotrader_sim_launcher.py ^
+  --account-risk-view-mode local ^
+  --account-risk-view-poll-seconds 1 ^
+  --account-risk-view-max-source-age-ms 5000
+```
+
+Use `--account-risk-view-mode disabled` to suppress the derived view process. Custom output paths are available through `--account-risk-view-json` and `--account-risk-view-html`.
+
+For a one-shot projection outside the supervisor:
+
+```cmd
+python Core\operator\account_risk_view.py ^
+  --execution-status-file Core\runtime\execution_status.v1.json
+```
+
 ## Synthetic projected-risk controls
 
 The execution host synthetic mode exposes test-only limits for projected-risk acceptance:
