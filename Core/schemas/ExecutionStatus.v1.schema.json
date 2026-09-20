@@ -22,6 +22,17 @@
     "startupOrderMatched",
     "startupOrderMarkedUnknown",
     "startupOrderUnresolved",
+    "runtimeOrderReconciliationEnabled",
+    "runtimeOrderLastSweepUtcMs",
+    "runtimeOrderSweepCount",
+    "runtimeOrderTrackedNonterminal",
+    "runtimeOrderMatched",
+    "runtimeOrderMarkedUnknown",
+    "runtimeOrderUnresolved",
+    "runtimeOrderSourceUnavailable",
+    "runtimeOrderTerminalSkipped",
+    "runtimeOrderConcurrentStateChanges",
+    "runtimeOrderSweepErrors",
     "journalPath",
     "journalReady",
     "pipeReady",
@@ -154,6 +165,49 @@
       "minimum": 0
     },
     "startupOrderUnresolved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderReconciliationEnabled": {
+      "type": "boolean"
+    },
+    "runtimeOrderLastSweepUtcMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderSweepCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderTrackedNonterminal": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderMatched": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderMarkedUnknown": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderUnresolved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderSourceUnavailable": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderTerminalSkipped": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderConcurrentStateChanges": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderSweepErrors": {
       "type": "integer",
       "minimum": 0
     }
