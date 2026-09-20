@@ -136,7 +136,9 @@ astu::ipc::SimulationDispatcher reservation_dispatcher(
     double max_symbol_notional = 0.0,
     std::function<double(const std::string&)> symbol_notional_provider = {},
     double minimum_available_balance_reserve = 0.0,
-    double margin_reservation_rate = 0.0) {
+    double margin_reservation_rate = 0.0,
+    double max_effective_leverage = 0.0,
+    double max_margin_utilization = 0.0) {
     auto lifecycle =
         std::make_shared<astu::execution::SimulationOrderLifecycle>(
             journal);
@@ -151,7 +153,9 @@ astu::ipc::SimulationDispatcher reservation_dispatcher(
          max_symbol_notional,
          symbol_notional_provider,
          minimum_available_balance_reserve,
-         margin_reservation_rate](
+         margin_reservation_rate,
+         max_effective_leverage,
+         max_margin_utilization](
             const astu::core::SignalIntent& intent) {
             const bool symbol_reconciled =
                 max_symbol_notional <= 0.0 ||
@@ -169,7 +173,9 @@ astu::ipc::SimulationDispatcher reservation_dispatcher(
                 symbol_notional,
                 max_symbol_notional,
                 minimum_available_balance_reserve,
-                margin_reservation_rate);
+                margin_reservation_rate,
+                max_effective_leverage,
+                max_margin_utilization);
         },
         4096,
         [journal](const std::string& key) {
@@ -637,6 +643,149 @@ int main() {
                 1e-12);
         REQUIRE(std::fabs(decision.simulated_quantity - 0.06) <
                 1e-12);
+    }
+
+    {
+        const auto journal_path =
+            root / "effective_leverage.jsonl";
+        auto journal =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100);
+        auto risk =
+            base_risk(0.0, 100'000.0, 0, 10, 5.0);
+        risk.margin_metrics_reconciled = true;
+        risk.margin_balance = 5.0;
+        risk.initial_margin = 0.0;
+        auto dispatcher = reservation_dispatcher(
+            journal,
+            risk,
+            0,
+            0.0,
+            {},
+            0.0,
+            0.0,
+            2.0,
+            0.0);
+
+        const auto first =
+            request("LEVERAGE-1", SignalAction::Buy, "BTCUSDT");
+        const auto first_response =
+            dispatcher.dispatch(first, 3'400);
+        REQUIRE(first_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(first_response.simulated_notional - 10.0) <
+                1e-12);
+
+        const auto second =
+            request("LEVERAGE-2", SignalAction::Buy, "ETHUSDT");
+        const auto second_response =
+            dispatcher.dispatch(second, 3'401);
+        REQUIRE(second_response.decision_code ==
+                DecisionCode::RiskBlocked);
+        REQUIRE(second_response.reason.find(
+                    "maximum effective leverage") !=
+                std::string::npos);
+    }
+
+    {
+        const auto journal_path =
+            root / "margin_utilization.jsonl";
+        auto journal =
+            std::make_shared<astu::execution::ExecutionJournal>(
+                journal_path,
+                100,
+                0.5);
+        auto risk =
+            base_risk(0.0, 100'000.0, 0, 10, 100.0);
+        risk.margin_metrics_reconciled = true;
+        risk.margin_balance = 10.0;
+        risk.initial_margin = 0.0;
+        auto dispatcher = reservation_dispatcher(
+            journal,
+            risk,
+            0,
+            0.0,
+            {},
+            0.0,
+            0.5,
+            0.0,
+            0.5);
+
+        const auto first =
+            request("MARGIN-1", SignalAction::Buy, "BTCUSDT");
+        const auto first_response =
+            dispatcher.dispatch(first, 3'500);
+        REQUIRE(first_response.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(first_response.simulated_notional - 10.0) <
+                1e-12);
+        REQUIRE(std::fabs(
+                    journal->exposure_reservation_summary()
+                        .reserved_available_balance -
+                    5.0) <
+                1e-12);
+
+        const auto second =
+            request("MARGIN-2", SignalAction::Buy, "ETHUSDT");
+        const auto second_response =
+            dispatcher.dispatch(second, 3'501);
+        REQUIRE(second_response.decision_code ==
+                DecisionCode::RiskBlocked);
+        REQUIRE(second_response.reason.find(
+                    "maximum margin utilization") !=
+                std::string::npos);
+    }
+
+    {
+        const auto req =
+            request("STRICT-LEVERAGE", SignalAction::Buy, "BTCUSDT");
+        auto risk =
+            base_risk(195.0, 100'000.0, 0, 10, 1000.0);
+        risk.margin_metrics_reconciled = true;
+        risk.margin_balance = 100.0;
+        risk.initial_margin = 0.0;
+        risk.max_effective_leverage = 2.0;
+
+        astu::core::InstrumentConstraints rules;
+        rules.ready = true;
+        rules.source = "STRICT-LEVERAGE-TEST";
+        rules.symbol = "BTCUSDT";
+        rules.price_tick = 0.1;
+        rules.quantity_step = 0.01;
+        rules.min_quantity = 0.01;
+        rules.max_quantity = 1000.0;
+        rules.min_notional = 1.0;
+        rules.max_notional = 100'000.0;
+
+        const auto decision =
+            astu::execution::SimulationEngine::run_with_instrument(
+                req.intent,
+                ready_data(req.intent),
+                risk,
+                rules,
+                3'600);
+        REQUIRE(decision.decision_code ==
+                DecisionCode::OrderRoutingDisabled);
+        REQUIRE(std::fabs(decision.simulated_notional - 5.0) <
+                1e-12);
+    }
+
+    {
+        const auto req =
+            request("MARGIN-MISSING", SignalAction::Buy, "BTCUSDT");
+        auto risk =
+            base_risk(0.0, 100'000.0, 0, 10, 1000.0);
+        risk.max_effective_leverage = 2.0;
+        const auto decision =
+            astu::execution::SimulationEngine::run(
+                req.intent,
+                ready_data(req.intent),
+                risk,
+                3'700);
+        REQUIRE(decision.decision_code ==
+                DecisionCode::AccountNotReconciled);
+        REQUIRE(!decision.accepted_for_simulation);
     }
 
     {
