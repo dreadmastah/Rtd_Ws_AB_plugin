@@ -58,10 +58,11 @@ def main() -> int:
         assert abs(notional - 1.0) < 1e-12
         expect_fail(lambda: m.validate_execution(
             execute=True,
-            quantity=1.0,
+            quantity=1.01,
             price=100.0,
-            max_notional=25.0,
+            max_notional=100.0,
         ))
+        assert m.HARD_MAX_NOTIONAL == 100.0
         expect_fail(lambda: m.validate_execution(
             execute=True,
             quantity=0.01,
