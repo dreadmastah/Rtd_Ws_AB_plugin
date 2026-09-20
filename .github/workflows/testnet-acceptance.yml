@@ -14,7 +14,7 @@ on:
       rest_base_url:
         description: "Allowed by harness only if Binance Demo Trading HTTPS host"
         required: true
-        default: "https://testnet.binancefuture.com"
+        default: "https://demo-fapi.binance.com"
         type: string
       symbol:
         description: "USD-M Demo Trading symbol"
