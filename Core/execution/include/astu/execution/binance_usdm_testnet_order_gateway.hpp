@@ -30,8 +30,22 @@ namespace astu::execution {
 
 inline constexpr std::string_view kBinanceUsdmTestnetEnvironment =
     "BINANCE_USDM_TESTNET";
+inline constexpr std::string_view kBinanceUsdmDemoRestHost =
+    "demo-fapi.binance.com";
+inline constexpr std::string_view kBinanceUsdmLegacyTestnetRestHost =
+    "testnet.binancefuture.com";
 inline constexpr std::string_view kBinanceUsdmTestnetOrderPath =
     "/fapi/v1/order";
+
+inline std::string require_testnet_rest_host(std::string host) {
+    if (host != kBinanceUsdmDemoRestHost &&
+        host != kBinanceUsdmLegacyTestnetRestHost) {
+        throw std::invalid_argument(
+            "Demo Trading REST host must be demo-fapi.binance.com "
+            "or legacy testnet.binancefuture.com");
+    }
+    return host;
+}
 inline constexpr std::uint64_t kBinanceTestnetRecvWindowMs = 5000;
 
 enum class TestnetSubmitOutcome {
@@ -371,9 +385,13 @@ class BinanceUsdmTestnetOrderGateway {
 public:
     BinanceUsdmTestnetOrderGateway(
         std::string api_key,
-        std::string api_secret)
+        std::string api_secret,
+        std::string rest_host =
+            std::string(kBinanceUsdmDemoRestHost))
         : api_key_(std::move(api_key)),
-          api_secret_(std::move(api_secret)) {
+          api_secret_(std::move(api_secret)),
+          rest_host_(require_testnet_rest_host(
+              std::move(rest_host))) {
         if (api_key_.empty() || api_secret_.empty()) {
             throw std::invalid_argument(
                 "Binance Testnet API credentials are required");
@@ -403,7 +421,9 @@ public:
 
             detail::WinHttpHandle connection(WinHttpConnect(
                 session.get(),
-                L"testnet.binancefuture.com",
+                std::wstring(
+                    rest_host_.begin(),
+                    rest_host_.end()).c_str(),
                 INTERNET_DEFAULT_HTTPS_PORT,
                 0));
             if (!connection.valid()) {
@@ -546,7 +566,9 @@ public:
             }
             detail::WinHttpHandle connection(WinHttpConnect(
                 session.get(),
-                L"testnet.binancefuture.com",
+                std::wstring(
+                    rest_host_.begin(),
+                    rest_host_.end()).c_str(),
                 INTERNET_DEFAULT_HTTPS_PORT,
                 0));
             if (!connection.valid()) {
@@ -679,6 +701,7 @@ public:
 private:
     std::string api_key_;
     std::string api_secret_;
+    std::string rest_host_;
 };
 
 #else
@@ -692,7 +715,10 @@ inline std::string hmac_sha256_hex_for_test(
 
 class BinanceUsdmTestnetOrderGateway {
 public:
-    BinanceUsdmTestnetOrderGateway(std::string, std::string) {
+    BinanceUsdmTestnetOrderGateway(
+        std::string,
+        std::string,
+        std::string = std::string(kBinanceUsdmDemoRestHost)) {
         throw std::runtime_error(
             "Binance Testnet order gateway requires Windows");
     }
