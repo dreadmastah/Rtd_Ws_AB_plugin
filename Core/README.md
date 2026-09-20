@@ -655,6 +655,22 @@ This layer intentionally keeps realized trade PnL, funding and commissions separ
 
 The deterministic coverage proves income-type classification, transfer exclusion, transaction-ID deduplication, mixed-settlement-asset fail-closed behavior, monotonic consumed-loss persistence across apparent PnL recovery, stale/wrong-period provider rejection, daily/weekly exact loss blocking, missing-evidence fail-closed behavior, and no exchange-submission path.
 
+## Local Named Pipe security hardening
+
+The execution and reconciliation endpoints now share one hardened Windows Named Pipe creation path.
+
+Security properties are explicit:
+
+- the server resolves the execution-host process-user SID at runtime;
+- a protected DACL contains exactly one allow ACE for that SID;
+- no Everyone / Users / Authenticated Users / Anonymous / guest ACE is added;
+- `PIPE_REJECT_REMOTE_CLIENTS` rejects remote Named Pipe access before application framing or JSON parsing;
+- `FILE_FLAG_FIRST_PIPE_INSTANCE` causes an already-claimed canonical pipe name to fail closed rather than being silently joined.
+
+The Windows acceptance test creates both canonical pipe names, validates the generated current-user-only DACL, impersonates the Anonymous token and requires `ERROR_ACCESS_DENIED`, and asserts the remote-rejection / first-instance flags. Both `AstuExecutionSim.v1` and `AstuExecutionReconcileSim.v1` use this same transport class.
+
+This change only narrows local IPC access. It does not introduce order submission, cancellation, transfer, leverage/margin mutation, hedge mutation or automatic `SUBMITTING`.
+
 ## Current next implementation step
 
-The account-risk categories in Architecture R3.1 are now represented in the simulation path. The next hardening increment should secure the local Named Pipe boundary with remote-client rejection and an explicit current-user-only Windows DACL, then add acceptance coverage proving another user/remote endpoint cannot access the execution or reconciliation pipes. This remains transport hardening only; it must not enable order routing.
+The remaining Architecture R3.1 account-risk data is now available through `ExecutionStatus.v1`, including daily/weekly baselines, realized-loss consumption, configured limits, headroom inputs and block reasons. The next increment should surface that evidence in a read-only Account Risk operator view, without adding any control that can submit orders or mutate exchange/account state.
