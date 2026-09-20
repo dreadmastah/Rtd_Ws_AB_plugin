@@ -126,6 +126,48 @@ For the current simulation semantics:
 
 This deliberately avoids guessing broader BUY/SELL position semantics that are not yet locked into the compatibility contract.
 
+## Simulation order intent and persistent FSM
+
+The execution host now creates a deterministic simulation-only order identity for each accepted request/idempotency identity and returns it as `simulationOrderId`. The ID is stable across retry timing/data-generation changes when the request ID, idempotency key, signal identity, strategy, symbol, action and side remain the same.
+
+The ID is explicitly a **simulation order ID**, not a production Binance client-order ID. It must not be treated as an exchange-submission credential or live-order identifier.
+
+After successful sizing, the journal persists `SimulationOrderIntent.v1` with:
+
+- simulation order ID;
+- request/idempotency/signal identity;
+- symbol, action and side;
+- normalized simulated quantity;
+- SignalIntent trigger/reference price;
+- simulated notional;
+- `simulationOnly=true`;
+- `orderRoutingEnabled=false`;
+- `exchangeSubmissionAttempted=false`.
+
+The persistent order FSM uses the architecture state vocabulary:
+
+`INTENT_RECEIVED -> VALIDATING -> RISK_APPROVED -> SIZING -> SUBMITTING -> ACKNOWLEDGED -> WORKING -> PARTIAL/FILLED/CANCELED/REJECTED`
+
+plus `UNKNOWN_RECONCILE_REQUIRED`.
+
+The current simulation runtime automatically advances only through:
+
+`INTENT_RECEIVED -> VALIDATING -> RISK_APPROVED -> SIZING`
+
+for an accepted simulation result. It deliberately stops at `SIZING` because order routing is disabled. No normal simulation path automatically enters `SUBMITTING`, `ACKNOWLEDGED`, or `WORKING`.
+
+Validation/risk/filter failures can move to `REJECTED` through validated failure transitions. Every transition is durably journaled with a monotonically increasing per-order transition sequence, exact from/to states, and explicit no-exchange-submission flags.
+
+At startup the journal reconstructs the latest state of every simulation order and validates transition sequence continuity and legal state transitions. A malformed, gapped, contradictory, or non-simulation transition fails startup closed instead of being silently ignored.
+
+The Windows restart acceptance test additionally proves that:
+
+- an accepted simulation remains reconstructed at `SIZING`;
+- the normalized simulation order intent survives restart;
+- the same idempotency key is rejected after restart as `DUPLICATE_REQUEST`;
+- the deterministic `simulationOrderId` remains stable on that retry;
+- no `SUBMITTING` transition or exchange-submission flag appears.
+
 ## Current next implementation step
 
-With data identity, account risk, public instrument rules, and scale-action position state connected, the next simulation-only increment is an explicit order-intent/FSM model: deterministic client order identity, NEW/CANCELLED/FILLED simulation states, transition validation, and restart recovery without any exchange submission endpoint.
+Once the new order-FSM head is validated by CI, the next simulation-only increment is reconciliation-oriented FSM behavior around `UNKNOWN_RECONCILE_REQUIRED`: simulated acknowledgement/fill event inputs, legal recovery transitions, and durable reconciliation evidence. No exchange order-submission endpoint should be added in that increment.
