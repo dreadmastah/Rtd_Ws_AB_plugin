@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
     std::string case_id = "1";
     auto expected = astu::core::DecisionCode::OrderRoutingDisabled;
     double trigger_price = 100'000.0;
+    std::string quantity_model = "SYNTHETIC_TEST_ONLY";
     auto action = astu::core::SignalAction::Buy;
     auto side = astu::core::PositionSide::Long;
 
@@ -32,6 +33,8 @@ int main(int argc, char** argv) {
             expected = astu::ipc::decision_from_string(argv[++i]);
         } else if (arg == "--trigger-price" && i + 1 < argc) {
             trigger_price = std::stod(argv[++i]);
+        } else if (arg == "--quantity-model" && i + 1 < argc) {
+            quantity_model = argv[++i];
         } else if (arg == "--action" && i + 1 < argc) {
             action = astu::ipc::action_from_string(argv[++i]);
         } else if (arg == "--side" && i + 1 < argc) {
@@ -59,7 +62,7 @@ int main(int argc, char** argv) {
     seed.trigger_price = trigger_price;
     seed.valid_from_utc_ms = now - 1'000;
     seed.expires_utc_ms = now + 30'000;
-    seed.quantity_model = "SYNTHETIC_TEST_ONLY";
+    seed.quantity_model = quantity_model;
     seed.priority_score = 0.0;
 
     astu::wsrtd::LiveStatusProvider status_provider(status_dir, 5'000);
@@ -89,6 +92,7 @@ int main(int argc, char** argv) {
                   << (response.order_routing_enabled ? "true" : "false") << "\n";
         std::cout << "simulatedQuantity=" << response.simulated_quantity << "\n";
         std::cout << "simulatedNotional=" << response.simulated_notional << "\n";
+        std::cout << "quantityModel=" << quantity_model << "\n";
         std::cout << "reason=" << response.reason << "\n";
         return response.decision_code == expected ? 0 : 1;
     } catch (const std::exception& exc) {
