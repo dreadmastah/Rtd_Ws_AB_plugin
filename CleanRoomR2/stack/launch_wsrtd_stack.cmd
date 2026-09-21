@@ -32,7 +32,7 @@ if errorlevel 1 (
   echo WSRTD_HEADLESS_LAUNCH=FAIL
   exit /b 1
 )
-timeout /t 3 /nobreak >nul
+".venv\Scripts\python.exe" -c "import time; time.sleep(3)" >nul 2>nul
 ".venv\Scripts\python.exe" stack_launcher.py --status
 if errorlevel 1 (
   echo WSRTD_HEADLESS_LAUNCH=FAIL_STATUS
