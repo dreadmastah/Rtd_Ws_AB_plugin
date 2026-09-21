@@ -26,9 +26,6 @@
 #include "astu/execution/simulation_order_lifecycle.hpp"
 #include "astu/execution/startup_order_reconciler.hpp"
 #include "astu/execution/symbol_risk_status.hpp"
-#include "astu/execution/binance_usdm_testnet_order_gateway.hpp"
-#include "astu/execution/testnet_order_router.hpp"
-#include "astu/execution/testnet_convergence.hpp"
 #include "astu/ipc/simulation_protocol.hpp"
 #include "astu/instrument/live_instrument_provider.hpp"
 #include "astu/wsrtd/live_status_provider.hpp"
@@ -147,13 +144,6 @@ int main(int argc, char** argv) {
         "Core/runtime/symbol_risk_status.v1.json";
     std::filesystem::path symbol_risk_universe_file =
         "CleanRoomR2/stack/bootstrap_symbols.tls";
-    bool testnet_order_routing_enabled = false;
-    bool testnet_order_routing_armed = false;
-    std::string testnet_rest_host =
-        std::string(astu::execution::kBinanceUsdmDemoRestHost);
-    std::filesystem::path testnet_convergence_status_file =
-        "Core/runtime/testnet_user_data_status.v1.json";
-    std::uint64_t max_testnet_convergence_age_ms = 7'000;
     std::filesystem::path instrument_status_dir;
     std::uint64_t max_instrument_status_age_ms = 86'400'000;
     std::filesystem::path position_status_dir;
@@ -181,29 +171,6 @@ int main(int argc, char** argv) {
     if (const char* env = std::getenv("ASTU_SYMBOL_RISK_UNIVERSE_FILE");
         env && *env) {
         symbol_risk_universe_file = env;
-    }
-    if (const char* env = std::getenv("ASTU_TESTNET_ORDER_ROUTING_ENABLED");
-        env && std::string(env) == "1") {
-        testnet_order_routing_enabled = true;
-    }
-    if (const char* env = std::getenv("ASTU_TESTNET_ORDER_ROUTING_ARMED");
-        env && std::string(env) == "1") {
-        testnet_order_routing_armed = true;
-    }
-    if (const char* env = std::getenv("ASTU_BINANCE_TESTNET_REST_HOST");
-        env && *env) {
-        testnet_rest_host = env;
-    }
-    if (const char* env =
-            std::getenv("ASTU_TESTNET_CONVERGENCE_STATUS_FILE");
-        env && *env) {
-        testnet_convergence_status_file = env;
-    }
-    if (const char* env =
-            std::getenv("ASTU_MAX_TESTNET_CONVERGENCE_AGE_MS");
-        env && *env) {
-        max_testnet_convergence_age_ms =
-            static_cast<std::uint64_t>(std::stoull(env));
     }
     if (const char* env = std::getenv("ASTU_INSTRUMENT_STATUS_DIR"); env && *env) {
         instrument_status_dir = env;
@@ -378,20 +345,6 @@ int main(int argc, char** argv) {
             symbol_risk_status_file = argv[++i];
         } else if (arg == "--symbol-risk-universe-file" && i + 1 < argc) {
             symbol_risk_universe_file = argv[++i];
-        } else if (arg == "--enable-testnet-order-routing") {
-            testnet_order_routing_enabled = true;
-        } else if (arg == "--arm-testnet-order-routing") {
-            testnet_order_routing_armed = true;
-        } else if (arg == "--testnet-rest-host" && i + 1 < argc) {
-            testnet_rest_host = argv[++i];
-        } else if (arg == "--testnet-convergence-status-file" &&
-                   i + 1 < argc) {
-            testnet_convergence_status_file = argv[++i];
-        } else if (arg == "--max-testnet-convergence-age-ms" &&
-                   i + 1 < argc) {
-            max_testnet_convergence_age_ms =
-                static_cast<std::uint64_t>(
-                    std::stoull(argv[++i]));
         } else if (arg == "--instrument-status-dir" && i + 1 < argc) {
             instrument_status_dir = argv[++i];
         } else if (arg == "--max-instrument-status-age-ms" && i + 1 < argc) {
@@ -575,45 +528,6 @@ int main(int argc, char** argv) {
             astu::account::LiveRealizedPnlProvider>(
                 realized_pnl_status_file,
                 max_realized_pnl_status_age_ms);
-    }
-
-    if (testnet_order_routing_armed &&
-        !testnet_order_routing_enabled) {
-        throw std::invalid_argument(
-            "--arm-testnet-order-routing requires --enable-testnet-order-routing");
-    }
-    if (testnet_order_routing_enabled && synthetic) {
-        throw std::invalid_argument(
-            "Demo Trading order routing refuses synthetic account/data mode");
-    }
-    if (testnet_order_routing_enabled &&
-        (risk_status_file.empty() ||
-         position_status_dir.empty() ||
-         instrument_status_dir.empty() ||
-         order_snapshot_dir.empty())) {
-        throw std::invalid_argument(
-            "Demo Trading order routing requires account, position, instrument and authoritative order evidence");
-    }
-
-    if (testnet_order_routing_enabled &&
-        testnet_order_routing_armed) {
-        if (max_testnet_convergence_age_ms == 0) {
-            throw std::invalid_argument(
-                "Demo Trading convergence age must be positive");
-        }
-        testnet_rest_host =
-            astu::execution::require_testnet_rest_host(
-                std::move(testnet_rest_host));
-        const astu::execution::FileBackedTestnetConvergenceProvider
-            convergence_provider(
-                testnet_convergence_status_file,
-                max_testnet_convergence_age_ms);
-        const auto convergence = convergence_provider();
-        if (!convergence.ready) {
-            throw std::runtime_error(
-                "Binance Demo Trading routing fail-closed: account/position/order user-data convergence unavailable: " +
-                convergence.detail);
-        }
     }
 
     const bool account_loss_limits_enabled =
@@ -1354,37 +1268,6 @@ int main(int argc, char** argv) {
             }
         });
 
-    std::shared_ptr<astu::execution::TestnetOrderRouter>
-        testnet_order_router;
-    if (testnet_order_routing_enabled &&
-        testnet_order_routing_armed) {
-        const char* api_key =
-            std::getenv("ASTU_BINANCE_TESTNET_API_KEY");
-        const char* api_secret =
-            std::getenv("ASTU_BINANCE_TESTNET_API_SECRET");
-        if (api_key == nullptr || *api_key == '\0' ||
-            api_secret == nullptr || *api_secret == '\0') {
-            throw std::runtime_error(
-                "armed Demo Trading routing requires ASTU_BINANCE_TESTNET_API_KEY and ASTU_BINANCE_TESTNET_API_SECRET");
-        }
-        auto gateway =
-            std::make_shared<
-                astu::execution::BinanceUsdmTestnetOrderGateway>(
-                    api_key,
-                    api_secret,
-                    testnet_rest_host);
-        testnet_order_router =
-            std::make_shared<astu::execution::TestnetOrderRouter>(
-                journal,
-                [gateway](
-                    const astu::execution::TestnetOrderRequest& order,
-                    std::uint64_t timestamp_ms) {
-                    return gateway->submit_market(
-                        order,
-                        timestamp_ms);
-                });
-    }
-
     astu::ipc::SimulationDispatcher dispatcher(
         std::move(data_provider),
         std::move(risk_provider),
@@ -1394,8 +1277,7 @@ int main(int argc, char** argv) {
         },
         [journal, order_lifecycle, execution_status, recovered_orders_at_startup,
          recovered_reconciliation_events_at_startup,
-         recovered_reservation_summary,
-         testnet_order_router](
+         recovered_reservation_summary](
             const astu::ipc::SimulationRequest& request,
             astu::ipc::SimulationResponse& response,
             std::int64_t utc_ms) {
@@ -1411,12 +1293,6 @@ int main(int argc, char** argv) {
                     request,
                     response,
                     utc_ms);
-                if (testnet_order_router) {
-                    testnet_order_router->route(
-                        request,
-                        response,
-                        utc_ms);
-                }
             }
             journal->append(request, response, utc_ms);
             execution_status->record_response(response);
@@ -1444,12 +1320,8 @@ int main(int argc, char** argv) {
         std::move(position_provider));
 
     execution_status->set_execution_environment(
-        (testnet_order_routing_enabled &&
-         testnet_order_routing_armed)
-            ? "BINANCE_USDM_TESTNET"
-            : "SIMULATION_ONLY",
-        testnet_order_routing_enabled &&
-            testnet_order_routing_armed);
+        "SIMULATION_ONLY",
+        false);
     execution_status->set_ready(true, true);
     execution_status->publish();
 
@@ -1472,33 +1344,8 @@ int main(int argc, char** argv) {
                << astu::ipc::kExecutionPipeName << L"\n";
     std::wcout << L"Simulation reconciliation pipe listening on "
                << astu::ipc::kReconciliationPipeName << L"\n";
-    std::cout << "ORDER_ROUTING_ENABLED="
-              << ((testnet_order_routing_enabled &&
-                   testnet_order_routing_armed)
-                      ? "true"
-                      : "false")
-              << "\n";
-    std::cout << "EXECUTION_ENVIRONMENT="
-              << ((testnet_order_routing_enabled &&
-                   testnet_order_routing_armed)
-                      ? "BINANCE_USDM_TESTNET"
-                      : "SIMULATION_ONLY")
-              << "\n";
-    std::cout << "TESTNET_ORDER_ROUTING_ENABLED="
-              << (testnet_order_routing_enabled ? "true" : "false")
-              << "\n";
-    std::cout << "TESTNET_ORDER_ROUTING_ARMED="
-              << (testnet_order_routing_armed ? "true" : "false")
-              << "\n";
-    std::cout << "TESTNET_CONVERGENCE_STATUS_FILE="
-              << testnet_convergence_status_file.string()
-              << "\n";
-    std::cout << "TESTNET_REST_HOST="
-              << testnet_rest_host
-              << "\n";
-    std::cout << "MAX_TESTNET_CONVERGENCE_AGE_MS="
-              << max_testnet_convergence_age_ms
-              << "\n";
+    std::cout << "ORDER_ROUTING_ENABLED=false\n";
+    std::cout << "EXECUTION_ENVIRONMENT=SIMULATION_ONLY\n";
     std::cout << "DATA_PROVIDER=" << data_provider_name << "\n";
     if (!synthetic) {
         std::cout << "STATUS_DIR=" << status_dir.string() << "\n";

@@ -234,21 +234,15 @@ astu_execution_pipe_host.exe --synthetic ^
 
 These switches are used only by deterministic simulation acceptance tests. Active exposure reservations are included in the next request's projected gross-notional and open-position checks. They do not enable order routing or exchange connectivity.
 
-## Controlled Binance Demo Trading activation
+## Simulation-only boundary and optional Demo authority
 
-The supervisor remains simulation-only by default. Runtime order routing is
-available only for Binance USD-M Demo Trading and requires both explicit
-routing switches:
+The supervisor is strictly simulation-only. It exposes no order-routing flags,
+does not start an exchange order gateway, and always reports
+`ORDER_ROUTING_ENABLED=false`.
 
-```cmd
-set ASTU_BINANCE_TESTNET_USER_DATA_ENABLED=1
-python Core\stack\autotrader_sim_launcher.py ^
-  --risk-mode readonly ^
-  --instrument-mode public ^
-  --testnet-user-data-mode live ^
-  --enable-testnet-order-routing ^
-  --arm-testnet-order-routing
-```
+The optional Demo user-data sidecar is read-only authority evidence for future
+work and can be run independently with `--demo-authority-only`. It is not
+connected to the simulation request pipe as an order route.
 
 The Demo credentials remain environment-only:
 
@@ -258,21 +252,9 @@ ASTU_BINANCE_TESTNET_API_SECRET
 ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE
 ```
 
-When both routing switches are present the supervisor additionally requires:
-
-- REST base exactly `https://demo-fapi.binance.com`;
-- a non-empty explicit Demo user-stream WebSocket template;
-- live read-only account and position reconciliation;
-- public instrument constraints sourced from the same Demo REST venue;
-- `MARKET_LOT_SIZE` when Binance publishes it, with `LOT_SIZE` only as a fallback;
-- live user-data convergence with account, positions and ASTU-owned orders converged;
-- zero unresolved ASTU orders and no REST fallback requirement;
-- authoritative order snapshots from the live user-data authority directory.
-
-The C++ order gateway independently allowlists only
-`demo-fapi.binance.com` and the legacy `testnet.binancefuture.com` host.
-`fapi.binance.com` is rejected. The runtime path has no transfer, leverage,
-margin-mode, cancel/amend, or mainnet routing capability.
+Credentials are granted only to the read-only child processes that require
+them. The execution host, public instrument publisher, and operator view receive
+sanitized environments without API keys, secrets, passwords, or tokens.
 
 ## Status and stop
 
@@ -281,6 +263,8 @@ python Core\stack\autotrader_sim_launcher.py --status
 python Core\stack\autotrader_sim_launcher.py --stop
 ```
 
-Runtime PID/log/journal state stays under `Core/runtime`.
+Runtime PID/log/journal state stays under `Core/runtime`. PID state uses an
+atomic per-launch lock and verifies PID, process creation time, executable path,
+and launch nonce before status or stop operations trust a process.
 
 The execution host continues to use `\\.\pipe\AstuExecutionSim.v1` and every successful simulated path terminates at `ORDER_ROUTING_DISABLED`.

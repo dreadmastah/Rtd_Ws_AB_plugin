@@ -45,7 +45,7 @@ if not exist "%PIDFILE%" (
   goto cleanup
 )
 
-for /f "delims=" %%P in ('python -c "import json; print(json.load(open(r'%PIDFILE%'))['execution'])"') do set OLD_PID=%%P
+for /f "delims=" %%P in ('python -c "import json; print(json.load(open(r'%PIDFILE%'))['processes']['execution']['pid'])"') do set OLD_PID=%%P
 if "!OLD_PID!"=="" (
   echo EXECUTION_RESTART_SMOKE=FAIL OLD_PID_MISSING
   set RC=5
@@ -75,7 +75,7 @@ if errorlevel 1 (
   goto cleanup
 )
 
-for /f "delims=" %%P in ('python -c "import json; print(json.load(open(r'%PIDFILE%'))['execution'])"') do set NEW_PID=%%P
+for /f "delims=" %%P in ('python -c "import json; print(json.load(open(r'%PIDFILE%'))['processes']['execution']['pid'])"') do set NEW_PID=%%P
 if "!NEW_PID!"=="" (
   echo EXECUTION_RESTART_SMOKE=FAIL NEW_PID_MISSING
   set RC=9

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -101,6 +102,27 @@ class HiddenTasklistTests(unittest.TestCase):
             self.assertTrue(stack_launcher.pid_alive(4321))
             run.assert_not_called()
             kill.assert_called_once_with(4321, 0)
+
+
+class SecretIsolationTests(unittest.TestCase):
+    def test_wsrtd_children_do_not_inherit_private_credentials(self) -> None:
+        parent = {
+            "PATH": "safe-path",
+            "BINANCE_API_KEY": "key",
+            "BINANCE_API_SECRET": "secret",
+            "ASTU_PRIVATE_TOKEN": "token",
+            "DATABASE_PASSWORD": "password",
+        }
+        with mock.patch.dict(os.environ, parent, clear=True):
+            child = stack_launcher.sanitized_child_environment({
+                "WSRTD_RELAY_PORT": "10101",
+            })
+        self.assertEqual(child["PATH"], "safe-path")
+        self.assertEqual(child["WSRTD_RELAY_PORT"], "10101")
+        self.assertNotIn("BINANCE_API_KEY", child)
+        self.assertNotIn("BINANCE_API_SECRET", child)
+        self.assertNotIn("ASTU_PRIVATE_TOKEN", child)
+        self.assertNotIn("DATABASE_PASSWORD", child)
 
 
 def subprocess_create_no_window() -> int:

@@ -769,31 +769,27 @@ Cross-platform native tests cover bounded universe loading and deterministic sta
 
 This remains observability only. `SymbolRiskStatus.v1` cannot submit, cancel, amend, transfer, change leverage/margin state, or mutate positions.
 
-## ABU-M13 Testnet execution scaffold
+## Simulation-only execution boundary
 
-Core Simulation CI run #582 completed successfully on both Ubuntu and Windows at `b08632e15b97bbbb9910f50c7296638f3630364e`, satisfying the integration-stabilization gate.
+This branch contains no exchange order submission transport, router, activation
+flag, or manual order-acceptance harness. `AstuSimulate` terminates in the
+simulation lifecycle and journal with `ORDER_ROUTING_DISABLED`; it cannot be
+converted into an exchange request by configuration or environment variables.
 
-The next architecture milestone is Binance Testnet order execution. The first M13 slice is now present but deliberately **not activatable**:
-
-- Windows-native HMAC-SHA256 signing and WinHTTP HTTPS transport target only `testnet.binancefuture.com/fapi/v1/order`;
-- MARKET order requests use deterministic client-order IDs derived from the persistent internal order ID;
-- BUY/SELL direction is derived from SignalIntent position side and exposure direction;
-- SCALE_OUT/SELL-style reduction is marked `reduceOnly=true`;
-- persistent Testnet transitions support `SIZING -> SUBMITTING -> ACKNOWLEDGED | REJECTED | UNKNOWN_RECONCILE_REQUIRED`;
-- submission attempts are durably journaled before the HTTP result is interpreted;
-- transport/5xx ambiguity enters `UNKNOWN_RECONCILE_REQUIRED` rather than retrying a potentially accepted order;
-- Testnet rejection releases projected exposure reservations; acknowledged/unknown orders retain them until authoritative reconciliation;
-- `ExecutionResult.v1` and `ExecutionStatus.v1` now carry explicit execution-environment/routing evidence;
-- the read-only Account Risk view can display `BINANCE_USDM_TESTNET` distinctly from `SIMULATION_ONLY` and still contains no mutation controls;
-- mainnet private routing is not represented by any accepted environment or endpoint.
-
-The host currently refuses `--enable-testnet-order-routing` even when armed and credentialed. This is intentional: the existing authoritative order snapshot source is simulation-only, while Architecture R3.1 requires Binance to remain authoritative for actual order/fill/position state.
+Execution-environment fields, order-state schemas, authoritative snapshot
+contracts, and reconciliation abstractions remain as forward-compatible data
+contracts. A future Testnet milestone must introduce a separate explicit
+execution request contract, per-request authority validation, and
+application-level IPC authorization. It must not reinterpret `AstuSimulate` as
+an order-submission request.
 
 ## Binance Demo Trading user-data authority and convergence gate
 
 Internal compatibility identifiers such as `TESTNET`, `BINANCE_USDM_TESTNET`, `ASTU_BINANCE_TESTNET_*`, existing filenames, schemas, and class names are intentionally retained to avoid breaking contracts while Binance's current user-facing product name is Demo Trading.
 
-The M13 authority layer now includes a supervised Testnet user-data sidecar plus a C++ activation gate.
+The optional read-only authority layer includes a supervised Testnet user-data
+sidecar and a file-backed convergence model. Neither is connected to an order
+router in this branch.
 
 The sidecar:
 
@@ -808,7 +804,8 @@ The sidecar:
 - reports unresolved ASTU orders as requiring REST fallback rather than assuming stream silence means absence;
 - publishes bounded `TestnetUserDataState.v1` liveness/convergence evidence.
 
-The C++ `FileBackedTestnetConvergenceProvider` requires all of the following before a Testnet-enabled host can progress:
+The C++ `FileBackedTestnetConvergenceProvider` models the evidence a future
+explicit Testnet execution host would require:
 
 ```text
 fresh convergence artifact
@@ -822,54 +819,19 @@ restFallbackRequired=false
 unresolvedAstuOrders=0
 ```
 
-The supervisor can manage the live sidecar with `--testnet-user-data-mode live`; default remains disabled. Live authority additionally requires `--risk-mode readonly` so account/position convergence is tied to the existing signed REST reconciler.
+The supervisor can manage the live sidecar with `--testnet-user-data-mode live`;
+default remains disabled. Live authority additionally requires
+`--risk-mode readonly` so account/position convergence is tied to the existing
+signed read-only REST reconciler. The simulation execution host does not consume
+this evidence to route orders.
 
-`Execution.exe` is now wired to read and enforce this convergence state whenever Testnet routing is requested. **The final administrative activation lock remains in place even when convergence is ready.** CI/default runtime therefore still cannot submit an exchange order.
-
-Cross-platform CI covers stream-event normalization, ASTU order ownership, event-time regression, liveness expiry, account/position REST convergence, order convergence, schema shape, and the C++ freshness/convergence gate.
-
-## Credentialed Demo Trading acceptance harness
-
-`Core/tools/testnet_acceptance.py` provides a guarded manual acceptance path. It is **preflight-only by default** and rejects Binance production `fapi.binance.com` outright.
-
-Accepted REST hosts are limited in code to:
-
-```text
-https://testnet.binancefuture.com
-https://demo-fapi.binance.com
-```
-
-A live user-data stream URL is never guessed. Set `ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE` explicitly after verifying the currently valid Binance Testnet stream endpoint.
-
-Credentialed preflight, no order submission:
-
-```powershell
-$env:ASTU_BINANCE_TESTNET_API_KEY="<testnet key>"
-$env:ASTU_BINANCE_TESTNET_API_SECRET="<testnet secret>"
-$env:ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE="<verified wss template containing {listenKey}>"
-
-python Core/tools/testnet_acceptance.py
-```
-
-The preflight verifies Testnet REST credentials, public symbol price access, listen-key lifecycle, and WebSocket upgrade/keepalive when a stream template is supplied. It writes `Core/runtime/testnet_acceptance_report.v1.json`.
-
-Submitting one bounded Demo Trading MARKET acceptance order additionally requires both an explicit CLI flag and a separate environment arm:
-
-```powershell
-$env:ASTU_TESTNET_ACCEPTANCE_ARM="I_UNDERSTAND_TESTNET_ORDER"
-
-python Core/tools/testnet_acceptance.py `
-  --execute-market-order `
-  --symbol BTCUSDT `
-  --side BUY `
-  --quantity <explicit quantity> `
-  --max-test-notional 25
-```
-
-The harness enforces a compiled hard maximum Demo Trading notional of 50 quote units, requires the requested notional to remain at or below `--max-test-notional`, derives a unique `ASTU-ACC-...` client order ID, submits only `MARKET`, then queries `GET /fapi/v1/order` by `origClientOrderId`. CI tests the mainnet-host rejection, explicit-arm requirement, and notional caps without making any network request.
-
-The runtime host's final Demo Trading activation refusal remains unchanged. The acceptance harness is a separate manual validation surface and does not make the application live-trading-capable.
+Cross-platform CI covers stream-event normalization, ASTU order ownership,
+event-time regression, liveness expiry, account/position REST convergence,
+order convergence, schema shape, and the C++ freshness/convergence model.
 
 ## Current next implementation step
 
-Complete a **credentialed manual Binance USD-M Demo Trading acceptance** outside default CI: verify the currently valid user-data stream endpoint, listen-key lifecycle/reconnect behavior, live `ORDER_TRADE_UPDATE` delivery, REST fallback after an intentionally ambiguous submission, and account + position + order convergence after the bounded Testnet MARKET acceptance order. Only after that evidence is captured and reproducible should the final administrative activation refusal be reconsidered for explicit Testnet-only arming. Mainnet private routing remains out of scope.
+Keep PR #2 simulation-only. Develop any Binance USD-M Demo order submission in
+a separately authorized milestone with a separate execution contract, fresh
+per-request convergence checks, capability-authenticated IPC, and its own
+credentialed acceptance evidence. Mainnet routing remains out of scope.

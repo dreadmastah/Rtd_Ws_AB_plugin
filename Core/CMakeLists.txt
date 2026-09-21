@@ -33,7 +33,7 @@ if(WIN32)
     add_executable(astu_execution_pipe_host execution/src/execution_pipe_host.cpp)
     target_link_libraries(
         astu_execution_pipe_host
-        PRIVATE astu_core bcrypt winhttp
+        PRIVATE astu_core
     )
 
     add_executable(astu_trade_pipe_smoke trade_plugin/src/execution_pipe_client_smoke.cpp)
@@ -187,44 +187,6 @@ target_link_libraries(
 add_test(
     NAME astu_symbol_risk_status_tests
     COMMAND astu_symbol_risk_status_tests
-)
-
-add_executable(
-    astu_testnet_order_router_tests
-    tests/testnet_order_router_tests.cpp
-)
-target_link_libraries(
-    astu_testnet_order_router_tests
-    PRIVATE astu_core
-)
-if(WIN32)
-    target_link_libraries(
-        astu_testnet_order_router_tests
-        PRIVATE bcrypt winhttp
-    )
-endif()
-add_test(
-    NAME astu_testnet_order_router_tests
-    COMMAND astu_testnet_order_router_tests
-)
-
-add_executable(
-    astu_testnet_order_snapshot_tests
-    tests/testnet_order_snapshot_tests.cpp
-)
-target_link_libraries(
-    astu_testnet_order_snapshot_tests
-    PRIVATE astu_core
-)
-if(WIN32)
-    target_link_libraries(
-        astu_testnet_order_snapshot_tests
-        PRIVATE bcrypt winhttp
-    )
-endif()
-add_test(
-    NAME astu_testnet_order_snapshot_tests
-    COMMAND astu_testnet_order_snapshot_tests
 )
 
 add_executable(

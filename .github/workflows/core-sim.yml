@@ -40,16 +40,15 @@ jobs:
           python -m py_compile Core/account/binance_usdm_readonly_gateway.py
           python -m py_compile Core/account/binance_usdm_income_reconciler.py
           python -m py_compile Core/account/binance_usdm_testnet_user_data.py
-          python -m py_compile Core/tools/testnet_acceptance.py
           python -m py_compile Core/stack/autotrader_sim_launcher.py
           python -m py_compile Core/instrument/binance_usdm_instrument_rules.py
           python -m py_compile Core/order_state/simulated_order_state_source.py
           python -m py_compile Core/operator/account_risk_view.py
 
-      - name: Testnet acceptance harness guards
-        shell: bash
+      - name: Simulation-only boundary and launcher hardening
         run: |
-          python Core/tests/test_testnet_acceptance_guard.py
+          python Core/tests/test_simulation_only_boundary.py
+          python Core/stack/test_autotrader_sim_launcher.py
 
       - name: Testnet user-data authority semantics
         shell: bash

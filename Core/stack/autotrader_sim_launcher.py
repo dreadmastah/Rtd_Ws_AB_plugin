@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Supervisor for the auto-trader runtime.
-
-Default behavior is simulation-only. Binance USD-M Demo Trading routing can be
-activated only with explicit dual arming plus live read-only account,
-instrument, user-data, and authoritative order-state evidence. Mainnet routing
-is not supported by this launcher.
-"""
+"""Simulation-only supervisor for the auto-trader runtime."""
 from __future__ import annotations
 
 import argparse
@@ -16,13 +10,16 @@ import signal
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
+from typing import Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parent
 RUNTIME = ROOT / "runtime"
 LOGS = RUNTIME / "logs"
 PID_FILE = RUNTIME / "autotrader_sim_pids.json"
+LOCK_FILE = RUNTIME / "autotrader_sim_launcher.lock.json"
 RISK_FILE = RUNTIME / "account_risk_status.v1.json"
 REALIZED_PNL_FILE = RUNTIME / "realized_pnl_status.v1.json"
 REALIZED_PNL_STATE = RUNTIME / "realized_pnl_accumulator.v1.json"
@@ -47,6 +44,16 @@ TESTNET_USER_DATA = ROOT / "account" / "binance_usdm_testnet_user_data.py"
 TESTNET_USER_DATA_STATUS = RUNTIME / "testnet_user_data_status.v1.json"
 TESTNET_ORDER_AUTHORITY_DIR = RUNTIME / "testnet_order_authority"
 
+PID_SCHEMA_VERSION = 2
+SENSITIVE_ENV_FRAGMENTS = (
+    "API_KEY",
+    "API_SECRET",
+    "PASSWORD",
+    "PRIVATE_KEY",
+    "SECRET",
+    "TOKEN",
+)
+
 RUNTIME.mkdir(parents=True, exist_ok=True)
 LOGS.mkdir(parents=True, exist_ok=True)
 
@@ -55,14 +62,7 @@ def pid_alive(pid: int) -> bool:
     if pid <= 0:
         return False
     if os.name == "nt":
-        cp = subprocess.run(
-            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        out = (cp.stdout or "").strip()
-        return bool(out) and not out.upper().startswith("INFO:")
+        return process_identity(pid) is not None
     try:
         os.kill(pid, 0)
         return True
@@ -70,20 +70,193 @@ def pid_alive(pid: int) -> bool:
         return False
 
 
-def load_pids() -> dict[str, int]:
-    if not PID_FILE.exists():
+def _normalize_executable(path: str) -> str:
+    return os.path.normcase(os.path.abspath(path))
+
+
+def process_identity(pid: int) -> dict[str, object] | None:
+    """Return stable process identity fields, or None when PID is unavailable."""
+    if pid <= 0:
+        return None
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+
+        process_query_limited_information = 0x1000
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.QueryFullProcessImageNameW.argtypes = [
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            wintypes.LPWSTR,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+        kernel32.GetProcessTimes.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(wintypes.FILETIME),
+            ctypes.POINTER(wintypes.FILETIME),
+            ctypes.POINTER(wintypes.FILETIME),
+            ctypes.POINTER(wintypes.FILETIME),
+        ]
+        kernel32.GetProcessTimes.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        handle = kernel32.OpenProcess(
+            process_query_limited_information,
+            False,
+            pid,
+        )
+        if not handle:
+            return None
+        try:
+            size = wintypes.DWORD(32768)
+            image = ctypes.create_unicode_buffer(size.value)
+            if not kernel32.QueryFullProcessImageNameW(
+                handle,
+                0,
+                image,
+                ctypes.byref(size),
+            ):
+                return None
+            created = wintypes.FILETIME()
+            exited = wintypes.FILETIME()
+            kernel = wintypes.FILETIME()
+            user = wintypes.FILETIME()
+            if not kernel32.GetProcessTimes(
+                handle,
+                ctypes.byref(created),
+                ctypes.byref(exited),
+                ctypes.byref(kernel),
+                ctypes.byref(user),
+            ):
+                return None
+            creation_time_100ns = (
+                int(created.dwHighDateTime) << 32
+            ) | int(created.dwLowDateTime)
+            return {
+                "pid": pid,
+                "creationTime100ns": creation_time_100ns,
+                "executable": _normalize_executable(image.value),
+            }
+        finally:
+            kernel32.CloseHandle(handle)
+
+    proc_dir = Path("/proc") / str(pid)
+    try:
+        stat_text = (proc_dir / "stat").read_text(encoding="utf-8")
+        stat_fields = stat_text[stat_text.rfind(")") + 2 :].split()
+        executable = os.readlink(proc_dir / "exe")
+        return {
+            "pid": pid,
+            "creationTime100ns": int(stat_fields[19]),
+            "executable": _normalize_executable(executable),
+        }
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def process_record_matches(record: object) -> bool:
+    if not isinstance(record, dict):
+        return False
+    try:
+        pid = int(record["pid"])
+        created = int(record["creationTime100ns"])
+        executable = _normalize_executable(str(record["executable"]))
+    except (KeyError, TypeError, ValueError):
+        return False
+    actual = process_identity(pid)
+    return bool(
+        actual
+        and int(actual["creationTime100ns"]) == created
+        and _normalize_executable(str(actual["executable"])) == executable
+    )
+
+
+def load_json_object(path: Path) -> dict[str, object]:
+    if not path.exists():
         return {}
     try:
-        obj = json.loads(PID_FILE.read_text(encoding="utf-8"))
-        return {str(k): int(v) for k, v in obj.items() if int(v) > 0}
-    except Exception:
+        obj = json.loads(path.read_text(encoding="utf-8"))
+        return obj if isinstance(obj, dict) else {}
+    except (OSError, ValueError):
         return {}
 
 
-def save_pids(children: dict[str, subprocess.Popen]) -> None:
+def load_pid_state() -> dict[str, object]:
+    return load_json_object(PID_FILE)
+
+
+def _atomic_create_json(path: Path, obj: Mapping[str, object]) -> bool:
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+    except FileExistsError:
+        return False
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(obj, fh, indent=2)
+        fh.write("\n")
+    return True
+
+
+def lock_is_owned(lock: object) -> bool:
+    return bool(
+        isinstance(lock, dict)
+        and isinstance(lock.get("launchNonce"), str)
+        and lock.get("launchNonce")
+        and process_record_matches(lock.get("launcher"))
+    )
+
+
+def acquire_launch_lock(
+    launch_nonce: str,
+    launcher_record: Mapping[str, object],
+) -> bool:
+    payload = {
+        "schemaVersion": PID_SCHEMA_VERSION,
+        "launchNonce": launch_nonce,
+        "launcher": dict(launcher_record),
+    }
+    for _ in range(3):
+        if _atomic_create_json(LOCK_FILE, payload):
+            return True
+        if lock_is_owned(load_json_object(LOCK_FILE)):
+            return False
+        with contextlib.suppress(OSError):
+            LOCK_FILE.unlink()
+    return False
+
+
+def release_launch_lock(launch_nonce: str) -> None:
+    lock = load_json_object(LOCK_FILE)
+    if lock.get("launchNonce") == launch_nonce:
+        with contextlib.suppress(OSError):
+            LOCK_FILE.unlink()
+
+
+def state_has_valid_lock(state: Mapping[str, object]) -> bool:
+    lock = load_json_object(LOCK_FILE)
+    processes = state.get("processes")
+    return bool(
+        state.get("schemaVersion") == PID_SCHEMA_VERSION
+        and isinstance(state.get("launchNonce"), str)
+        and state.get("launchNonce") == lock.get("launchNonce")
+        and lock_is_owned(lock)
+        and isinstance(processes, dict)
+        and lock.get("launcher") == processes.get("launcher")
+    )
+
+
+def save_pids(
+    process_records: Mapping[str, Mapping[str, object]],
+    launch_nonce: str,
+) -> None:
     obj = {
-        "launcher": os.getpid(),
-        **{name: proc.pid for name, proc in children.items() if proc is not None},
+        "schemaVersion": PID_SCHEMA_VERSION,
+        "launchNonce": launch_nonce,
+        "processes": {
+            name: dict(record) for name, record in process_records.items()
+        },
     }
     tmp = PID_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(obj, indent=2) + "\n", encoding="utf-8")
@@ -91,16 +264,20 @@ def save_pids(children: dict[str, subprocess.Popen]) -> None:
 
 
 def status() -> int:
-    pids = load_pids()
-    if not pids:
+    state = load_pid_state()
+    processes = state.get("processes")
+    if not isinstance(processes, dict) or not processes:
         print("ASTU_SIM_STACK_STATUS=STOPPED")
         return 1
-    all_alive = True
-    for name, pid in pids.items():
-        alive = pid_alive(pid)
-        print(f"{name.upper()}_PID={pid} ALIVE={alive}")
-        all_alive = all_alive and alive
-    print(f"ASTU_SIM_STACK_STATUS={'RUNNING' if all_alive else 'DEGRADED'}")
+    lock_valid = state_has_valid_lock(state)
+    all_owned = lock_valid
+    for name, record in processes.items():
+        owned = process_record_matches(record)
+        pid = record.get("pid", 0) if isinstance(record, dict) else 0
+        print(f"{name.upper()}_PID={pid} OWNED={owned}")
+        all_owned = all_owned and owned
+    print(f"LAUNCH_LOCK_OWNED={lock_valid}")
+    print(f"ASTU_SIM_STACK_STATUS={'RUNNING' if all_owned else 'DEGRADED'}")
 
     routing_enabled = False
     execution_environment = "UNKNOWN"
@@ -119,13 +296,21 @@ def status() -> int:
         f"{str(routing_enabled).lower()}"
     )
     print(f"EXECUTION_ENVIRONMENT={execution_environment}")
-    return 0 if all_alive else 1
+    return 0 if all_owned else 1
 
 
 def stop() -> int:
-    pids = load_pids()
-    launcher = int(pids.get("launcher", 0) or 0)
-    if launcher and launcher != os.getpid() and pid_alive(launcher):
+    state = load_pid_state()
+    processes = state.get("processes")
+    launcher_record = (
+        processes.get("launcher") if isinstance(processes, dict) else None
+    )
+    nonce = str(state.get("launchNonce", ""))
+    if not state_has_valid_lock(state) or not process_record_matches(launcher_record):
+        print("ASTU_SIM_STACK_STOP_REFUSED=OWNERSHIP_NOT_PROVEN")
+        return 2
+    launcher = int(launcher_record["pid"])
+    if launcher != os.getpid():
         if os.name == "nt":
             subprocess.run(
                 ["taskkill", "/PID", str(launcher), "/T", "/F"],
@@ -136,12 +321,44 @@ def stop() -> int:
         else:
             with contextlib.suppress(OSError):
                 os.kill(launcher, signal.SIGTERM)
-    try:
+    deadline = time.monotonic() + 5.0
+    while process_record_matches(launcher_record) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    if process_record_matches(launcher_record):
+        print("ASTU_SIM_STACK_STOP_REFUSED=OWNED_PROCESS_DID_NOT_EXIT")
+        return 3
+    with contextlib.suppress(OSError):
         PID_FILE.unlink()
-    except OSError:
-        pass
+    release_launch_lock(nonce)
     print("ASTU_SIM_STACK_STOP_REQUESTED=YES")
     return 0
+
+
+def is_sensitive_environment_name(name: str) -> bool:
+    upper = name.upper()
+    return any(fragment in upper for fragment in SENSITIVE_ENV_FRAGMENTS)
+
+
+def sanitized_child_environment(
+    overrides: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if not is_sensitive_environment_name(key)
+    }
+    env["PYTHONUNBUFFERED"] = "1"
+    if overrides:
+        env.update({str(key): str(value) for key, value in overrides.items()})
+    return env
+
+
+def selected_parent_environment(names: tuple[str, ...]) -> dict[str, str]:
+    return {
+        name: os.environ[name]
+        for name in names
+        if os.environ.get(name, "")
+    }
 
 
 def wait_for_demo_convergence(
@@ -250,17 +467,6 @@ def run(args: argparse.Namespace) -> int:
         )
         return 2
 
-    if args.arm_testnet_order_routing and not args.enable_testnet_order_routing:
-        print(
-            "ASTU_SIM_STACK_FATAL=--arm-testnet-order-routing requires "
-            "--enable-testnet-order-routing"
-        )
-        return 2
-
-    routing_active = (
-        args.enable_testnet_order_routing
-        and args.arm_testnet_order_routing
-    )
     demo_authority_active = args.testnet_user_data_mode == "live"
     demo_authority_only = args.demo_authority_only
 
@@ -271,13 +477,6 @@ def run(args: argparse.Namespace) -> int:
                 "--testnet-user-data-mode live"
             )
             return 2
-        if args.enable_testnet_order_routing or args.arm_testnet_order_routing:
-            print(
-                "ASTU_SIM_STACK_FATAL=--demo-authority-only cannot be "
-                "combined with order-routing flags"
-            )
-            return 2
-
     if demo_authority_active:
         if args.risk_mode != "readonly":
             print(
@@ -316,23 +515,6 @@ def run(args: argparse.Namespace) -> int:
             )
             return 2
 
-    if routing_active:
-        if not (0 < args.max_symbol_notional <= 100):
-            print(
-                "ASTU_SIM_STACK_FATAL=Demo routing acceptance requires "
-                "--max-symbol-notional in (0, 100]"
-            )
-            return 2
-        if args.max_pending_entry_scale_in_reservations != 1:
-            print(
-                "ASTU_SIM_STACK_FATAL=Demo routing acceptance requires "
-                "--max-pending-entry-scale-in-reservations 1"
-            )
-            return 2
-        # In active Demo mode, authoritative order snapshots are produced by
-        # the live user-data authority sidecar.
-        order_snapshot_dir = testnet_order_authority_dir
-
     if not args.realized_pnl_settlement_asset.strip():
         print(
             "ASTU_SIM_STACK_FATAL=realized PnL settlement asset must not be empty"
@@ -362,18 +544,33 @@ def run(args: argparse.Namespace) -> int:
             )
             return 3
 
-    old = load_pids()
-    if old and int(old.get("launcher", 0) or 0) != os.getpid():
-        if all(pid_alive(pid) for pid in old.values()):
-            print("ASTU_SIM_STACK_STATUS=ALREADY_RUNNING")
-            return 0
-        try:
+    existing_state = load_pid_state()
+    if existing_state and existing_state.get("schemaVersion") != PID_SCHEMA_VERSION:
+        legacy_pids = [
+            int(value)
+            for value in existing_state.values()
+            if isinstance(value, int) and value > 0
+        ]
+        if any(pid_alive(pid) for pid in legacy_pids):
+            print(
+                "ASTU_SIM_STACK_FATAL=legacy PID ownership cannot be proven; "
+                "stop the existing stack before upgrading"
+            )
+            return 5
+        with contextlib.suppress(OSError):
             PID_FILE.unlink()
-        except OSError:
-            pass
+
+    launch_nonce = uuid.uuid4().hex
+    launcher_record = process_identity(os.getpid())
+    if launcher_record is None:
+        print("ASTU_SIM_STACK_FATAL=launcher process identity unavailable")
+        return 5
 
     stop_requested = False
     children: dict[str, subprocess.Popen] = {}
+    process_records: dict[str, dict[str, object]] = {
+        "launcher": launcher_record,
+    }
     logs: dict[str, object] = {}
 
     def on_signal(_sig, _frame):
@@ -400,13 +597,17 @@ def run(args: argparse.Namespace) -> int:
             cwd=REPO,
             stdout=fh,
             stderr=subprocess.STDOUT,
-            env={
-                **os.environ,
-                "PYTHONUNBUFFERED": "1",
-                **(env_overrides or {}),
-            },
+            env=sanitized_child_environment(env_overrides),
             creationflags=flags,
         )
+        record = process_identity(proc.pid)
+        if record is None:
+            with contextlib.suppress(Exception):
+                proc.terminate()
+            raise RuntimeError(
+                f"cannot establish ownership identity for child {name}"
+            )
+        process_records[name] = record
         if env_overrides:
             child_env_overrides[name] = dict(env_overrides)
         print(f"STARTED_{name.upper()}_PID={proc.pid}")
@@ -483,12 +684,6 @@ def run(args: argparse.Namespace) -> int:
 
     testnet_user_data_command: list[str] | None = None
     if args.testnet_user_data_mode == "live":
-        if args.risk_mode != "readonly":
-            print(
-                "ASTU_SIM_STACK_FATAL=live Testnet user-data authority "
-                "requires --risk-mode readonly for REST account/position convergence"
-            )
-            return 2
         testnet_user_data_command = [
             sys.executable,
             "-u",
@@ -546,9 +741,20 @@ def run(args: argparse.Namespace) -> int:
                 str(args.testnet_rest_base_url),
             ])
 
+    if not acquire_launch_lock(launch_nonce, launcher_record):
+        print("ASTU_SIM_STACK_STATUS=ALREADY_RUNNING")
+        return 0
+
     try:
         if risk_command is not None:
-            risk_env = None
+            risk_env: dict[str, str] | None = None
+            if args.risk_mode == "readonly":
+                risk_env = selected_parent_environment((
+                    "ASTU_BINANCE_PRIVATE_READONLY_ENABLED",
+                    "BINANCE_API_KEY",
+                    "BINANCE_API_SECRET",
+                    "BINANCE_USDM_BASE_URL",
+                ))
             if demo_authority_active and args.risk_mode == "readonly":
                 risk_env = {
                     "ASTU_BINANCE_PRIVATE_READONLY_ENABLED": "1",
@@ -566,22 +772,40 @@ def run(args: argparse.Namespace) -> int:
             )
             time.sleep(0.5)
         if realized_pnl_command is not None:
+            realized_pnl_env = (
+                selected_parent_environment((
+                    "ASTU_BINANCE_PRIVATE_READONLY_ENABLED",
+                    "BINANCE_API_KEY",
+                    "BINANCE_API_SECRET",
+                    "BINANCE_USDM_BASE_URL",
+                ))
+                if args.realized_pnl_mode == "readonly"
+                else None
+            )
             children["realized_pnl"] = start_child(
                 "realized_pnl",
                 realized_pnl_command,
+                realized_pnl_env,
             )
             time.sleep(0.5)
         if instrument_command is not None:
             children["instrument"] = start_child("instrument", instrument_command)
             time.sleep(0.5)
         if testnet_user_data_command is not None:
+            testnet_user_data_env = selected_parent_environment((
+                "ASTU_BINANCE_TESTNET_USER_DATA_ENABLED",
+                "ASTU_BINANCE_TESTNET_API_KEY",
+                "ASTU_BINANCE_TESTNET_API_SECRET",
+                "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE",
+            ))
             children["testnet_user_data"] = start_child(
                 "testnet_user_data",
                 testnet_user_data_command,
+                testnet_user_data_env,
             )
             time.sleep(0.5)
 
-        if routing_active or demo_authority_only:
+        if demo_authority_only:
             converged, detail = wait_for_demo_convergence(
                 testnet_user_data_status,
                 max_age_ms=args.testnet_user_data_max_state_age_ms,
@@ -649,17 +873,7 @@ def run(args: argparse.Namespace) -> int:
             str(args.max_daily_realized_trade_loss),
             "--max-weekly-realized-trade-loss",
             str(args.max_weekly_realized_trade_loss),
-            "--testnet-convergence-status-file",
-            str(testnet_user_data_status),
-            "--max-testnet-convergence-age-ms",
-            str(args.testnet_user_data_max_state_age_ms),
-            "--testnet-rest-host",
-            "demo-fapi.binance.com",
             ]
-        if host_command is not None and args.enable_testnet_order_routing:
-            host_command.append("--enable-testnet-order-routing")
-        if host_command is not None and args.arm_testnet_order_routing:
-            host_command.append("--arm-testnet-order-routing")
         if host_command is not None and instrument_command is not None:
             host_command.extend([
                 "--instrument-status-dir",
@@ -716,7 +930,7 @@ def run(args: argparse.Namespace) -> int:
                 account_risk_view_command,
             )
 
-        save_pids(children)
+        save_pids(process_records, launch_nonce)
 
         print("ASTU_SIM_STACK_STATUS=RUNNING")
         print(f"RISK_MODE={args.risk_mode}")
@@ -772,10 +986,7 @@ def run(args: argparse.Namespace) -> int:
             )
         else:
             print("ORDER_SNAPSHOT_PROVIDER=DISABLED")
-        print(
-            "ORDER_ROUTING_ENABLED="
-            f"{str(routing_active).lower()}"
-        )
+        print("ORDER_ROUTING_ENABLED=false")
 
         while not stop_requested:
             time.sleep(1.0)
@@ -812,7 +1023,7 @@ def run(args: argparse.Namespace) -> int:
                     command,
                     child_env_overrides.get(name),
                 )
-                save_pids(children)
+                save_pids(process_records, launch_nonce)
     finally:
         for proc in reversed(list(children.values())):
             if proc.poll() is None:
@@ -828,10 +1039,11 @@ def run(args: argparse.Namespace) -> int:
         for fh in logs.values():
             with contextlib.suppress(Exception):
                 fh.close()
-        try:
-            PID_FILE.unlink()
-        except OSError:
-            pass
+        state = load_pid_state()
+        if state.get("launchNonce") == launch_nonce:
+            with contextlib.suppress(OSError):
+                PID_FILE.unlink()
+        release_launch_lock(launch_nonce)
         print("ASTU_SIM_STACK_STATUS=STOPPED")
 
     return 0
@@ -892,24 +1104,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "Run only the Binance USD-M Demo account/instrument/user-data "
-            "authority sidecars. The execution host is not started and order "
-            "routing cannot be enabled in this mode."
-        ),
-    )
-    ap.add_argument(
-        "--enable-testnet-order-routing",
-        action="store_true",
-        help=(
-            "Stage Binance USD-M Demo Trading routing. No routing occurs "
-            "unless --arm-testnet-order-routing is also supplied."
-        ),
-    )
-    ap.add_argument(
-        "--arm-testnet-order-routing",
-        action="store_true",
-        help=(
-            "Second explicit activation gate for Demo Trading routing. "
-            "Requires --enable-testnet-order-routing and live convergence."
+            "authority sidecars. The simulation execution host is not started."
         ),
     )
     ap.add_argument(
@@ -917,8 +1112,7 @@ def parse_args() -> argparse.Namespace:
         choices=("disabled", "live"),
         default="disabled",
         help=(
-            "Supervise the Binance USD-M Demo Trading user-data authority sidecar. "
-            "This alone does not enable order routing."
+            "Supervise the read-only Binance USD-M Demo user-data authority sidecar."
         ),
     )
     ap.add_argument(
@@ -945,7 +1139,7 @@ def parse_args() -> argparse.Namespace:
         default=30.0,
         help=(
             "Maximum startup wait for a fresh fully-converged Demo "
-            "user-data authority state before an armed routing host starts."
+            "user-data authority-only process."
         ),
     )
     ap.add_argument(
