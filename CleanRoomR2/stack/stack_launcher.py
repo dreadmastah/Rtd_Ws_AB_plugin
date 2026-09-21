@@ -139,15 +139,19 @@ def stop_from_pidfile() -> int:
     return 0
 
 
-def configure_registry(dbname: str) -> bool:
+def configure_registry(dbname: str, relay_port: int) -> bool:
     if os.name != "nt":
         return True
     script = BASE / "configure_plugin_registry.cmd"
-    cp = subprocess.run(["cmd.exe", "/d", "/c", str(script), dbname], cwd=BASE, check=False)
+    cp = subprocess.run(
+        ["cmd.exe", "/d", "/c", str(script), dbname, str(relay_port)],
+        cwd=BASE,
+        check=False,
+    )
     return cp.returncode == 0
 
 
-def ensure_running(dbname: str) -> int:
+def ensure_running(dbname: str, relay_port: int) -> int:
     if PAUSEFILE.exists():
         print("WSRTD_ENSURE_RUNNING=MAINTENANCE_PAUSED")
         return 0
@@ -159,7 +163,7 @@ def ensure_running(dbname: str) -> int:
         PIDFILE.unlink()
     except OSError:
         pass
-    if not configure_registry(dbname):
+    if not configure_registry(dbname, relay_port):
         print("WSRTD_ENSURE_RUNNING=FAIL_REGISTRY")
         return 2
 
@@ -172,7 +176,15 @@ def ensure_running(dbname: str) -> int:
     else:
         kwargs["start_new_session"] = True
     p = subprocess.Popen(
-        [sys.executable, "-u", str(Path(__file__).resolve())],
+        [
+            sys.executable,
+            "-u",
+            str(Path(__file__).resolve()),
+            "--dbname",
+            dbname,
+            "--relay-port",
+            str(relay_port),
+        ],
         cwd=BASE,
         stdout=fh,
         stderr=subprocess.STDOUT,
@@ -184,7 +196,7 @@ def ensure_running(dbname: str) -> int:
     return 0
 
 
-def run_supervisor() -> int:
+def run_supervisor(relay_port: int | None = None) -> int:
     already, data = critical_stack_alive()
     if already and int(data.get("launcher", 0)) != os.getpid():
         print(f"WSRTD_STACK_STATUS=ALREADY_RUNNING LAUNCHER_PID={data.get('launcher')}")
@@ -195,8 +207,12 @@ def run_supervisor() -> int:
         except OSError:
             pass
 
-    host = str(CFG["relay"].get("host", "127.0.0.1"))
-    port = int(CFG["relay"].get("port", 10101))
+    host = str(os.getenv("WSRTD_RELAY_HOST", CFG["relay"].get("host", "127.0.0.1")))
+    port = int(
+        relay_port
+        if relay_port is not None
+        else os.getenv("WSRTD_RELAY_PORT", CFG["relay"].get("port", 10101))
+    )
     restart_delay = float(CFG["launcher"].get("restart_delay_seconds", 3))
     start_amibroker = bool(CFG["launcher"].get("start_amibroker", False))
     keep_amibroker_running = bool(CFG["launcher"].get("keep_amibroker_running", start_amibroker))
@@ -221,6 +237,14 @@ def run_supervisor() -> int:
     if bool(CFG.get("identity_bridge", {}).get("enabled", False)):
         specs["identity"] = [sys.executable, "-u", str(BASE / "identity_bridge.py")]
 
+    child_env = {
+        **os.environ,
+        "PYTHONUNBUFFERED": "1",
+        "WSRTD_RELAY_HOST": host,
+        "WSRTD_RELAY_PORT": str(port),
+        "WSRTD_RELAY_URI": f"ws://{host}:{port}/sender",
+    }
+
     def start_one(name: str) -> subprocess.Popen:
         path = LOGS / f"{name}_supervisor.log"
         fh = open(path, "a", encoding="utf-8", buffering=1)
@@ -231,7 +255,7 @@ def run_supervisor() -> int:
             cwd=BASE,
             stdout=fh,
             stderr=subprocess.STDOUT,
-            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            env=child_env,
             creationflags=flags,
         )
         print(f"STARTED_{name.upper()}_PID={p.pid}")
@@ -332,6 +356,7 @@ def main() -> int:
     ap.add_argument("--ensure-running", action="store_true")
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--dbname", default="WSRTD")
+    ap.add_argument("--relay-port", type=int)
     args = ap.parse_args()
     if args.stop:
         return stop_from_pidfile()
@@ -345,8 +370,11 @@ def main() -> int:
         print("WSRTD_MAINTENANCE_PAUSED=NO")
         return 0
     if args.ensure_running:
-        return ensure_running(args.dbname)
-    return run_supervisor()
+        relay_port = args.relay_port if args.relay_port is not None else int(
+            os.getenv("WSRTD_RELAY_PORT", CFG["relay"].get("port", 10101))
+        )
+        return ensure_running(args.dbname, relay_port)
+    return run_supervisor(args.relay_port)
 
 
 if __name__ == "__main__":
