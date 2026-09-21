@@ -466,7 +466,11 @@ public:
         }
 
         constexpr double kSyntheticRiskFraction = 0.001;
-        double budget = risk.risk_capital * kSyntheticRiskFraction;
+        constexpr double kDemoAcceptanceFixedNotional = 60.0;
+        double budget =
+            intent.quantity_model == "DEMO_ACCEPTANCE_FIXED_60_USDT"
+                ? kDemoAcceptanceFixedNotional
+                : risk.risk_capital * kSyntheticRiskFraction;
 
         if (astu::core::increases_exposure(intent.action) &&
             risk.max_gross_notional > 0.0) {
