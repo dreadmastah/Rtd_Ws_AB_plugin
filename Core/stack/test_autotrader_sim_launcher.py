@@ -460,6 +460,61 @@ class LauncherOwnershipTests(unittest.TestCase):
             acquire.assert_not_called()
         self.assertEqual(result, launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS)
 
+    def test_persist_failure_stops_child_and_rolls_back_registration(self) -> None:
+        owner = record(41, 100)
+        child = record(42, 200)
+        process_records = {"launcher": owner}
+        launcher.save_pids(process_records, "owner")
+        proc = mock.Mock(pid=42)
+        proc.wait.return_value = 0
+        with (
+            mock.patch.object(launcher, "process_identity", return_value=child),
+            mock.patch.object(
+                launcher,
+                "save_pids",
+                side_effect=OSError("injected persistence failure"),
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "cannot persist ownership"):
+                launcher.register_spawned_child(
+                    process_records,
+                    "relay",
+                    proc,
+                    "owner",
+                )
+        proc.terminate.assert_called_once_with()
+        proc.wait.assert_called_once_with(timeout=5.0)
+        proc.kill.assert_not_called()
+        self.assertNotIn("relay", process_records)
+        state = json.loads(launcher.PID_FILE.read_text(encoding="utf-8"))
+        self.assertNotIn("relay", state["processes"])
+
+    def test_crash_before_persist_cleanup_kills_unresponsive_child(self) -> None:
+        owner = record(41, 100)
+        process_records = {"launcher": owner}
+        launcher.save_pids(process_records, "owner")
+        proc = mock.Mock(pid=42)
+        proc.wait.side_effect = [
+            launcher.subprocess.TimeoutExpired("child", 5.0),
+            0,
+        ]
+        with mock.patch.object(
+            launcher,
+            "persist_owned_child",
+            side_effect=OSError("crash before persist"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "cannot persist ownership"):
+                launcher.register_spawned_child(
+                    process_records,
+                    "relay",
+                    proc,
+                    "owner",
+                )
+        proc.terminate.assert_called_once_with()
+        proc.kill.assert_called_once_with()
+        self.assertEqual(proc.wait.call_count, 2)
+        self.assertNotIn("relay", process_records)
+
     def test_partial_startup_state_is_not_reported_running(self) -> None:
         owner = record(41, 100)
         launcher.save_pids({"launcher": owner}, "owner")

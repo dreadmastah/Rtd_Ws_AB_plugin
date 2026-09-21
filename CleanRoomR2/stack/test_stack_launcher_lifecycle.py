@@ -243,6 +243,32 @@ class LauncherOwnershipTests(unittest.TestCase):
         self.assertIsNone(acquired)
         self.assertTrue(stack_launcher.PIDFILE.exists())
 
+    def assert_live_child_refuses_ensure_running(self, child_name: str) -> None:
+        stale_launcher = process_record(41, 100)
+        live_child = process_record(42, 200)
+        self.write_state(stale_launcher, **{child_name: live_child})
+        with (
+            mock.patch.object(
+                stack_launcher,
+                "process_identity",
+                side_effect=lambda pid: live_child if pid == 42 else None,
+            ),
+            mock.patch.object(
+                stack_launcher,
+                "pid_alive",
+                side_effect=lambda pid: pid == 42,
+            ),
+            mock.patch.object(stack_launcher, "instance_running") as running,
+            mock.patch.object(stack_launcher, "configure_registry") as configure,
+            mock.patch.object(stack_launcher, "popen_with_sanitized_environment") as popen,
+        ):
+            result = stack_launcher.ensure_running("WSRTD_TEST", 19102)
+            running.assert_not_called()
+            configure.assert_not_called()
+            popen.assert_not_called()
+        self.assertEqual(result, 4)
+        self.assertTrue(stack_launcher.PIDFILE.exists())
+
     def test_dead_launcher_with_live_relay_refuses_recovery(self) -> None:
         self.assert_live_child_refuses_recovery("relay")
 
@@ -251,6 +277,39 @@ class LauncherOwnershipTests(unittest.TestCase):
 
     def test_dead_launcher_with_live_identity_refuses_recovery(self) -> None:
         self.assert_live_child_refuses_recovery("identity")
+
+    def test_live_relay_refuses_ensure_running(self) -> None:
+        self.assert_live_child_refuses_ensure_running("relay")
+
+    def test_live_server_refuses_ensure_running(self) -> None:
+        self.assert_live_child_refuses_ensure_running("server")
+
+    def test_live_identity_refuses_ensure_running(self) -> None:
+        self.assert_live_child_refuses_ensure_running("identity")
+
+    def test_all_children_dead_allow_ensure_running_recovery(self) -> None:
+        self.write_state(
+            process_record(41, 100),
+            relay=process_record(42, 101),
+            server=process_record(43, 102),
+            identity=process_record(44, 103),
+        )
+        spawned = SimpleNamespace(pid=99)
+        with (
+            mock.patch.object(stack_launcher, "process_identity", return_value=None),
+            mock.patch.object(stack_launcher, "pid_alive", return_value=False),
+            mock.patch.object(stack_launcher, "instance_running", return_value=False),
+            mock.patch.object(stack_launcher, "configure_registry", return_value=True),
+            mock.patch.object(
+                stack_launcher,
+                "popen_with_sanitized_environment",
+                return_value=spawned,
+            ) as popen,
+        ):
+            result = stack_launcher.ensure_running("WSRTD_TEST", 19102)
+        self.assertEqual(result, 0)
+        self.assertFalse(stack_launcher.PIDFILE.exists())
+        popen.assert_called_once()
 
     def test_dead_launcher_and_all_dead_children_allow_recovery(self) -> None:
         self.write_state(

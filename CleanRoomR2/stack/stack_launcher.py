@@ -602,13 +602,20 @@ def ensure_running(dbname: str, relay_port: int) -> int:
     if PAUSEFILE.exists():
         print("WSRTD_ENSURE_RUNNING=MAINTENANCE_PAUSED")
         return 0
+
+    adjudication = adjudicate_pid_state()
+    if adjudication == LAUNCH_OWNERSHIP_ALREADY_RUNNING:
+        print("WSRTD_ENSURE_RUNNING=ALREADY_RUNNING")
+        return 0
+    if adjudication != LAUNCH_OWNERSHIP_ACQUIRED:
+        print("WSRTD_ENSURE_RUNNING=REFUSED_LIVE_OWNER_AMBIGUOUS")
+        return 4
     if instance_running(dbname, relay_port):
         print("WSRTD_ENSURE_RUNNING=ALREADY_RUNNING")
         return 0
-    try:
+
+    with contextlib.suppress(OSError):
         PIDFILE.unlink()
-    except OSError:
-        pass
     if not configure_registry(dbname, relay_port):
         print("WSRTD_ENSURE_RUNNING=FAIL_REGISTRY")
         return 2

@@ -439,6 +439,51 @@ def persist_owned_child(
     return record
 
 
+def register_spawned_child(
+    process_records: dict[str, dict[str, object]],
+    name: str,
+    proc: subprocess.Popen,
+    launch_nonce: str,
+) -> dict[str, object]:
+    """Persist a child or synchronously stop it and roll back partial state."""
+    try:
+        return persist_owned_child(
+            process_records,
+            name,
+            proc.pid,
+            launch_nonce,
+        )
+    except Exception as exc:
+        process_records.pop(name, None)
+        with contextlib.suppress(Exception):
+            proc.terminate()
+        try:
+            proc.wait(timeout=5.0)
+        except Exception:
+            with contextlib.suppress(Exception):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                proc.wait(timeout=5.0)
+
+        with contextlib.suppress(OSError):
+            PID_FILE.with_suffix(".tmp").unlink()
+        state = load_pid_state()
+        state_processes = state.get("processes")
+        if (
+            state.get("launchNonce") == launch_nonce
+            and isinstance(state_processes, dict)
+            and name in state_processes
+        ):
+            try:
+                save_pids(process_records, launch_nonce)
+            except OSError:
+                with contextlib.suppress(OSError):
+                    PID_FILE.unlink()
+        raise RuntimeError(
+            f"cannot persist ownership identity for child {name}"
+        ) from exc
+
+
 def status() -> int:
     state = load_pid_state()
     processes = state.get("processes")
@@ -816,12 +861,7 @@ def run(args: argparse.Namespace) -> int:
             stdout=fh,
             credential_profile=credential_profile,
         )
-        try:
-            persist_owned_child(process_records, name, proc.pid, launch_nonce)
-        except RuntimeError:
-            with contextlib.suppress(Exception):
-                proc.terminate()
-            raise
+        register_spawned_child(process_records, name, proc, launch_nonce)
         child_credential_profiles[name] = credential_profile
         print(f"STARTED_{name.upper()}_PID={proc.pid}")
         return proc
