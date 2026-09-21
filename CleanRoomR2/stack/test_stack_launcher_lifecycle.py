@@ -112,6 +112,9 @@ class SecretIsolationTests(unittest.TestCase):
             "BINANCE_API_SECRET": "secret",
             "ASTU_PRIVATE_TOKEN": "token",
             "ASTU_SURPRISE_ACCESS_TOKEN": "surprise",
+            "NPM_TOKEN": "npm",
+            "SENTRY_TOKEN": "sentry",
+            "CUSTOM_TOKEN": "custom",
             "DATABASE_PASSWORD": "password",
             "TOKENIZERS_PARALLELISM": "true",
         }
@@ -125,6 +128,9 @@ class SecretIsolationTests(unittest.TestCase):
         self.assertNotIn("BINANCE_API_SECRET", child)
         self.assertNotIn("ASTU_PRIVATE_TOKEN", child)
         self.assertNotIn("ASTU_SURPRISE_ACCESS_TOKEN", child)
+        self.assertNotIn("NPM_TOKEN", child)
+        self.assertNotIn("SENTRY_TOKEN", child)
+        self.assertNotIn("CUSTOM_TOKEN", child)
         self.assertNotIn("DATABASE_PASSWORD", child)
         self.assertEqual(child["TOKENIZERS_PARALLELISM"], "true")
 
@@ -134,6 +140,9 @@ class SecretIsolationTests(unittest.TestCase):
             "ASTU_BINANCE_TESTNET_API_KEY": "key",
             "ASTU_BINANCE_TESTNET_API_SECRET": "secret",
             "ASTU_SURPRISE_AUTH_TOKEN": "token",
+            "NPM_TOKEN": "npm",
+            "SENTRY_TOKEN": "sentry",
+            "CUSTOM_SERVICE_TOKEN": "custom",
             "TOKENIZERS_PARALLELISM": "true",
         }
         with (
@@ -153,6 +162,9 @@ class SecretIsolationTests(unittest.TestCase):
                 self.assertNotIn("ASTU_BINANCE_TESTNET_API_KEY", env, role)
                 self.assertNotIn("ASTU_BINANCE_TESTNET_API_SECRET", env, role)
                 self.assertNotIn("ASTU_SURPRISE_AUTH_TOKEN", env, role)
+                self.assertNotIn("NPM_TOKEN", env, role)
+                self.assertNotIn("SENTRY_TOKEN", env, role)
+                self.assertNotIn("CUSTOM_SERVICE_TOKEN", env, role)
 
 
 def subprocess_create_no_window() -> int:

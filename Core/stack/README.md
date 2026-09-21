@@ -270,8 +270,8 @@ python Core\stack\autotrader_sim_launcher.py --stop
 Runtime PID/log/journal state stays under `Core/runtime`. PID state uses an
 atomic per-launch lock and verifies PID, process creation time, executable path,
 and launch nonce before status or stop operations trust a process. If a verified
-live PID owner exists but its lock is missing, malformed, nonce-mismatched, or
-identity-mismatched, startup fails closed with
+live launcher or supervised child remains, or a live PID owner exists but its
+lock is missing, malformed, nonce-mismatched, or identity-mismatched, startup fails closed with
 `ASTU_LAUNCH_REFUSED_LIVE_OWNER_AMBIGUOUS`; it does not replace the lock, remove
 the PID state, kill the process, or start children.
 

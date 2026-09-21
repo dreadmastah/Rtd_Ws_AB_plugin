@@ -4,7 +4,9 @@ import importlib.util
 import json
 import os
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
 
@@ -30,20 +32,28 @@ class LauncherOwnershipTests(unittest.TestCase):
         root = Path(self.temp.name)
         self.pid_patch = mock.patch.object(launcher, "PID_FILE", root / "pids.json")
         self.lock_patch = mock.patch.object(launcher, "LOCK_FILE", root / "lock.json")
+        self.claim_patch = mock.patch.object(launcher, "CLAIM_FILE", root / "claim.json")
         self.pid_patch.start()
         self.lock_patch.start()
+        self.claim_patch.start()
 
     def tearDown(self) -> None:
+        self.claim_patch.stop()
         self.lock_patch.stop()
         self.pid_patch.stop()
         self.temp.cleanup()
 
-    def write_state(self, owner: dict[str, object], nonce: str = "owner") -> None:
+    def write_state(
+        self,
+        owner: dict[str, object],
+        nonce: str = "owner",
+        **children: dict[str, object],
+    ) -> None:
         launcher.PID_FILE.write_text(
             json.dumps({
                 "schemaVersion": launcher.PID_SCHEMA_VERSION,
                 "launchNonce": nonce,
-                "processes": {"launcher": owner},
+                "processes": {"launcher": owner, **children},
             }),
             encoding="utf-8",
         )
@@ -218,9 +228,15 @@ class LauncherOwnershipTests(unittest.TestCase):
             mismatched,
         )
 
-    def test_dead_pid_and_stale_lock_are_reclaimed(self) -> None:
+    def test_dead_launcher_and_all_dead_children_are_reclaimed(self) -> None:
         stale = record(41, 100)
-        self.write_state(stale, nonce="stale")
+        self.write_state(
+            stale,
+            nonce="stale",
+            relay=record(42, 101),
+            server=record(43, 102),
+            risk=record(44, 103),
+        )
         launcher.LOCK_FILE.write_text(
             json.dumps({
                 "schemaVersion": launcher.PID_SCHEMA_VERSION,
@@ -241,6 +257,101 @@ class LauncherOwnershipTests(unittest.TestCase):
         self.assertFalse(launcher.PID_FILE.exists())
         lock = json.loads(launcher.LOCK_FILE.read_text(encoding="utf-8"))
         self.assertEqual(lock["launchNonce"], "fresh")
+
+    def test_dead_launcher_with_live_child_refuses_recovery(self) -> None:
+        stale_launcher = record(41, 100)
+        live_relay = record(42, 200)
+        self.write_state(stale_launcher, relay=live_relay)
+        with (
+            mock.patch.object(
+                launcher,
+                "process_identity",
+                side_effect=lambda pid: live_relay if pid == 42 else None,
+            ),
+            mock.patch.object(
+                launcher,
+                "pid_exists",
+                side_effect=lambda pid: pid == 42,
+            ),
+            mock.patch.object(launcher, "acquire_launch_lock") as acquire,
+        ):
+            result = launcher.claim_launcher_ownership(
+                "fresh",
+                record(99, 300),
+            )
+            acquire.assert_not_called()
+        self.assertEqual(result, launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS)
+        self.assertTrue(launcher.PID_FILE.exists())
+        self.assertFalse(launcher.LOCK_FILE.exists())
+
+    def test_dead_launcher_with_live_identity_bridge_refuses_recovery(self) -> None:
+        stale_launcher = record(41, 100)
+        live_identity = record(45, 205)
+        self.write_state(stale_launcher, identity=live_identity)
+        with (
+            mock.patch.object(
+                launcher,
+                "process_identity",
+                side_effect=lambda pid: live_identity if pid == 45 else None,
+            ),
+            mock.patch.object(
+                launcher,
+                "pid_exists",
+                side_effect=lambda pid: pid == 45,
+            ),
+        ):
+            result = launcher.claim_launcher_ownership(
+                "fresh",
+                record(99, 300),
+            )
+        self.assertEqual(result, launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS)
+        self.assertTrue(launcher.PID_FILE.exists())
+
+    def test_concurrent_stale_recovery_has_exactly_one_owner(self) -> None:
+        stale_launcher = record(41, 100)
+        stale_child = record(42, 101)
+        first = record(77, 700)
+        self.write_state(stale_launcher, relay=stale_child)
+        with (
+            mock.patch.object(
+                launcher,
+                "process_identity",
+                side_effect=lambda pid: first if pid == 77 else None,
+            ),
+            mock.patch.object(launcher, "pid_exists", return_value=False),
+        ):
+            self.assertEqual(
+                launcher.claim_launcher_ownership("first", first),
+                launcher.LAUNCH_OWNERSHIP_ACQUIRED,
+            )
+            self.assertEqual(
+                launcher.claim_launcher_ownership("second", record(88, 800)),
+                launcher.LAUNCH_OWNERSHIP_ALREADY_RUNNING,
+            )
+
+    def test_simultaneous_claim_guards_have_exactly_one_winner(self) -> None:
+        first = record(77, 700)
+        second = record(88, 800)
+        identities = {77: first, 88: second}
+        barrier = threading.Barrier(2)
+
+        def contend(nonce: str, owner: dict[str, object]) -> bool:
+            barrier.wait()
+            return launcher.acquire_claim_guard(nonce, owner)
+
+        with (
+            mock.patch.object(
+                launcher,
+                "process_identity",
+                side_effect=lambda pid: identities.get(pid),
+            ),
+            ThreadPoolExecutor(max_workers=2) as pool,
+        ):
+            outcomes = list(pool.map(
+                lambda item: contend(*item),
+                (("first", first), ("second", second)),
+            ))
+        self.assertEqual(sum(outcomes), 1)
 
     def test_concurrent_launcher_cannot_replace_owned_lock(self) -> None:
         owned = record(41, 100)
@@ -326,6 +437,9 @@ class ChildEnvironmentTests(unittest.TestCase):
             "BINANCE_API_SECRET": "secret",
             "ASTU_PRIVATE_TOKEN": "token",
             "ASTU_SURPRISE_ACCESS_TOKEN": "surprise",
+            "NPM_TOKEN": "npm",
+            "SENTRY_TOKEN": "sentry",
+            "CUSTOM_TOKEN": "custom",
             "DATABASE_PASSWORD": "password",
             "TOKENIZERS_PARALLELISM": "true",
         }
@@ -337,6 +451,9 @@ class ChildEnvironmentTests(unittest.TestCase):
         self.assertNotIn("BINANCE_API_SECRET", child)
         self.assertNotIn("ASTU_PRIVATE_TOKEN", child)
         self.assertNotIn("ASTU_SURPRISE_ACCESS_TOKEN", child)
+        self.assertNotIn("NPM_TOKEN", child)
+        self.assertNotIn("SENTRY_TOKEN", child)
+        self.assertNotIn("CUSTOM_TOKEN", child)
         self.assertNotIn("DATABASE_PASSWORD", child)
         self.assertEqual(child["TOKENIZERS_PARALLELISM"], "true")
 
@@ -362,6 +479,9 @@ class ChildEnvironmentTests(unittest.TestCase):
             "ASTU_BINANCE_TESTNET_API_SECRET": "demo-secret",
             "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE": "wss://example/{listenKey}",
             "ASTU_SURPRISE_AUTH_TOKEN": "must-not-leak",
+            "NPM_TOKEN": "must-not-leak",
+            "SENTRY_TOKEN": "must-not-leak",
+            "CUSTOM_SERVICE_TOKEN": "must-not-leak",
             "TOKENIZERS_PARALLELISM": "true",
         }
         public_roles = (
@@ -387,6 +507,10 @@ class ChildEnvironmentTests(unittest.TestCase):
                 self.assertNotIn("BINANCE_API_KEY", env, role)
                 self.assertNotIn("BINANCE_API_SECRET", env, role)
                 self.assertNotIn("ASTU_SURPRISE_AUTH_TOKEN", env, role)
+                self.assertNotIn("NPM_TOKEN", env, role)
+                self.assertNotIn("SENTRY_TOKEN", env, role)
+                self.assertNotIn("CUSTOM_SERVICE_TOKEN", env, role)
+                self.assertEqual(env["TOKENIZERS_PARALLELISM"], "true")
 
             launcher.popen_child_process(
                 ["user-data"],
@@ -399,6 +523,9 @@ class ChildEnvironmentTests(unittest.TestCase):
                 "demo-key",
             )
             self.assertNotIn("ASTU_BINANCE_TESTNET_API_SECRET", user_data_env)
+            self.assertNotIn("NPM_TOKEN", user_data_env)
+            self.assertNotIn("SENTRY_TOKEN", user_data_env)
+            self.assertNotIn("CUSTOM_SERVICE_TOKEN", user_data_env)
             self.assertEqual(
                 user_data_env["ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE"],
                 "wss://example/{listenKey}",

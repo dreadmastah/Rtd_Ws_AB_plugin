@@ -20,6 +20,7 @@ RUNTIME = ROOT / "runtime"
 LOGS = RUNTIME / "logs"
 PID_FILE = RUNTIME / "autotrader_sim_pids.json"
 LOCK_FILE = RUNTIME / "autotrader_sim_launcher.lock.json"
+CLAIM_FILE = RUNTIME / "autotrader_sim_launcher.claim.json"
 RISK_FILE = RUNTIME / "account_risk_status.v1.json"
 REALIZED_PNL_FILE = RUNTIME / "realized_pnl_status.v1.json"
 REALIZED_PNL_STATE = RUNTIME / "realized_pnl_accumulator.v1.json"
@@ -71,7 +72,9 @@ SENSITIVE_ENV_SUFFIXES = (
     "_CLIENT_SECRET",
     "_PASSWORD",
     "_PRIVATE_KEY",
+    "_TOKEN",
 )
+BENIGN_ENV_NAMES = frozenset({"TOKENIZERS_PARALLELISM"})
 CREDENTIAL_PROFILE_NONE = "NONE"
 CREDENTIAL_PROFILE_BINANCE_READONLY = "BINANCE_READONLY"
 CREDENTIAL_PROFILE_BINANCE_DEMO_SIGNED = "BINANCE_DEMO_SIGNED"
@@ -277,7 +280,39 @@ def acquire_launch_lock(
     return False
 
 
-def claim_launcher_ownership(
+def acquire_claim_guard(
+    launch_nonce: str,
+    launcher_record: Mapping[str, object],
+) -> bool:
+    payload = {
+        "schemaVersion": PID_SCHEMA_VERSION,
+        "launchNonce": launch_nonce,
+        "launcher": dict(launcher_record),
+    }
+    for _ in range(3):
+        if _atomic_create_json(CLAIM_FILE, payload):
+            return True
+        guard = load_json_object(CLAIM_FILE)
+        for _wait in range(10):
+            if guard or not CLAIM_FILE.exists():
+                break
+            time.sleep(0.01)
+            guard = load_json_object(CLAIM_FILE)
+        if guard and process_record_matches(guard.get("launcher")):
+            return False
+        with contextlib.suppress(OSError):
+            CLAIM_FILE.unlink()
+    return False
+
+
+def release_claim_guard(launch_nonce: str) -> None:
+    guard = load_json_object(CLAIM_FILE)
+    if guard.get("launchNonce") == launch_nonce:
+        with contextlib.suppress(OSError):
+            CLAIM_FILE.unlink()
+
+
+def _claim_launcher_ownership_guarded(
     launch_nonce: str,
     launcher_record: Mapping[str, object],
 ) -> str:
@@ -309,6 +344,17 @@ def claim_launcher_ownership(
         if owner_status == PROCESS_OWNER_AMBIGUOUS:
             return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
 
+        child_statuses = {
+            name: process_record_status(record)
+            for name, record in processes.items()
+            if name != "launcher"
+        }
+        if any(
+            status in (PROCESS_OWNER_MATCH, PROCESS_OWNER_AMBIGUOUS)
+            for status in child_statuses.values()
+        ):
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+
         existing_lock = load_json_object(LOCK_FILE)
         if existing_lock and lock_is_owned(existing_lock):
             return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
@@ -322,6 +368,21 @@ def claim_launcher_ownership(
     if lock_is_owned(load_json_object(LOCK_FILE)):
         return LAUNCH_OWNERSHIP_ALREADY_RUNNING
     return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+
+
+def claim_launcher_ownership(
+    launch_nonce: str,
+    launcher_record: Mapping[str, object],
+) -> str:
+    if not acquire_claim_guard(launch_nonce, launcher_record):
+        return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+    try:
+        return _claim_launcher_ownership_guarded(
+            launch_nonce,
+            launcher_record,
+        )
+    finally:
+        release_claim_guard(launch_nonce)
 
 
 def release_launch_lock(launch_nonce: str) -> None:
@@ -433,6 +494,8 @@ def stop() -> int:
 
 def is_sensitive_environment_name(name: str) -> bool:
     upper = name.upper()
+    if upper in BENIGN_ENV_NAMES:
+        return False
     return upper in SENSITIVE_ENV_NAMES or upper.endswith(SENSITIVE_ENV_SUFFIXES)
 
 

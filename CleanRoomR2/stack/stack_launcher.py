@@ -43,7 +43,9 @@ SENSITIVE_ENV_SUFFIXES = (
     "_CLIENT_SECRET",
     "_PASSWORD",
     "_PRIVATE_KEY",
+    "_TOKEN",
 )
+BENIGN_ENV_NAMES = frozenset({"TOKENIZERS_PARALLELISM"})
 
 
 def windows_hidden_flags(*, new_process_group: bool = False) -> int:
@@ -61,8 +63,11 @@ def sanitized_child_environment(
     env = {
         key: value
         for key, value in os.environ.items()
-        if key.upper() not in SENSITIVE_ENV_NAMES
-        and not key.upper().endswith(SENSITIVE_ENV_SUFFIXES)
+        if key.upper() in BENIGN_ENV_NAMES
+        or (
+            key.upper() not in SENSITIVE_ENV_NAMES
+            and not key.upper().endswith(SENSITIVE_ENV_SUFFIXES)
+        )
     }
     if overrides:
         env.update(overrides)
