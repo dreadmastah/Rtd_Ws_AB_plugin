@@ -131,6 +131,38 @@ int main() {
     }
 
     {
+        auto demo_intent = intent_at(80'000.0);
+        auto demo_risk = ready_risk();
+        demo_risk.risk_capital = 5'000.0;
+        demo_risk.gross_notional = 0.0;
+        demo_risk.max_gross_notional = 100.0;
+        demo_risk.symbol_exposure_reconciled = true;
+        demo_risk.symbol_notional = 0.0;
+        demo_risk.max_symbol_notional = 100.0;
+
+        auto btc_demo = rules();
+        btc_demo.quantity_step = 0.0001;
+        btc_demo.min_quantity = 0.0001;
+        btc_demo.min_notional = 50.0;
+
+        const auto default_result =
+            astu::execution::SimulationEngine::run_with_instrument(
+                demo_intent, ready_data(), demo_risk, btc_demo, 2'000);
+        REQUIRE(default_result.code == DecisionCode::FilterRejected);
+        REQUIRE(!default_result.accepted_for_simulation);
+
+        demo_intent.quantity_model = "DEMO_ACCEPTANCE_FIXED_60_USDT";
+        const auto acceptance_result =
+            astu::execution::SimulationEngine::run_with_instrument(
+                demo_intent, ready_data(), demo_risk, btc_demo, 2'000);
+        REQUIRE(acceptance_result.code == DecisionCode::OrderRoutingDisabled);
+        REQUIRE(acceptance_result.accepted_for_simulation);
+        REQUIRE(near(acceptance_result.simulated_quantity, 0.0007));
+        REQUIRE(near(acceptance_result.simulated_notional, 56.0));
+        REQUIRE(acceptance_result.simulated_notional <= 100.0);
+    }
+
+    {
         auto malformed = rules();
         malformed.quantity_step = 0.0;
         const auto result = astu::execution::SimulationEngine::run_with_instrument(
