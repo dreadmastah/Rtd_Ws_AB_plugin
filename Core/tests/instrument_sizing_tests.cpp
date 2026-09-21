@@ -148,7 +148,7 @@ int main() {
         const auto default_result =
             astu::execution::SimulationEngine::run_with_instrument(
                 demo_intent, ready_data(), demo_risk, btc_demo, 2'000);
-        REQUIRE(default_result.code == DecisionCode::FilterRejected);
+        REQUIRE(default_result.code == DecisionCode::SizingRejected);
         REQUIRE(!default_result.accepted_for_simulation);
 
         demo_intent.quantity_model = "DEMO_ACCEPTANCE_FIXED_60_USDT";
