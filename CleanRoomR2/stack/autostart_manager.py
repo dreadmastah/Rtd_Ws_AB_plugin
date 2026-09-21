@@ -15,10 +15,21 @@ TASK_NAME = "WSRTD R2.1 Recovery Watchdog"
 RUN_VALUE = "WSRTD_R21_AutoRecovery"
 
 
-def ensure_command(dbname: str) -> str:
-    py = BASE / ".venv" / "Scripts" / "python.exe"
+def ensure_command(dbname: str, relay_port: int) -> str:
+    scripts = BASE / ".venv" / "Scripts"
+    py = scripts / "pythonw.exe"
+    if not py.exists():
+        py = scripts / "python.exe"
     launcher = BASE / "stack_launcher.py"
-    return subprocess.list2cmdline([str(py), str(launcher), "--ensure-running", "--dbname", dbname])
+    return subprocess.list2cmdline([
+        str(py),
+        str(launcher),
+        "--ensure-running",
+        "--dbname",
+        dbname,
+        "--relay-port",
+        str(relay_port),
+    ])
 
 
 def install(dbname: str) -> int:
@@ -37,7 +48,8 @@ def install(dbname: str) -> int:
 
     import winreg
 
-    command = ensure_command(dbname)
+    relay_port = int(CFG.get("relay", {}).get("port", 10101))
+    command = ensure_command(dbname, relay_port)
     key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
     with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
         winreg.SetValueEx(key, RUN_VALUE, 0, winreg.REG_SZ, command)
@@ -62,7 +74,10 @@ def install(dbname: str) -> int:
 
     (BASE / "runtime").mkdir(exist_ok=True)
     (BASE / "runtime" / "autostart_dbname.txt").write_text(dbname + "\n", encoding="utf-8")
-    print(f"WSRTD_AUTOSTART=PASS DBNAME={dbname} WATCHDOG_MINUTES={minutes}")
+    print(
+        f"WSRTD_AUTOSTART=PASS DBNAME={dbname} RELAY_PORT={relay_port} "
+        f"WATCHDOG_MINUTES={minutes}"
+    )
     print(f"RUN_COMMAND={command}")
     return 0
 

@@ -36,7 +36,8 @@ The R2 DLL remains `WsRTD_Compat_3.06.26_R2_x64.dll`; R2.1 changes the runtime s
 4. **PC reboot/logon or launcher death**
    - `install_recovery_autostart.cmd WSRTD` installs an HKCU logon startup command plus a five-minute Task Scheduler watchdog;
    - the watchdog uses `stack_launcher.py --ensure-running` and is a no-op when the relay/server are already healthy;
-   - stale PID state is discarded before replacement startup;
+   - a pair-scoped Windows named mutex permits only one supervisor for a database name and relay port;
+   - stale PID state is discarded only after the mutex proves there is no current owner;
    - AmiBroker is automatically started by default and kept running while the stack is active.
 
 5. **Daily rollover**
@@ -136,7 +137,22 @@ uninstall_recovery_autostart.cmd
 
 ### Intentional maintenance stop
 
-`stop_wsrtd_stack.cmd` writes `runtime\\maintenance_pause` before stopping the supervisor. The logon/watchdog path respects that marker and will not restart the stack during intentional maintenance. Running `launch_wsrtd_stack.cmd WSRTD` clears the marker and resumes automatic recovery.
+`stop_wsrtd_stack.cmd` writes `runtime\\maintenance_pause` and asks the owning supervisor to shut down its tracked services. The supervisor waits briefly for its children and force-stops only those owned children if necessary. The logon/watchdog path respects the maintenance marker and will not restart the stack during intentional maintenance. Running `launch_wsrtd_stack.cmd WSRTD` clears the marker and resumes automatic recovery.
+
+### Single-instance diagnostics
+
+The supervisor logs its PID, `sys.executable`, working directory, database name,
+relay port, named-mutex identity, and each owned child PID/interpreter. A second
+launch for the same database/port exits with code 3 and reports:
+
+```text
+Another WSRTD stack instance is already running for WSRTD / port 10101.
+```
+
+On Windows, process inventory may show both `.venv\\Scripts\\python.exe` and the
+base Python executable for one script. The venv executable is a redirector that
+starts the base interpreter; that parent/child pair is one logical service, not
+two independently launched collectors.
 
 ## Recovery evidence
 
