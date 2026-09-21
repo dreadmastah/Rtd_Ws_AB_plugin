@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""Install/remove Windows automatic recovery triggers for WSRTD R2.1."""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+CFG = json.loads((BASE / "config.json").read_text(encoding="utf-8"))
+TASK_NAME = "WSRTD R2.1 Recovery Watchdog"
+RUN_VALUE = "WSRTD_R21_AutoRecovery"
+
+
+def ensure_command(dbname: str) -> str:
+    pyw = BASE / ".venv" / "Scripts" / "pythonw.exe"
+    launcher = BASE / "stack_launcher.py"
+    return subprocess.list2cmdline([str(pyw), str(launcher), "--ensure-running", "--dbname", dbname])
+
+
+def install(dbname: str) -> int:
+    if os.name != "nt":
+        print("WSRTD_AUTOSTART=FAIL_WINDOWS_ONLY")
+        return 2
+    py = BASE / ".venv" / "Scripts" / "python.exe"
+    pyw = BASE / ".venv" / "Scripts" / "pythonw.exe"
+    pause = BASE / "runtime" / "maintenance_pause"
+    try:
+        pause.unlink()
+    except OSError:
+        pass
+    if not py.exists() or not pyw.exists():
+        print("WSRTD_AUTOSTART=FAIL_VENV_PYTHON_OR_PYTHONW_MISSING")
+        return 2
+
+    import winreg
+
+    command = ensure_command(dbname)
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+        winreg.SetValueEx(key, RUN_VALUE, 0, winreg.REG_SZ, command)
+
+    minutes = max(1, int(CFG.get("launcher", {}).get("watchdog_minutes", 5)))
+    cp = subprocess.run(
+        [
+            "schtasks.exe", "/Create", "/TN", TASK_NAME,
+            "/SC", "MINUTE", "/MO", str(minutes),
+            "/TR", command,
+            "/RL", "LIMITED", "/F",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if cp.returncode != 0:
+        print("WSRTD_AUTOSTART=PARTIAL_RUN_KEY_ONLY")
+        print((cp.stdout or "").strip())
+        print((cp.stderr or "").strip())
+        return 1
+
+    (BASE / "runtime").mkdir(exist_ok=True)
+    (BASE / "runtime" / "autostart_dbname.txt").write_text(dbname + "\n", encoding="utf-8")
+    print(f"WSRTD_AUTOSTART=PASS DBNAME={dbname} WATCHDOG_MINUTES={minutes}")
+    print(f"RUN_COMMAND={command}")
+    return 0
+
+
+def uninstall() -> int:
+    if os.name != "nt":
+        print("WSRTD_AUTOSTART=FAIL_WINDOWS_ONLY")
+        return 2
+    import winreg
+
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.DeleteValue(key, RUN_VALUE)
+    except FileNotFoundError:
+        pass
+
+    subprocess.run(
+        ["schtasks.exe", "/Delete", "/TN", TASK_NAME, "/F"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    print("WSRTD_AUTOSTART=REMOVED")
+    return 0
+
+
+def status() -> int:
+    if os.name != "nt":
+        print("WSRTD_AUTOSTART=FAIL_WINDOWS_ONLY")
+        return 2
+    import winreg
+
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    run_value = ""
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+            run_value = winreg.QueryValueEx(key, RUN_VALUE)[0]
+    except FileNotFoundError:
+        pass
+    cp = subprocess.run(
+        ["schtasks.exe", "/Query", "/TN", TASK_NAME, "/FO", "LIST", "/V"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    print(f"RUN_KEY_PRESENT={bool(run_value)}")
+    if run_value:
+        print(f"RUN_COMMAND={run_value}")
+    run_headless = "pythonw.exe" in run_value.lower()
+    task_headless = cp.returncode == 0 and "pythonw.exe" in (cp.stdout or "").lower()
+    print(f"RUN_COMMAND_HEADLESS={run_headless}")
+    print(f"WATCHDOG_TASK_PRESENT={cp.returncode == 0}")
+    print(f"WATCHDOG_COMMAND_HEADLESS={task_headless}")
+    if cp.returncode == 0:
+        print(cp.stdout.strip())
+    return 0 if run_value and cp.returncode == 0 and run_headless and task_headless else 1
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    g = ap.add_mutually_exclusive_group(required=True)
+    g.add_argument("--install", action="store_true")
+    g.add_argument("--uninstall", action="store_true")
+    g.add_argument("--status", action="store_true")
+    ap.add_argument("--dbname", default="WSRTD")
+    args = ap.parse_args()
+    if args.install:
+        return install(args.dbname)
+    if args.uninstall:
+        return uninstall()
+    return status()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

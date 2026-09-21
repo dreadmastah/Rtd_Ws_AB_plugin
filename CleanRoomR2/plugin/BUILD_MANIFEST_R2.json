@@ -1,0 +1,20 @@
+{
+  "artifact": "WsRTD_Compat_3.06.26_R2_x64.dll",
+  "artifact_type": "clean-room compatibility candidate",
+  "target_architecture": "Windows x86-64 PE32+",
+  "reported_plugin_version": 30626,
+  "build_revision": "R2",
+  "retention": {
+    "native_eod_bars_per_symbol": 300,
+    "intraday_1m_records_per_symbol": 1500,
+    "total_records_per_symbol": 1800,
+    "visible_1m_target": 60,
+    "derived_hourly_target": 24
+  },
+  "market_data_contract": "Binance USD-M USDT perpetual Futures",
+  "dll_size_bytes": 30720,
+  "dll_sha256": "19952cef822ba2a470e52caa4d4edfeb82933bc9886411d6e85126d95fcf0379",
+  "source_sha256": "8e95d4070da05fa8d167baf978ca88ce4fd3e70f3477a98f3d6e4eb7d91ab5ce",
+  "runtime_acceptance": "OUTSTANDING_ON_AMIBROKER_X64",
+  "static_validation": "PASS"
+}

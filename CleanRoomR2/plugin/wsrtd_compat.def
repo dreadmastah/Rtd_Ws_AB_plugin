@@ -1,0 +1,18 @@
+LIBRARY WsRTD_Compat.dll
+EXPORTS
+    Configure @1
+    DataPluginCmd @2
+    GetExtraData @3
+    GetPluginInfo @4
+    GetQuotes @5
+    GetQuotesEx @6
+    GetRecentInfo @7
+    GetStatus @8
+    GetSymbolLimit @9
+    Init @10
+    Notify @11
+    Release @12
+    SetTimeBase @13
+    GetExtraDataEx @14
+    GetPluginStatus @15
+    IsBackfillComplete @16
