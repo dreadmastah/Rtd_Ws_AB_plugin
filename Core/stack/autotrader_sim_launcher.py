@@ -408,10 +408,13 @@ def state_has_valid_lock(state: Mapping[str, object]) -> bool:
 def save_pids(
     process_records: Mapping[str, Mapping[str, object]],
     launch_nonce: str,
+    *,
+    startup_complete: bool = False,
 ) -> None:
     obj = {
         "schemaVersion": PID_SCHEMA_VERSION,
         "launchNonce": launch_nonce,
+        "startupComplete": startup_complete,
         "processes": {
             name: dict(record) for name, record in process_records.items()
         },
@@ -421,6 +424,21 @@ def save_pids(
     os.replace(tmp, PID_FILE)
 
 
+def persist_owned_child(
+    process_records: dict[str, dict[str, object]],
+    name: str,
+    pid: int,
+    launch_nonce: str,
+) -> dict[str, object]:
+    """Record a newly spawned child before startup advances to another child."""
+    record = process_identity(pid)
+    if record is None:
+        raise RuntimeError(f"cannot establish ownership identity for child {name}")
+    process_records[name] = record
+    save_pids(process_records, launch_nonce)
+    return record
+
+
 def status() -> int:
     state = load_pid_state()
     processes = state.get("processes")
@@ -428,7 +446,7 @@ def status() -> int:
         print("ASTU_SIM_STACK_STATUS=STOPPED")
         return 1
     lock_valid = state_has_valid_lock(state)
-    all_owned = lock_valid
+    all_owned = lock_valid and state.get("startupComplete") is True
     for name, record in processes.items():
         owned = process_record_matches(record)
         pid = record.get("pid", 0) if isinstance(record, dict) else 0
@@ -798,14 +816,12 @@ def run(args: argparse.Namespace) -> int:
             stdout=fh,
             credential_profile=credential_profile,
         )
-        record = process_identity(proc.pid)
-        if record is None:
+        try:
+            persist_owned_child(process_records, name, proc.pid, launch_nonce)
+        except RuntimeError:
             with contextlib.suppress(Exception):
                 proc.terminate()
-            raise RuntimeError(
-                f"cannot establish ownership identity for child {name}"
-            )
-        process_records[name] = record
+            raise
         child_credential_profiles[name] = credential_profile
         print(f"STARTED_{name.upper()}_PID={proc.pid}")
         return proc
@@ -947,6 +963,7 @@ def run(args: argparse.Namespace) -> int:
         return 5
 
     try:
+        save_pids(process_records, launch_nonce)
         if risk_command is not None:
             risk_profile = CREDENTIAL_PROFILE_NONE
             if args.risk_mode == "readonly":
@@ -1107,7 +1124,7 @@ def run(args: argparse.Namespace) -> int:
                 account_risk_view_command,
             )
 
-        save_pids(process_records, launch_nonce)
+        save_pids(process_records, launch_nonce, startup_complete=True)
 
         print("ASTU_SIM_STACK_STATUS=RUNNING")
         print(f"RISK_MODE={args.risk_mode}")
@@ -1203,7 +1220,7 @@ def run(args: argparse.Namespace) -> int:
                         CREDENTIAL_PROFILE_NONE,
                     ),
                 )
-                save_pids(process_records, launch_nonce)
+                save_pids(process_records, launch_nonce, startup_complete=True)
     finally:
         for proc in reversed(list(children.values())):
             if proc.poll() is None:

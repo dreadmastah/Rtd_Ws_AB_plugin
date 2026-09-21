@@ -130,6 +130,7 @@ class LauncherOwnershipTests(unittest.TestCase):
         self.assert_live_owner_refused(owner)
         self.assertFalse(launcher.LOCK_FILE.exists())
 
+    @unittest.skipUnless(os.name == "nt", "run() integration requires Windows")
     def test_run_starts_no_children_for_ambiguous_live_owner(self) -> None:
         owner = record(41, 100)
         self.write_state(owner)
@@ -307,6 +308,31 @@ class LauncherOwnershipTests(unittest.TestCase):
         self.assertEqual(result, launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS)
         self.assertTrue(launcher.PID_FILE.exists())
 
+    def test_dead_launcher_with_live_server_refuses_recovery(self) -> None:
+        stale_launcher = record(41, 100)
+        live_server = record(43, 203)
+        self.write_state(stale_launcher, server=live_server)
+        with (
+            mock.patch.object(
+                launcher,
+                "process_identity",
+                side_effect=lambda pid: live_server if pid == 43 else None,
+            ),
+            mock.patch.object(
+                launcher,
+                "pid_exists",
+                side_effect=lambda pid: pid == 43,
+            ),
+            mock.patch.object(launcher, "acquire_launch_lock") as acquire,
+        ):
+            result = launcher.claim_launcher_ownership(
+                "fresh",
+                record(99, 300),
+            )
+            acquire.assert_not_called()
+        self.assertEqual(result, launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS)
+        self.assertTrue(launcher.PID_FILE.exists())
+
     def test_concurrent_stale_recovery_has_exactly_one_owner(self) -> None:
         stale_launcher = record(41, 100)
         stale_child = record(42, 101)
@@ -402,6 +428,51 @@ class LauncherOwnershipTests(unittest.TestCase):
                 launcher.claim_launcher_ownership("second", record(77, 700)),
                 launcher.LAUNCH_OWNERSHIP_ALREADY_RUNNING,
             )
+
+    def test_partial_startup_persists_child_before_later_startup_crash(self) -> None:
+        owner = record(41, 100)
+        relay = record(42, 200)
+        process_records = {"launcher": owner}
+        launcher.save_pids(process_records, "owner")
+        with mock.patch.object(launcher, "process_identity", return_value=relay):
+            launcher.persist_owned_child(process_records, "relay", 42, "owner")
+
+        state = json.loads(launcher.PID_FILE.read_text(encoding="utf-8"))
+        self.assertEqual(state["processes"]["relay"], relay)
+        self.assertFalse(state["startupComplete"])
+        with (
+            mock.patch.object(
+                launcher,
+                "process_identity",
+                side_effect=lambda pid: relay if pid == 42 else None,
+            ),
+            mock.patch.object(
+                launcher,
+                "pid_exists",
+                side_effect=lambda pid: pid == 42,
+            ),
+            mock.patch.object(launcher, "acquire_launch_lock") as acquire,
+        ):
+            result = launcher.claim_launcher_ownership(
+                "contender",
+                record(99, 300),
+            )
+            acquire.assert_not_called()
+        self.assertEqual(result, launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS)
+
+    def test_partial_startup_state_is_not_reported_running(self) -> None:
+        owner = record(41, 100)
+        launcher.save_pids({"launcher": owner}, "owner")
+        launcher.LOCK_FILE.write_text(
+            json.dumps({
+                "schemaVersion": launcher.PID_SCHEMA_VERSION,
+                "launchNonce": "owner",
+                "launcher": owner,
+            }),
+            encoding="utf-8",
+        )
+        with mock.patch.object(launcher, "process_identity", return_value=owner):
+            self.assertEqual(launcher.status(), 1)
 
     def test_stop_refuses_wrong_process_without_taskkill(self) -> None:
         expected = record(41, 100)

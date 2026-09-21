@@ -69,7 +69,7 @@ if errorlevel 1 (
 )
 
 ping -n 2 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['maxPendingEntryScaleInReservations']==1, o; assert o['maxSymbolNotional']==0, o; assert o['activeExposureReservations']==1, o; assert o['reservedPositionSlots']==1, o; assert o['orderRoutingEnabled'] is False; print('PROJECTED_PENDING_LIMIT=PASS')"
+powershell.exe -NoProfile -Command "$o=$null; foreach($ms in 0,100,200,500){ if($ms){Start-Sleep -Milliseconds $ms}; try{$o=Get-Content -LiteralPath '%STATUS%' -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop; break}catch{}}; if($null -eq $o){throw 'status read failed'}; if($o.maxPendingEntryScaleInReservations -ne 1 -or $o.maxSymbolNotional -ne 0 -or $o.activeExposureReservations -ne 1 -or $o.reservedPositionSlots -ne 1 -or $o.orderRoutingEnabled -ne $false){throw 'pending status assertion failed'}; Write-Output 'PROJECTED_PENDING_LIMIT=PASS'"
 if errorlevel 1 (
   echo PROJECTED_RISK_LIMITS_SMOKE=FAIL PENDING_STATUS
   set RC=7
@@ -161,14 +161,14 @@ if errorlevel 1 (
 )
 
 ping -n 2 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['maxPendingEntryScaleInReservations']==0, o; assert abs(float(o['maxSymbolNotional'])-10.0)<1e-12, o; assert o['activeExposureReservations']==2, o; assert abs(float(o['reservedGrossNotional'])-20.0)<1e-9, o; assert o['reservedPositionSlots']==2, o; assert o['orderRoutingEnabled'] is False; print('PROJECTED_SYMBOL_LIMIT=PASS')"
+powershell.exe -NoProfile -Command "$o=$null; foreach($ms in 0,100,200,500){ if($ms){Start-Sleep -Milliseconds $ms}; try{$o=Get-Content -LiteralPath '%STATUS%' -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop; break}catch{}}; if($null -eq $o){throw 'status read failed'}; if($o.maxPendingEntryScaleInReservations -ne 0 -or [math]::Abs([double]$o.maxSymbolNotional-10.0) -ge 1e-12 -or $o.activeExposureReservations -ne 2 -or [math]::Abs([double]$o.reservedGrossNotional-20.0) -ge 1e-9 -or $o.reservedPositionSlots -ne 2 -or $o.orderRoutingEnabled -ne $false){throw 'symbol status assertion failed'}; Write-Output 'PROJECTED_SYMBOL_LIMIT=PASS'"
 if errorlevel 1 (
   echo PROJECTED_RISK_LIMITS_SMOKE=FAIL SYMBOL_STATUS
   set RC=16
   goto cleanup
 )
 
-python -c "import json; rows=[json.loads(x) for x in open(r'%JOURNAL%',encoding='utf-8') if x.strip()]; creates=[x for x in rows if x.get('eventType')=='EXPOSURE_RESERVATION_CREATED']; assert len(creates)==2, len(creates); assert {x['symbol'] for x in creates}=={'BTCUSDT','ETHUSDT'}; assert not any(x.get('toState')=='SUBMITTING' for x in rows); assert not any(x.get('exchangeSubmissionAttempted') is True for x in rows); print('PROJECTED_RISK_LIMITS_JOURNAL=PASS')"
+powershell.exe -NoProfile -Command "$rows=$null; foreach($ms in 0,100,200,500){ if($ms){Start-Sleep -Milliseconds $ms}; try{$rows=@(Get-Content -LiteralPath '%JOURNAL%' -ErrorAction Stop | Where-Object {$_.Trim()} | ForEach-Object {$_ | ConvertFrom-Json -ErrorAction Stop}); break}catch{}}; if($null -eq $rows){throw 'journal read failed'}; $creates=@($rows | Where-Object {$_.eventType -eq 'EXPOSURE_RESERVATION_CREATED'}); $symbols=@($creates.symbol | Sort-Object -Unique); if($creates.Count -ne 2 -or ($symbols -join ',') -ne 'BTCUSDT,ETHUSDT' -or @($rows | Where-Object {$_.toState -eq 'SUBMITTING'}).Count -ne 0 -or @($rows | Where-Object {$_.exchangeSubmissionAttempted -eq $true}).Count -ne 0){throw 'journal assertion failed'}; Write-Output 'PROJECTED_RISK_LIMITS_JOURNAL=PASS'"
 if errorlevel 1 (
   echo PROJECTED_RISK_LIMITS_SMOKE=FAIL JOURNAL
   set RC=17

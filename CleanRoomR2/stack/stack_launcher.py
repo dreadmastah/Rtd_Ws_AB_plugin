@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -11,7 +12,9 @@ import socket
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
+from typing import Mapping
 
 BASE = Path(__file__).resolve().parent
 CFG = json.loads((BASE / "config.json").read_text(encoding="utf-8"))
@@ -46,6 +49,14 @@ SENSITIVE_ENV_SUFFIXES = (
     "_TOKEN",
 )
 BENIGN_ENV_NAMES = frozenset({"TOKENIZERS_PARALLELISM"})
+PID_SCHEMA_VERSION = 2
+PROCESS_OWNER_MATCH = "MATCH"
+PROCESS_OWNER_STALE = "STALE"
+PROCESS_OWNER_DEAD = "DEAD"
+PROCESS_OWNER_AMBIGUOUS = "AMBIGUOUS"
+LAUNCH_OWNERSHIP_ACQUIRED = "ACQUIRED"
+LAUNCH_OWNERSHIP_ALREADY_RUNNING = "ALREADY_RUNNING"
+LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS = "LIVE_OWNER_AMBIGUOUS"
 
 
 def windows_hidden_flags(*, new_process_group: bool = False) -> int:
@@ -229,6 +240,102 @@ def pid_alive(pid: int) -> bool:
         return False
 
 
+def _normalize_executable(path: str) -> str:
+    return os.path.normcase(os.path.abspath(path))
+
+
+def process_identity(pid: int) -> dict[str, object] | None:
+    """Return stable process identity fields, or None when unavailable."""
+    if pid <= 0:
+        return None
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+
+        process_query_limited_information = 0x1000
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.QueryFullProcessImageNameW.argtypes = [
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            wintypes.LPWSTR,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+        kernel32.GetProcessTimes.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(wintypes.FILETIME),
+            ctypes.POINTER(wintypes.FILETIME),
+            ctypes.POINTER(wintypes.FILETIME),
+            ctypes.POINTER(wintypes.FILETIME),
+        ]
+        kernel32.GetProcessTimes.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+        if not handle:
+            return None
+        try:
+            size = wintypes.DWORD(32768)
+            image = ctypes.create_unicode_buffer(size.value)
+            if not kernel32.QueryFullProcessImageNameW(handle, 0, image, ctypes.byref(size)):
+                return None
+            created = wintypes.FILETIME()
+            exited = wintypes.FILETIME()
+            kernel = wintypes.FILETIME()
+            user = wintypes.FILETIME()
+            if not kernel32.GetProcessTimes(
+                handle,
+                ctypes.byref(created),
+                ctypes.byref(exited),
+                ctypes.byref(kernel),
+                ctypes.byref(user),
+            ):
+                return None
+            return {
+                "pid": pid,
+                "creationTime100ns": (
+                    int(created.dwHighDateTime) << 32
+                ) | int(created.dwLowDateTime),
+                "executable": _normalize_executable(image.value),
+            }
+        finally:
+            kernel32.CloseHandle(handle)
+
+    proc_dir = Path("/proc") / str(pid)
+    try:
+        stat_text = (proc_dir / "stat").read_text(encoding="utf-8")
+        stat_fields = stat_text[stat_text.rfind(")") + 2 :].split()
+        return {
+            "pid": pid,
+            "creationTime100ns": int(stat_fields[19]),
+            "executable": _normalize_executable(os.readlink(proc_dir / "exe")),
+        }
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def process_record_status(record: object) -> str:
+    if not isinstance(record, dict):
+        return PROCESS_OWNER_AMBIGUOUS
+    try:
+        pid = int(record["pid"])
+        created = int(record["creationTime100ns"])
+        executable = _normalize_executable(str(record["executable"]))
+    except (KeyError, TypeError, ValueError):
+        return PROCESS_OWNER_AMBIGUOUS
+    actual = process_identity(pid)
+    if actual is None:
+        return PROCESS_OWNER_AMBIGUOUS if pid_alive(pid) else PROCESS_OWNER_DEAD
+    if (
+        int(actual["creationTime100ns"]) == created
+        and _normalize_executable(str(actual["executable"])) == executable
+    ):
+        return PROCESS_OWNER_MATCH
+    return PROCESS_OWNER_STALE
+
+
 def process_name_running(image_name: str) -> bool:
     if os.name != "nt":
         return False
@@ -289,8 +396,23 @@ def save_pids(
     dbname: str,
     relay_port: int,
     lock_identity: str,
+    launch_nonce: str,
+    launcher_record: Mapping[str, object],
 ) -> None:
+    process_records: dict[str, dict[str, object]] = {
+        "launcher": dict(launcher_record),
+    }
+    for name, child in children.items():
+        if child is None:
+            continue
+        record = process_identity(child.pid)
+        if record is None:
+            raise RuntimeError(f"cannot establish ownership identity for child {name}")
+        process_records[name] = record
     data: dict[str, object] = {
+        "schemaVersion": PID_SCHEMA_VERSION,
+        "launchNonce": launch_nonce,
+        "processes": process_records,
         "launcher": os.getpid(),
         "dbname": dbname,
         "relay_port": relay_port,
@@ -302,6 +424,72 @@ def save_pids(
     tmp = PIDFILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, PIDFILE)
+
+
+def adjudicate_pid_state() -> str:
+    """Refuse recovery unless every recorded managed process is dead or stale."""
+    state_file_exists = PIDFILE.exists()
+    data = load_pidfile()
+    if state_file_exists and not data:
+        return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+    if not data:
+        return LAUNCH_OWNERSHIP_ACQUIRED
+
+    processes = data.get("processes")
+    if (
+        data.get("schemaVersion") == PID_SCHEMA_VERSION
+        and isinstance(data.get("launchNonce"), str)
+        and data.get("launchNonce")
+        and isinstance(processes, dict)
+        and "launcher" in processes
+    ):
+        statuses = {
+            name: process_record_status(record)
+            for name, record in processes.items()
+        }
+        if statuses["launcher"] == PROCESS_OWNER_MATCH:
+            return LAUNCH_OWNERSHIP_ALREADY_RUNNING
+        if any(
+            status in (PROCESS_OWNER_MATCH, PROCESS_OWNER_AMBIGUOUS)
+            for status in statuses.values()
+        ):
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+        return LAUNCH_OWNERSHIP_ACQUIRED
+
+    if any(key in data for key in ("schemaVersion", "launchNonce", "processes")):
+        return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+
+    # Legacy flat state has no creation-time/executable proof. Refuse while any
+    # recorded process remains live; only an entirely dead state is recoverable.
+    legacy_pids = [
+        value
+        for key, value in data.items()
+        if key not in {"relay_port"} and isinstance(value, int) and value > 0
+    ]
+    if any(pid_alive(pid) for pid in legacy_pids):
+        return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+    return LAUNCH_OWNERSHIP_ACQUIRED
+
+
+def claim_launcher_ownership(dbname: str, relay_port: int) -> tuple[str, InstanceLock | None]:
+    adjudication = adjudicate_pid_state()
+    if adjudication != LAUNCH_OWNERSHIP_ACQUIRED:
+        return adjudication, None
+
+    lock = InstanceLock(dbname, relay_port)
+    if not lock.acquire():
+        return LAUNCH_OWNERSHIP_ALREADY_RUNNING, None
+
+    # Re-adjudicate under exclusive ownership in case another contender
+    # changed the PID state between initial inspection and lock acquisition.
+    adjudication = adjudicate_pid_state()
+    if adjudication not in (
+        LAUNCH_OWNERSHIP_ACQUIRED,
+        LAUNCH_OWNERSHIP_ALREADY_RUNNING,
+    ):
+        lock.release()
+        return adjudication, None
+    return LAUNCH_OWNERSHIP_ACQUIRED, lock
 
 
 def critical_stack_alive() -> tuple[bool, dict[str, object]]:
@@ -459,32 +647,39 @@ def run_supervisor(dbname: str, relay_port: int | None = None) -> int:
         if relay_port is not None
         else os.getenv("WSRTD_RELAY_PORT", CFG["relay"].get("port", 10101))
     )
-    lock = InstanceLock(dbname, port)
-    if not lock.acquire():
+    ownership, lock = claim_launcher_ownership(dbname, port)
+    if ownership == LAUNCH_OWNERSHIP_ALREADY_RUNNING:
         print(f"Another WSRTD stack instance is already running for {dbname} / port {port}.")
-        print(f"INSTANCE_LOCK={lock.identity}")
+        print(f"INSTANCE_LOCK={instance_lock_identity(dbname, port)}")
         return 3
+    if ownership != LAUNCH_OWNERSHIP_ACQUIRED or lock is None:
+        print("WSRTD_LAUNCH_REFUSED_LIVE_OWNER_AMBIGUOUS")
+        return 4
 
     request = stop_request_path(dbname, port)
     try:
         request.unlink()
     except OSError:
         pass
-    data = load_pidfile()
-    if data and pid_value(data, "launcher") != os.getpid():
-        prior_launcher = pid_value(data, "launcher")
-        if prior_launcher and pid_alive(prior_launcher):
-            print(
-                f"WSRTD_STACK_STATUS=RUNTIME_DIRECTORY_ALREADY_OWNED "
-                f"LAUNCHER_PID={prior_launcher}"
-            )
-            lock.release()
-            return 4
+    if PIDFILE.exists():
         print(f"STALE_PIDFILE_REMOVED={PIDFILE}")
-        try:
+        with contextlib.suppress(OSError):
             PIDFILE.unlink()
-        except OSError:
-            pass
+
+    launch_nonce = uuid.uuid4().hex
+    launcher_record = process_identity(os.getpid())
+    if launcher_record is None:
+        print("WSRTD_STACK_FATAL=launcher process identity unavailable")
+        lock.release()
+        return 4
+    save_pids(
+        {},
+        dbname=dbname,
+        relay_port=port,
+        lock_identity=lock.identity,
+        launch_nonce=launch_nonce,
+        launcher_record=launcher_record,
+    )
 
     print(f"LAUNCHER_PID={os.getpid()}")
     print(f"PYTHON_EXECUTABLE={sys.executable}")
@@ -493,7 +688,15 @@ def run_supervisor(dbname: str, relay_port: int | None = None) -> int:
     print(f"RELAY_PORT={port}")
     print(f"INSTANCE_LOCK={lock.identity}")
     try:
-        return run_supervisor_locked(dbname, host, port, lock.identity, request)
+        return run_supervisor_locked(
+            dbname,
+            host,
+            port,
+            lock.identity,
+            request,
+            launch_nonce,
+            launcher_record,
+        )
     finally:
         lock.release()
         print(f"INSTANCE_LOCK_RELEASED={lock.identity}")
@@ -505,6 +708,8 @@ def run_supervisor_locked(
     port: int,
     lock_identity: str,
     stop_request: Path,
+    launch_nonce: str,
+    launcher_record: Mapping[str, object],
 ) -> int:
     restart_delay = float(CFG["launcher"].get("restart_delay_seconds", 3))
     start_amibroker = bool(CFG["launcher"].get("start_amibroker", False))
@@ -514,6 +719,16 @@ def run_supervisor_locked(
     stop = False
     children: dict[str, subprocess.Popen] = {}
     log_handles: dict[str, object] = {}
+
+    def persist_processes() -> None:
+        save_pids(
+            children,
+            dbname=dbname,
+            relay_port=port,
+            lock_identity=lock_identity,
+            launch_nonce=launch_nonce,
+            launcher_record=launcher_record,
+        )
 
     def on_signal(sig, _frame):
         nonlocal stop
@@ -576,25 +791,20 @@ def run_supervisor_locked(
             env_overrides=amibroker_env_overrides,
         )
         children["amibroker"] = p
-        save_pids(
-            children,
-            dbname=dbname,
-            relay_port=port,
-            lock_identity=lock_identity,
-        )
+        persist_processes()
         print(f"STARTED_AMIBROKER_PID={p.pid}")
 
     try:
         children["relay"] = start_one("relay")
-        save_pids(children, dbname=dbname, relay_port=port, lock_identity=lock_identity)
+        persist_processes()
         if not wait_port(host, port, 15):
             raise RuntimeError(f"relay did not listen on {host}:{port}")
         print(f"RELAY_READY=YES {host}:{port}")
         children["server"] = start_one("server")
-        save_pids(children, dbname=dbname, relay_port=port, lock_identity=lock_identity)
+        persist_processes()
         if "identity" in specs:
             children["identity"] = start_one("identity")
-            save_pids(children, dbname=dbname, relay_port=port, lock_identity=lock_identity)
+            persist_processes()
         start_amibroker_if_needed()
 
         print("WSRTD_STACK_STATUS=RUNNING")
@@ -615,7 +825,7 @@ def run_supervisor_locked(
                     except Exception:
                         pass
                     children[name] = start_one(name)
-                    save_pids(children, dbname=dbname, relay_port=port, lock_identity=lock_identity)
+                    persist_processes()
             if keep_amibroker_running and not process_name_running(amibroker_exe.name):
                 start_amibroker_if_needed()
     except Exception as exc:

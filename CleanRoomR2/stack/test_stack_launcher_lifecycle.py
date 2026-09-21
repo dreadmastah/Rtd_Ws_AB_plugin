@@ -1,12 +1,29 @@
 from __future__ import annotations
 
+import json
 import os
+import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
 import autostart_manager
 import stack_launcher
+
+
+def process_record(
+    pid: int,
+    created: int,
+    executable: str = "python.exe",
+) -> dict[str, object]:
+    return {
+        "pid": pid,
+        "creationTime100ns": created,
+        "executable": os.path.abspath(executable),
+    }
 
 
 class InstanceLockTests(unittest.TestCase):
@@ -165,6 +182,171 @@ class SecretIsolationTests(unittest.TestCase):
                 self.assertNotIn("NPM_TOKEN", env, role)
                 self.assertNotIn("SENTRY_TOKEN", env, role)
                 self.assertNotIn("CUSTOM_SERVICE_TOKEN", env, role)
+
+
+class LauncherOwnershipTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.pid_patch = mock.patch.object(
+            stack_launcher,
+            "PIDFILE",
+            Path(self.temp.name) / "stack_pids.json",
+        )
+        self.pid_patch.start()
+
+    def tearDown(self) -> None:
+        self.pid_patch.stop()
+        self.temp.cleanup()
+
+    def write_state(
+        self,
+        launcher_record: dict[str, object],
+        **children: dict[str, object],
+    ) -> None:
+        stack_launcher.PIDFILE.write_text(
+            json.dumps({
+                "schemaVersion": stack_launcher.PID_SCHEMA_VERSION,
+                "launchNonce": "owner",
+                "processes": {"launcher": launcher_record, **children},
+                "launcher": launcher_record["pid"],
+                **{name: child["pid"] for name, child in children.items()},
+            }),
+            encoding="utf-8",
+        )
+
+    def assert_live_child_refuses_recovery(self, child_name: str) -> None:
+        stale_launcher = process_record(41, 100)
+        live_child = process_record(42, 200)
+        self.write_state(stale_launcher, **{child_name: live_child})
+        with (
+            mock.patch.object(
+                stack_launcher,
+                "process_identity",
+                side_effect=lambda pid: live_child if pid == 42 else None,
+            ),
+            mock.patch.object(
+                stack_launcher,
+                "pid_alive",
+                side_effect=lambda pid: pid == 42,
+            ),
+            mock.patch.object(stack_launcher, "InstanceLock") as lock,
+        ):
+            ownership, acquired = stack_launcher.claim_launcher_ownership(
+                "WSRTD_TEST",
+                19102,
+            )
+            lock.assert_not_called()
+        self.assertEqual(
+            ownership,
+            stack_launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS,
+        )
+        self.assertIsNone(acquired)
+        self.assertTrue(stack_launcher.PIDFILE.exists())
+
+    def test_dead_launcher_with_live_relay_refuses_recovery(self) -> None:
+        self.assert_live_child_refuses_recovery("relay")
+
+    def test_dead_launcher_with_live_server_refuses_recovery(self) -> None:
+        self.assert_live_child_refuses_recovery("server")
+
+    def test_dead_launcher_with_live_identity_refuses_recovery(self) -> None:
+        self.assert_live_child_refuses_recovery("identity")
+
+    def test_dead_launcher_and_all_dead_children_allow_recovery(self) -> None:
+        self.write_state(
+            process_record(41, 100),
+            relay=process_record(42, 101),
+            server=process_record(43, 102),
+            identity=process_record(44, 103),
+            additional=process_record(45, 104),
+        )
+        with (
+            mock.patch.object(stack_launcher, "process_identity", return_value=None),
+            mock.patch.object(stack_launcher, "pid_alive", return_value=False),
+            mock.patch.object(stack_launcher, "InstanceLock") as lock,
+        ):
+            lock.return_value.acquire.return_value = True
+            ownership, acquired = stack_launcher.claim_launcher_ownership(
+                "WSRTD_TEST",
+                19102,
+            )
+        self.assertEqual(ownership, stack_launcher.LAUNCH_OWNERSHIP_ACQUIRED)
+        self.assertIs(acquired, lock.return_value)
+
+    def test_invalid_identity_state_refuses_recovery(self) -> None:
+        stack_launcher.PIDFILE.write_text(
+            json.dumps({
+                "schemaVersion": stack_launcher.PID_SCHEMA_VERSION,
+                "launchNonce": "owner",
+                "processes": {"relay": process_record(42, 101)},
+            }),
+            encoding="utf-8",
+        )
+        with mock.patch.object(stack_launcher, "InstanceLock") as lock:
+            ownership, acquired = stack_launcher.claim_launcher_ownership(
+                "WSRTD_TEST",
+                19102,
+            )
+            lock.assert_not_called()
+        self.assertEqual(
+            ownership,
+            stack_launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS,
+        )
+        self.assertIsNone(acquired)
+
+    def test_concurrent_stale_recovery_has_exactly_one_owner(self) -> None:
+        self.write_state(
+            process_record(41, 100),
+            relay=process_record(42, 101),
+        )
+        acquire_barrier = threading.Barrier(2)
+
+        class ContendedLock:
+            guard = threading.Lock()
+            held = False
+
+            def __init__(self, dbname: str, relay_port: int) -> None:
+                self.identity = f"{dbname}:{relay_port}"
+
+            def acquire(self) -> bool:
+                acquire_barrier.wait()
+                with self.guard:
+                    if self.held:
+                        return False
+                    type(self).held = True
+                    return True
+
+            def release(self) -> None:
+                with self.guard:
+                    type(self).held = False
+
+        with (
+            mock.patch.object(stack_launcher, "process_identity", return_value=None),
+            mock.patch.object(stack_launcher, "pid_alive", return_value=False),
+            mock.patch.object(stack_launcher, "InstanceLock", ContendedLock),
+            ThreadPoolExecutor(max_workers=2) as pool,
+        ):
+            results = list(pool.map(
+                lambda _: stack_launcher.claim_launcher_ownership(
+                    "WSRTD_CONCURRENT_TEST",
+                    19103,
+                ),
+                range(2),
+            ))
+        winners = [
+            lock
+            for ownership, lock in results
+            if ownership == stack_launcher.LAUNCH_OWNERSHIP_ACQUIRED
+        ]
+        self.assertEqual(len(winners), 1)
+        self.assertEqual(
+            sum(
+                ownership == stack_launcher.LAUNCH_OWNERSHIP_ALREADY_RUNNING
+                for ownership, _lock in results
+            ),
+            1,
+        )
+        winners[0].release()
 
 
 def subprocess_create_no_window() -> int:
