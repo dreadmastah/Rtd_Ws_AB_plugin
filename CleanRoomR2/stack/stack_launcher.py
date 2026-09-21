@@ -24,13 +24,25 @@ LOGS.mkdir(exist_ok=True)
 
 WINDOWS_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 WINDOWS_CREATE_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-SENSITIVE_ENV_FRAGMENTS = (
-    "API_KEY",
-    "API_SECRET",
-    "PASSWORD",
-    "PRIVATE_KEY",
-    "SECRET",
-    "TOKEN",
+SENSITIVE_ENV_NAMES = frozenset({
+    "BINANCE_API_KEY",
+    "BINANCE_API_SECRET",
+    "ASTU_BINANCE_TESTNET_API_KEY",
+    "ASTU_BINANCE_TESTNET_API_SECRET",
+    "ASTU_PRIVATE_TOKEN",
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "OPENAI_API_KEY",
+    "AWS_SECRET_ACCESS_KEY",
+})
+SENSITIVE_ENV_SUFFIXES = (
+    "_API_KEY",
+    "_API_SECRET",
+    "_ACCESS_TOKEN",
+    "_AUTH_TOKEN",
+    "_CLIENT_SECRET",
+    "_PASSWORD",
+    "_PRIVATE_KEY",
 )
 
 
@@ -49,11 +61,25 @@ def sanitized_child_environment(
     env = {
         key: value
         for key, value in os.environ.items()
-        if not any(fragment in key.upper() for fragment in SENSITIVE_ENV_FRAGMENTS)
+        if key.upper() not in SENSITIVE_ENV_NAMES
+        and not key.upper().endswith(SENSITIVE_ENV_SUFFIXES)
     }
     if overrides:
         env.update(overrides)
     return env
+
+
+def popen_with_sanitized_environment(
+    command: list[str],
+    *,
+    env_overrides: dict[str, str] | None = None,
+    **kwargs: object,
+) -> subprocess.Popen:
+    return subprocess.Popen(
+        command,
+        env=sanitized_child_environment(env_overrides),
+        **kwargs,
+    )
 
 
 def console_python() -> str:
@@ -400,7 +426,7 @@ def ensure_running(dbname: str, relay_port: int) -> int:
     kwargs: dict[str, object] = {}
     if os.name != "nt":
         kwargs["start_new_session"] = True
-    p = subprocess.Popen(
+    p = popen_with_sanitized_environment(
         [
             console_python(),
             "-u",
@@ -413,7 +439,7 @@ def ensure_running(dbname: str, relay_port: int) -> int:
         cwd=BASE,
         stdout=fh,
         stderr=subprocess.STDOUT,
-        env=sanitized_child_environment({"PYTHONUNBUFFERED": "1"}),
+        env_overrides={"PYTHONUNBUFFERED": "1"},
         creationflags=flags,
         **kwargs,
     )
@@ -501,24 +527,24 @@ def run_supervisor_locked(
     if bool(CFG.get("identity_bridge", {}).get("enabled", False)):
         specs["identity"] = [child_python, "-u", str(BASE / "identity_bridge.py")]
 
-    child_env = sanitized_child_environment({
+    child_env_overrides = {
         "PYTHONUNBUFFERED": "1",
         "WSRTD_RELAY_HOST": host,
         "WSRTD_RELAY_PORT": str(port),
         "WSRTD_RELAY_URI": f"ws://{host}:{port}/sender",
-    })
+    }
 
     def start_one(name: str) -> subprocess.Popen:
         path = LOGS / f"{name}_supervisor.log"
         fh = open(path, "a", encoding="utf-8", buffering=1)
         log_handles[name] = fh
         flags = windows_hidden_flags(new_process_group=True)
-        p = subprocess.Popen(
+        p = popen_with_sanitized_environment(
             specs[name],
             cwd=BASE,
             stdout=fh,
             stderr=subprocess.STDOUT,
-            env=child_env,
+            env_overrides=child_env_overrides,
             creationflags=flags,
         )
         print(
@@ -536,13 +562,13 @@ def run_supervisor_locked(
             return
         if amibroker_delay:
             time.sleep(amibroker_delay)
-        amibroker_env = sanitized_child_environment({
+        amibroker_env_overrides = {
             "ASTU_STATUS_DIR": str((BASE / "runtime" / "autotrader_status").resolve()),
-        })
-        p = subprocess.Popen(
+        }
+        p = popen_with_sanitized_environment(
             [str(amibroker_exe)],
             cwd=amibroker_exe.parent,
-            env=amibroker_env,
+            env_overrides=amibroker_env_overrides,
         )
         children["amibroker"] = p
         save_pids(

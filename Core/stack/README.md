@@ -244,7 +244,10 @@ The optional Demo user-data sidecar is read-only authority evidence for future
 work and can be run independently with `--demo-authority-only`. It is not
 connected to the simulation request pipe as an order route.
 
-The Demo credentials remain environment-only:
+Demo credentials remain environment-only. The user-data sidecar receives only
+the enable flag, API key, and stream URL template; it does not receive the API
+secret. The separately signed read-only account reconciler receives the key and
+secret because its REST requests require HMAC signing:
 
 ```text
 ASTU_BINANCE_TESTNET_API_KEY
@@ -254,7 +257,8 @@ ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE
 
 Credentials are granted only to the read-only child processes that require
 them. The execution host, public instrument publisher, and operator view receive
-sanitized environments without API keys, secrets, passwords, or tokens.
+sanitized environments without API keys, secrets, passwords, or authentication
+tokens.
 
 ## Status and stop
 
@@ -265,6 +269,10 @@ python Core\stack\autotrader_sim_launcher.py --stop
 
 Runtime PID/log/journal state stays under `Core/runtime`. PID state uses an
 atomic per-launch lock and verifies PID, process creation time, executable path,
-and launch nonce before status or stop operations trust a process.
+and launch nonce before status or stop operations trust a process. If a verified
+live PID owner exists but its lock is missing, malformed, nonce-mismatched, or
+identity-mismatched, startup fails closed with
+`ASTU_LAUNCH_REFUSED_LIVE_OWNER_AMBIGUOUS`; it does not replace the lock, remove
+the PID state, kill the process, or start children.
 
 The execution host continues to use `\\.\pipe\AstuExecutionSim.v1` and every successful simulated path terminates at `ORDER_ROUTING_DISABLED`.

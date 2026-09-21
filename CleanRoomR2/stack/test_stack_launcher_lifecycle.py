@@ -111,7 +111,9 @@ class SecretIsolationTests(unittest.TestCase):
             "BINANCE_API_KEY": "key",
             "BINANCE_API_SECRET": "secret",
             "ASTU_PRIVATE_TOKEN": "token",
+            "ASTU_SURPRISE_ACCESS_TOKEN": "surprise",
             "DATABASE_PASSWORD": "password",
+            "TOKENIZERS_PARALLELISM": "true",
         }
         with mock.patch.dict(os.environ, parent, clear=True):
             child = stack_launcher.sanitized_child_environment({
@@ -122,7 +124,35 @@ class SecretIsolationTests(unittest.TestCase):
         self.assertNotIn("BINANCE_API_KEY", child)
         self.assertNotIn("BINANCE_API_SECRET", child)
         self.assertNotIn("ASTU_PRIVATE_TOKEN", child)
+        self.assertNotIn("ASTU_SURPRISE_ACCESS_TOKEN", child)
         self.assertNotIn("DATABASE_PASSWORD", child)
+        self.assertEqual(child["TOKENIZERS_PARALLELISM"], "true")
+
+    def test_actual_wsrtd_child_environments_are_secret_free(self) -> None:
+        parent = {
+            "PATH": "safe-path",
+            "ASTU_BINANCE_TESTNET_API_KEY": "key",
+            "ASTU_BINANCE_TESTNET_API_SECRET": "secret",
+            "ASTU_SURPRISE_AUTH_TOKEN": "token",
+            "TOKENIZERS_PARALLELISM": "true",
+        }
+        with (
+            mock.patch.dict(os.environ, parent, clear=True),
+            mock.patch.object(stack_launcher.subprocess, "Popen") as popen,
+        ):
+            for role in ("relay", "server", "identity"):
+                popen.reset_mock()
+                stack_launcher.popen_with_sanitized_environment(
+                    [role],
+                    env_overrides={"WSRTD_RELAY_PORT": "10101"},
+                )
+                env = popen.call_args.kwargs["env"]
+                self.assertEqual(env["PATH"], "safe-path")
+                self.assertEqual(env["WSRTD_RELAY_PORT"], "10101")
+                self.assertEqual(env["TOKENIZERS_PARALLELISM"], "true")
+                self.assertNotIn("ASTU_BINANCE_TESTNET_API_KEY", env, role)
+                self.assertNotIn("ASTU_BINANCE_TESTNET_API_SECRET", env, role)
+                self.assertNotIn("ASTU_SURPRISE_AUTH_TOKEN", env, role)
 
 
 def subprocess_create_no_window() -> int:

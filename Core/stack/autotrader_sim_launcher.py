@@ -45,14 +45,37 @@ TESTNET_USER_DATA_STATUS = RUNTIME / "testnet_user_data_status.v1.json"
 TESTNET_ORDER_AUTHORITY_DIR = RUNTIME / "testnet_order_authority"
 
 PID_SCHEMA_VERSION = 2
-SENSITIVE_ENV_FRAGMENTS = (
-    "API_KEY",
-    "API_SECRET",
-    "PASSWORD",
-    "PRIVATE_KEY",
-    "SECRET",
-    "TOKEN",
+PROCESS_OWNER_MATCH = "MATCH"
+PROCESS_OWNER_STALE = "STALE"
+PROCESS_OWNER_DEAD = "DEAD"
+PROCESS_OWNER_AMBIGUOUS = "AMBIGUOUS"
+LAUNCH_OWNERSHIP_ACQUIRED = "ACQUIRED"
+LAUNCH_OWNERSHIP_ALREADY_RUNNING = "ALREADY_RUNNING"
+LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS = "LIVE_OWNER_AMBIGUOUS"
+SENSITIVE_ENV_NAMES = frozenset({
+    "BINANCE_API_KEY",
+    "BINANCE_API_SECRET",
+    "ASTU_BINANCE_TESTNET_API_KEY",
+    "ASTU_BINANCE_TESTNET_API_SECRET",
+    "ASTU_PRIVATE_TOKEN",
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "OPENAI_API_KEY",
+    "AWS_SECRET_ACCESS_KEY",
+})
+SENSITIVE_ENV_SUFFIXES = (
+    "_API_KEY",
+    "_API_SECRET",
+    "_ACCESS_TOKEN",
+    "_AUTH_TOKEN",
+    "_CLIENT_SECRET",
+    "_PASSWORD",
+    "_PRIVATE_KEY",
 )
+CREDENTIAL_PROFILE_NONE = "NONE"
+CREDENTIAL_PROFILE_BINANCE_READONLY = "BINANCE_READONLY"
+CREDENTIAL_PROFILE_BINANCE_DEMO_SIGNED = "BINANCE_DEMO_SIGNED"
+CREDENTIAL_PROFILE_TESTNET_USER_DATA = "TESTNET_USER_DATA"
 
 RUNTIME.mkdir(parents=True, exist_ok=True)
 LOGS.mkdir(parents=True, exist_ok=True)
@@ -157,21 +180,48 @@ def process_identity(pid: int) -> dict[str, object] | None:
         return None
 
 
-def process_record_matches(record: object) -> bool:
-    if not isinstance(record, dict):
+def pid_exists(pid: int) -> bool:
+    if pid <= 0:
         return False
+    if os.name == "nt":
+        cp = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+            capture_output=True,
+            text=True,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        out = (cp.stdout or "").strip()
+        return bool(out) and not out.upper().startswith("INFO:")
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def process_record_status(record: object) -> str:
+    if not isinstance(record, dict):
+        return PROCESS_OWNER_AMBIGUOUS
     try:
         pid = int(record["pid"])
         created = int(record["creationTime100ns"])
         executable = _normalize_executable(str(record["executable"]))
     except (KeyError, TypeError, ValueError):
-        return False
+        return PROCESS_OWNER_AMBIGUOUS
     actual = process_identity(pid)
-    return bool(
-        actual
-        and int(actual["creationTime100ns"]) == created
+    if actual is None:
+        return PROCESS_OWNER_AMBIGUOUS if pid_exists(pid) else PROCESS_OWNER_DEAD
+    if (
+        int(actual["creationTime100ns"]) == created
         and _normalize_executable(str(actual["executable"])) == executable
-    )
+    ):
+        return PROCESS_OWNER_MATCH
+    return PROCESS_OWNER_STALE
+
+
+def process_record_matches(record: object) -> bool:
+    return process_record_status(record) == PROCESS_OWNER_MATCH
 
 
 def load_json_object(path: Path) -> dict[str, object]:
@@ -225,6 +275,53 @@ def acquire_launch_lock(
         with contextlib.suppress(OSError):
             LOCK_FILE.unlink()
     return False
+
+
+def claim_launcher_ownership(
+    launch_nonce: str,
+    launcher_record: Mapping[str, object],
+) -> str:
+    """Adjudicate existing state before attempting atomic lock ownership."""
+    state_file_exists = PID_FILE.exists()
+    state = load_pid_state()
+    if state_file_exists and not state:
+        return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+    if state:
+        processes = state.get("processes")
+        recorded_nonce = state.get("launchNonce")
+        if (
+            state.get("schemaVersion") != PID_SCHEMA_VERSION
+            or not isinstance(recorded_nonce, str)
+            or not recorded_nonce
+            or not isinstance(processes, dict)
+            or "launcher" not in processes
+        ):
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+
+        recorded_launcher = processes["launcher"]
+        owner_status = process_record_status(recorded_launcher)
+        if owner_status == PROCESS_OWNER_MATCH:
+            return (
+                LAUNCH_OWNERSHIP_ALREADY_RUNNING
+                if state_has_valid_lock(state)
+                else LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+            )
+        if owner_status == PROCESS_OWNER_AMBIGUOUS:
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+
+        existing_lock = load_json_object(LOCK_FILE)
+        if existing_lock and lock_is_owned(existing_lock):
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+        with contextlib.suppress(OSError):
+            PID_FILE.unlink()
+        with contextlib.suppress(OSError):
+            LOCK_FILE.unlink()
+
+    if acquire_launch_lock(launch_nonce, launcher_record):
+        return LAUNCH_OWNERSHIP_ACQUIRED
+    if lock_is_owned(load_json_object(LOCK_FILE)):
+        return LAUNCH_OWNERSHIP_ALREADY_RUNNING
+    return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
 
 
 def release_launch_lock(launch_nonce: str) -> None:
@@ -336,7 +433,7 @@ def stop() -> int:
 
 def is_sensitive_environment_name(name: str) -> bool:
     upper = name.upper()
-    return any(fragment in upper for fragment in SENSITIVE_ENV_FRAGMENTS)
+    return upper in SENSITIVE_ENV_NAMES or upper.endswith(SENSITIVE_ENV_SUFFIXES)
 
 
 def sanitized_child_environment(
@@ -359,6 +456,48 @@ def selected_parent_environment(names: tuple[str, ...]) -> dict[str, str]:
         for name in names
         if os.environ.get(name, "")
     }
+
+
+def child_environment(credential_profile: str) -> dict[str, str]:
+    overrides: dict[str, str] = {}
+    if credential_profile == CREDENTIAL_PROFILE_BINANCE_READONLY:
+        overrides = selected_parent_environment((
+            "ASTU_BINANCE_PRIVATE_READONLY_ENABLED",
+            "BINANCE_API_KEY",
+            "BINANCE_API_SECRET",
+            "BINANCE_USDM_BASE_URL",
+        ))
+    elif credential_profile == CREDENTIAL_PROFILE_BINANCE_DEMO_SIGNED:
+        overrides = {
+            "ASTU_BINANCE_PRIVATE_READONLY_ENABLED": "1",
+            "BINANCE_API_KEY": os.environ["ASTU_BINANCE_TESTNET_API_KEY"],
+            "BINANCE_API_SECRET": os.environ["ASTU_BINANCE_TESTNET_API_SECRET"],
+        }
+    elif credential_profile == CREDENTIAL_PROFILE_TESTNET_USER_DATA:
+        overrides = selected_parent_environment((
+            "ASTU_BINANCE_TESTNET_USER_DATA_ENABLED",
+            "ASTU_BINANCE_TESTNET_API_KEY",
+            "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE",
+        ))
+    elif credential_profile != CREDENTIAL_PROFILE_NONE:
+        raise ValueError(f"unknown child credential profile: {credential_profile}")
+    return sanitized_child_environment(overrides)
+
+
+def popen_child_process(
+    command: list[str],
+    *,
+    stdout: object,
+    credential_profile: str,
+) -> subprocess.Popen:
+    return subprocess.Popen(
+        command,
+        cwd=REPO,
+        stdout=stdout,
+        stderr=subprocess.STDOUT,
+        env=child_environment(credential_profile),
+        creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+    )
 
 
 def wait_for_demo_convergence(
@@ -581,24 +720,20 @@ def run(args: argparse.Namespace) -> int:
     if hasattr(signal, "SIGTERM"):
         signal.signal(signal.SIGTERM, on_signal)
 
-    child_env_overrides: dict[str, dict[str, str]] = {}
+    child_credential_profiles: dict[str, str] = {}
 
     def start_child(
         name: str,
         command: list[str],
-        env_overrides: dict[str, str] | None = None,
+        credential_profile: str = CREDENTIAL_PROFILE_NONE,
     ) -> subprocess.Popen:
         log_path = LOGS / f"{name}.log"
         fh = open(log_path, "a", encoding="utf-8", buffering=1)
         logs[name] = fh
-        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        proc = subprocess.Popen(
+        proc = popen_child_process(
             command,
-            cwd=REPO,
             stdout=fh,
-            stderr=subprocess.STDOUT,
-            env=sanitized_child_environment(env_overrides),
-            creationflags=flags,
+            credential_profile=credential_profile,
         )
         record = process_identity(proc.pid)
         if record is None:
@@ -608,8 +743,7 @@ def run(args: argparse.Namespace) -> int:
                 f"cannot establish ownership identity for child {name}"
             )
         process_records[name] = record
-        if env_overrides:
-            child_env_overrides[name] = dict(env_overrides)
+        child_credential_profiles[name] = credential_profile
         print(f"STARTED_{name.upper()}_PID={proc.pid}")
         return proc
 
@@ -741,67 +875,47 @@ def run(args: argparse.Namespace) -> int:
                 str(args.testnet_rest_base_url),
             ])
 
-    if not acquire_launch_lock(launch_nonce, launcher_record):
+    ownership = claim_launcher_ownership(launch_nonce, launcher_record)
+    if ownership == LAUNCH_OWNERSHIP_ALREADY_RUNNING:
         print("ASTU_SIM_STACK_STATUS=ALREADY_RUNNING")
         return 0
+    if ownership != LAUNCH_OWNERSHIP_ACQUIRED:
+        print("ASTU_LAUNCH_REFUSED_LIVE_OWNER_AMBIGUOUS")
+        return 5
 
     try:
         if risk_command is not None:
-            risk_env: dict[str, str] | None = None
+            risk_profile = CREDENTIAL_PROFILE_NONE
             if args.risk_mode == "readonly":
-                risk_env = selected_parent_environment((
-                    "ASTU_BINANCE_PRIVATE_READONLY_ENABLED",
-                    "BINANCE_API_KEY",
-                    "BINANCE_API_SECRET",
-                    "BINANCE_USDM_BASE_URL",
-                ))
+                risk_profile = CREDENTIAL_PROFILE_BINANCE_READONLY
             if demo_authority_active and args.risk_mode == "readonly":
-                risk_env = {
-                    "ASTU_BINANCE_PRIVATE_READONLY_ENABLED": "1",
-                    "BINANCE_API_KEY": os.environ[
-                        "ASTU_BINANCE_TESTNET_API_KEY"
-                    ],
-                    "BINANCE_API_SECRET": os.environ[
-                        "ASTU_BINANCE_TESTNET_API_SECRET"
-                    ],
-                }
+                risk_profile = CREDENTIAL_PROFILE_BINANCE_DEMO_SIGNED
             children["risk"] = start_child(
                 "risk",
                 risk_command,
-                risk_env,
+                risk_profile,
             )
             time.sleep(0.5)
         if realized_pnl_command is not None:
-            realized_pnl_env = (
-                selected_parent_environment((
-                    "ASTU_BINANCE_PRIVATE_READONLY_ENABLED",
-                    "BINANCE_API_KEY",
-                    "BINANCE_API_SECRET",
-                    "BINANCE_USDM_BASE_URL",
-                ))
+            realized_pnl_profile = (
+                CREDENTIAL_PROFILE_BINANCE_READONLY
                 if args.realized_pnl_mode == "readonly"
-                else None
+                else CREDENTIAL_PROFILE_NONE
             )
             children["realized_pnl"] = start_child(
                 "realized_pnl",
                 realized_pnl_command,
-                realized_pnl_env,
+                realized_pnl_profile,
             )
             time.sleep(0.5)
         if instrument_command is not None:
             children["instrument"] = start_child("instrument", instrument_command)
             time.sleep(0.5)
         if testnet_user_data_command is not None:
-            testnet_user_data_env = selected_parent_environment((
-                "ASTU_BINANCE_TESTNET_USER_DATA_ENABLED",
-                "ASTU_BINANCE_TESTNET_API_KEY",
-                "ASTU_BINANCE_TESTNET_API_SECRET",
-                "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE",
-            ))
             children["testnet_user_data"] = start_child(
                 "testnet_user_data",
                 testnet_user_data_command,
-                testnet_user_data_env,
+                CREDENTIAL_PROFILE_TESTNET_USER_DATA,
             )
             time.sleep(0.5)
 
@@ -1021,7 +1135,10 @@ def run(args: argparse.Namespace) -> int:
                 children[name] = start_child(
                     name,
                     command,
-                    child_env_overrides.get(name),
+                    child_credential_profiles.get(
+                        name,
+                        CREDENTIAL_PROFILE_NONE,
+                    ),
                 )
                 save_pids(process_records, launch_nonce)
     finally:
