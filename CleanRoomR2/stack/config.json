@@ -37,7 +37,12 @@
     "intraday_target_records": 1500,
     "eod_target_bars": 300,
     "preflight_retry_initial_seconds": 2,
-    "preflight_retry_max_seconds": 60
+    "preflight_retry_max_seconds": 60,
+    "market_liveness_enabled": true,
+    "market_liveness_check_seconds": 5,
+    "market_liveness_startup_grace_seconds": 30,
+    "market_event_stall_seconds": 20,
+    "market_completed_kline_stall_seconds": 90
   },
   "identity_bridge": {
     "enabled": true,
