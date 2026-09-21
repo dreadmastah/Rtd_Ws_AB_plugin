@@ -105,6 +105,17 @@ Manual launch:
 launch_wsrtd_stack.cmd WSRTD
 ```
 
+For an isolated validation instance when port 10101 is already used by another
+intentional WSRTD stack, pass a separate AmiBroker database name and relay port.
+This leaves the default/live instance untouched:
+
+```cmd
+launch_wsrtd_stack.cmd ASTU_DEMO 10102
+```
+
+The launcher propagates the selected port to the local relay, Binance sender,
+and the selected database's WSRTD registry entry. Defaults remain unchanged.
+
 Install automatic logon/watchdog recovery:
 
 ```cmd
