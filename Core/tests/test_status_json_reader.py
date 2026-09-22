@@ -14,6 +14,24 @@ import status_json_reader as reader
 
 
 class ReaderTests(unittest.TestCase):
+    def test_order_fsm_restart_status_reads_use_hardened_reader(self):
+        script = (Path(__file__).resolve().parents[1] / "tools" /
+                  "run_order_fsm_restart_smoke.cmd").read_text(encoding="utf-8")
+        status_reads = [line for line in script.splitlines()
+                        if line.startswith('python -c ') and "%STATUS%" in line]
+        self.assertEqual(len(status_reads), 2)
+        for marker in ("ORDER_FSM_RECOVERY_STATUS=PASS",
+                       "ORDER_FSM_DUPLICATE_RECOVERY=PASS"):
+            with self.subTest(marker=marker):
+                matches = [line for line in status_reads if marker in line]
+                self.assertEqual(len(matches), 1)
+                line = matches[0]
+                self.assertIn(
+                    r"sys.path.insert(0,r'%ROOT%\tools'); "
+                    "from status_json_reader import read_json; "
+                    "o=read_json(r'%STATUS%');", line)
+                self.assertNotRegex(line, r"json\.load\s*\(\s*open\s*\(")
+
     def test_normal_read_has_no_delay(self):
         with mock.patch.object(reader, "_read_bytes", return_value=b'{"ok":true}'), mock.patch.object(reader.time, "sleep") as sleep:
             self.assertEqual(reader.read_json("fixture"), {"ok": True})
