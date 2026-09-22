@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -129,6 +130,119 @@ class MarketStatusTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(replace.call_count, 1)
         self.assertEqual(self.path.read_bytes(), self.old)
         self.assertFalse(list(self.path.parent.glob("*.tmp")))
+
+
+class MarketStatusReadinessTests(unittest.TestCase):
+    """Per-symbol readiness must match the public websocket task partition."""
+
+    def make_app(self, public_up, connections=3):
+        patch = mock.patch.object(server, "PUBLIC_WS_CONNECTIONS", connections)
+        patch.start()
+        self.addCleanup(patch.stop)
+        app = object.__new__(server.App)
+        app.bootstrap = ["BTCUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"]
+        app.active = set(app.bootstrap)
+        app.public_up = list(public_up)
+        app.market_up = True
+        app.receiver_count = 1
+        app.hydrated_symbols = set(app.bootstrap)
+        now_ms = int(time.time() * 1000)
+        app.state = {
+            symbol: server.SymbolState(symbol, have_kline=True, last_market_event_unix_ms=now_ms)
+            for symbol in app.bootstrap
+        }
+        return app
+
+    @staticmethod
+    def btc_status(app):
+        return app.autotrader_market_status()["symbols"]["BTCUSDT"]
+
+    def test_unrelated_group_down_keeps_btc_live_and_fresh(self):
+        app = self.make_app([True, False, True])
+        status = app.autotrader_market_status()
+        self.assertFalse(status["publicUp"])
+        self.assertTrue(self.btc_status(app)["live"])
+        self.assertTrue(self.btc_status(app)["fresh"])
+
+    def test_btc_own_group_down_is_not_live_or_fresh(self):
+        app = self.make_app([False, True, True])
+        status = app.autotrader_market_status()
+        self.assertFalse(status["publicUp"])
+        self.assertFalse(self.btc_status(app)["live"])
+        self.assertFalse(self.btc_status(app)["fresh"])
+
+    def test_all_groups_up_keeps_global_and_btc_ready(self):
+        app = self.make_app([True, True, True])
+        status = app.autotrader_market_status()
+        self.assertTrue(status["publicUp"])
+        self.assertTrue(self.btc_status(app)["live"])
+        self.assertTrue(self.btc_status(app)["fresh"])
+
+    def test_all_groups_down_is_not_live_or_fresh(self):
+        app = self.make_app([False, False, False])
+        status = app.autotrader_market_status()
+        self.assertFalse(status["publicUp"])
+        self.assertFalse(self.btc_status(app)["live"])
+        self.assertFalse(self.btc_status(app)["fresh"])
+
+    def test_stale_btc_remains_live_but_not_fresh(self):
+        app = self.make_app([True, True, True])
+        app.state["BTCUSDT"].last_market_event_unix_ms = (
+            int(time.time() * 1000) - server.AUTOTRADER_STATUS_FRESH_MS - 1
+        )
+        status = self.btc_status(app)
+        self.assertTrue(status["live"])
+        self.assertFalse(status["fresh"])
+
+    def test_missing_required_market_data_is_not_live_or_fresh(self):
+        app = self.make_app([True, True, True])
+        app.state["BTCUSDT"].have_kline = False
+        status = self.btc_status(app)
+        self.assertFalse(status["live"])
+        self.assertFalse(status["fresh"])
+
+    def test_unmapped_symbol_fails_closed(self):
+        app = self.make_app([True, True, True])
+        self.assertIsNone(app.active_public_group_index("UNKNOWNUSDT"))
+        self.assertFalse(app.symbol_public_up("UNKNOWNUSDT"))
+        unknown = server.SymbolState(
+            "UNKNOWNUSDT", have_kline=True, last_market_event_unix_ms=int(time.time() * 1000)
+        )
+        self.assertEqual(app.symbol_readiness("UNKNOWNUSDT", unknown, 0), (False, False))
+
+    def test_market_down_is_not_live_or_fresh(self):
+        app = self.make_app([True, True, True])
+        app.market_up = False
+        status = self.btc_status(app)
+        self.assertFalse(status["live"])
+        self.assertFalse(status["fresh"])
+
+    def test_one_public_group_agrees_globally_and_per_symbol(self):
+        app = self.make_app([True], connections=1)
+        self.assertEqual(app.active_public_group_index("BTCUSDT"), 0)
+        self.assertTrue(app.autotrader_market_status()["publicUp"])
+        self.assertTrue(self.btc_status(app)["live"])
+        app.public_up = [False]
+        self.assertFalse(app.autotrader_market_status()["publicUp"])
+        self.assertFalse(self.btc_status(app)["live"])
+
+    def test_group_mapping_matches_public_websocket_partition(self):
+        app = self.make_app([True, True, True])
+        self.assertEqual(app.active_public_group_index("BTCUSDT"), 0)
+        self.assertEqual(app.active_public_group_index("SOLUSDT"), 1)
+        self.assertEqual(app.active_public_group_index("BNBUSDT"), 2)
+        self.assertEqual(app.active_public_group_index("XRPUSDT"), 0)
+        for group_index in range(3):
+            self.assertEqual(
+                app.public_group_symbols(group_index),
+                [symbol for symbol in sorted(app.active)
+                 if app.active_public_group_index(symbol) == group_index],
+            )
+
+    def test_global_public_up_remains_all_groups_aggregation(self):
+        app = self.make_app([True, False, True])
+        self.assertFalse(app.public_all_up())
+        self.assertFalse(app.autotrader_market_status()["publicUp"])
 
 
 if __name__ == "__main__":

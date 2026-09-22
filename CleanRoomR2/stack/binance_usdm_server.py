@@ -432,11 +432,31 @@ class App:
         except ValueError:
             return sum(symbol.encode("utf-8")) % PUBLIC_WS_CONNECTIONS
 
+    def active_public_group_index(self, symbol: str) -> int | None:
+        """Return the public websocket group actually assigned to an active symbol."""
+        symbol = symbol.upper()
+        if symbol not in self.active:
+            return None
+        return self.public_group_index(symbol)
+
     def public_group_symbols(self, group_index: int) -> list[str]:
-        return [s for s in sorted(self.active) if self.public_group_index(s) == group_index]
+        return [s for s in sorted(self.active) if self.active_public_group_index(s) == group_index]
 
     def public_all_up(self) -> bool:
         return bool(self.public_up) and all(self.public_up)
+
+    def symbol_public_up(self, symbol: str) -> bool:
+        group_index = self.active_public_group_index(symbol)
+        return bool(
+            group_index is not None
+            and 0 <= group_index < len(self.public_up)
+            and self.public_up[group_index]
+        )
+
+    def symbol_readiness(self, symbol: str, st: SymbolState, age_ms: int | None) -> tuple[bool, bool]:
+        live = bool(self.market_up and self.symbol_public_up(symbol) and st.have_kline)
+        fresh = bool(live and age_ms is not None and age_ms <= AUTOTRADER_STATUS_FRESH_MS)
+        return live, fresh
 
     async def send_sub(self, ws: ClientConnection | None, lock: asyncio.Lock, method: str, params: list[str]) -> None:
         if ws is None or not params:
@@ -829,8 +849,7 @@ class App:
             age_ms: int | None = None
             if st.last_market_event_unix_ms > 0:
                 age_ms = max(0, now_ms - st.last_market_event_unix_ms)
-            live = bool(self.market_up and self.public_all_up() and st.have_kline)
-            fresh = bool(live and age_ms is not None and age_ms <= AUTOTRADER_STATUS_FRESH_MS)
+            live, fresh = self.symbol_readiness(symbol, st, age_ms)
             hydrated = bool(self.receiver_count > 0 and symbol in self.hydrated_symbols)
             symbols[symbol] = {
                 "live": live,
