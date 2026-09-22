@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
+set "PYTHONPATH=%~dp0;%PYTHONPATH%"
 
 set ROOT=%~dp0..
 set BUILD=%ROOT%\..\build\core
@@ -117,7 +118,7 @@ start "ASTU Reconciliation Recovery Host" /b "%HOST%" ^
   --execution-status-file "%STATUS%"
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json,time; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['lifecycleState']=='READY'; assert o['orderRoutingEnabled'] is False; assert o['recoveredOrdersAtStartup']==1, o; assert o['trackedOrders']==1, o; assert o['orderTransitionCount']==9, o; assert o['recoveredReconciliationEventsAtStartup']==5, o; assert o['reconciliationEventCount']==5, o; age=int(time.time()*1000)-int(o['generatedUnixMs']); assert 0<=age<5000, age; print('RECONCILIATION_RECOVERY_STATUS=PASS')"
+python -c "import json,time; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['lifecycleState']=='READY'; assert o['orderRoutingEnabled'] is False; assert o['recoveredOrdersAtStartup']==1, o; assert o['trackedOrders']==1, o; assert o['orderTransitionCount']==9, o; assert o['recoveredReconciliationEventsAtStartup']==5, o; assert o['reconciliationEventCount']==5, o; age=int(time.time()*1000)-int(o['generatedUnixMs']); assert 0<=age<5000, age; print('RECONCILIATION_RECOVERY_STATUS=PASS')"
 if errorlevel 1 (
   echo RECONCILIATION_RESTART_SMOKE=FAIL RECOVERY_STATUS
   set RC=13

@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
+set "PYTHONPATH=%~dp0;%PYTHONPATH%"
 
 set ROOT=%~dp0..
 set BUILD=%ROOT%\..\build\core
@@ -76,7 +77,7 @@ start "ASTU Startup Snapshot Match Host" /b "%HOST%" ^
   --max-order-snapshot-age-ms 60000
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json,time; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['lifecycleState']=='READY', o; assert o['startupOrderSnapshotRequired'] is True; assert o['startupOrderTracked']==1, o; assert o['startupOrderMatched']==1, o; assert o['startupOrderMarkedUnknown']==0, o; assert o['startupOrderUnresolved']==0, o; assert o['orderTransitionCount']==4, o; assert o['reconciliationEventCount']==0, o; assert o['orderRoutingEnabled'] is False; print('STARTUP_ORDER_SNAPSHOT_MATCH=PASS')"
+python -c "import json,time; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['lifecycleState']=='READY', o; assert o['startupOrderSnapshotRequired'] is True; assert o['startupOrderTracked']==1, o; assert o['startupOrderMatched']==1, o; assert o['startupOrderMarkedUnknown']==0, o; assert o['startupOrderUnresolved']==0, o; assert o['orderTransitionCount']==4, o; assert o['reconciliationEventCount']==0, o; assert o['orderRoutingEnabled'] is False; print('STARTUP_ORDER_SNAPSHOT_MATCH=PASS')"
 if errorlevel 1 (
   echo STARTUP_ORDER_SNAPSHOT_SMOKE=FAIL MATCH_STATUS
   set RC=6
@@ -106,7 +107,7 @@ start "ASTU Startup Snapshot Mismatch Host" /b "%HOST%" ^
   --max-order-snapshot-age-ms 60000
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['startupOrderTracked']==1, o; assert o['startupOrderMatched']==0, o; assert o['startupOrderMarkedUnknown']==1, o; assert o['startupOrderUnresolved']==1, o; assert o['orderTransitionCount']==5, o; assert o['reconciliationEventCount']==1, o; assert o['orderRoutingEnabled'] is False; print('STARTUP_ORDER_SNAPSHOT_MISMATCH_TO_UNKNOWN=PASS')"
+python -c "import json; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['startupOrderTracked']==1, o; assert o['startupOrderMatched']==0, o; assert o['startupOrderMarkedUnknown']==1, o; assert o['startupOrderUnresolved']==1, o; assert o['orderTransitionCount']==5, o; assert o['reconciliationEventCount']==1, o; assert o['orderRoutingEnabled'] is False; print('STARTUP_ORDER_SNAPSHOT_MISMATCH_TO_UNKNOWN=PASS')"
 if errorlevel 1 (
   echo STARTUP_ORDER_SNAPSHOT_SMOKE=FAIL UNKNOWN_STATUS
   set RC=8
@@ -126,7 +127,7 @@ if errorlevel 1 (
 )
 
 ping -n 2 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['orderTransitionCount']==6, o; assert o['reconciliationEventCount']==2, o; assert o['startupOrderUnresolved']==1, o; assert o['orderRoutingEnabled'] is False; print('STARTUP_ORDER_SNAPSHOT_EVIDENCE_APPLIED=PASS')"
+python -c "import json; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['orderTransitionCount']==6, o; assert o['reconciliationEventCount']==2, o; assert o['startupOrderUnresolved']==1, o; assert o['orderRoutingEnabled'] is False; print('STARTUP_ORDER_SNAPSHOT_EVIDENCE_APPLIED=PASS')"
 if errorlevel 1 (
   echo STARTUP_ORDER_SNAPSHOT_SMOKE=FAIL EVIDENCE_STATUS
   set RC=10
@@ -156,7 +157,7 @@ start "ASTU Startup Snapshot Resolved Host" /b "%HOST%" ^
   --max-order-snapshot-age-ms 60000
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json,time; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['startupOrderTracked']==1, o; assert o['startupOrderMatched']==1, o; assert o['startupOrderMarkedUnknown']==0, o; assert o['startupOrderUnresolved']==0, o; assert o['recoveredReconciliationEventsAtStartup']==2, o; assert o['reconciliationEventCount']==2, o; assert o['orderTransitionCount']==6, o; assert o['orderRoutingEnabled'] is False; age=int(time.time()*1000)-int(o['generatedUnixMs']); assert 0<=age<5000, age; print('STARTUP_ORDER_SNAPSHOT_RESOLVED_RESTART=PASS')"
+python -c "import json,time; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['startupOrderTracked']==1, o; assert o['startupOrderMatched']==1, o; assert o['startupOrderMarkedUnknown']==0, o; assert o['startupOrderUnresolved']==0, o; assert o['recoveredReconciliationEventsAtStartup']==2, o; assert o['reconciliationEventCount']==2, o; assert o['orderTransitionCount']==6, o; assert o['orderRoutingEnabled'] is False; age=int(time.time()*1000)-int(o['generatedUnixMs']); assert 0<=age<5000, age; print('STARTUP_ORDER_SNAPSHOT_RESOLVED_RESTART=PASS')"
 if errorlevel 1 (
   echo STARTUP_ORDER_SNAPSHOT_SMOKE=FAIL RESOLVED_RESTART
   set RC=12

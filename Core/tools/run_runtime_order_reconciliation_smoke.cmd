@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
+set "PYTHONPATH=%~dp0;%PYTHONPATH%"
 
 set ROOT=%~dp0..
 set BUILD=%ROOT%\..\build\core
@@ -77,7 +78,7 @@ start "ASTU Runtime Reconcile Host" /b "%HOST%" ^
   --order-reconcile-interval-ms 250
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['startupOrderMatched']==1, o; assert o['runtimeOrderReconciliationEnabled'] is True; assert o['runtimeOrderSweepCount']>=1, o; assert o['runtimeOrderTrackedNonterminal']==1, o; assert o['runtimeOrderMatched']==1, o; assert o['runtimeOrderUnresolved']==0, o; assert o['runtimeOrderSourceUnavailable']==0, o; print('RUNTIME_ORDER_RECONCILE_INITIAL_MATCH=PASS')"
+python -c "import json; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['startupOrderMatched']==1, o; assert o['runtimeOrderReconciliationEnabled'] is True; assert o['runtimeOrderSweepCount']>=1, o; assert o['runtimeOrderTrackedNonterminal']==1, o; assert o['runtimeOrderMatched']==1, o; assert o['runtimeOrderUnresolved']==0, o; assert o['runtimeOrderSourceUnavailable']==0, o; print('RUNTIME_ORDER_RECONCILE_INITIAL_MATCH=PASS')"
 if errorlevel 1 (
   echo RUNTIME_ORDER_RECONCILE_SMOKE=FAIL INITIAL_MATCH
   set RC=6
@@ -97,7 +98,7 @@ if errorlevel 1 (
 )
 
 ping -n 3 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['runtimeOrderUnresolved']==1, o; assert o['runtimeOrderSourceUnavailable']==0, o; assert o['reconciliationEventCount']>=1, o; print('RUNTIME_ORDER_RECONCILE_MISMATCH_TO_UNKNOWN=PASS')"
+python -c "import json; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['runtimeOrderUnresolved']==1, o; assert o['runtimeOrderSourceUnavailable']==0, o; assert o['reconciliationEventCount']>=1, o; print('RUNTIME_ORDER_RECONCILE_MISMATCH_TO_UNKNOWN=PASS')"
 if errorlevel 1 (
   echo RUNTIME_ORDER_RECONCILE_SMOKE=FAIL MISMATCH_TO_UNKNOWN
   set RC=8
@@ -117,7 +118,7 @@ if errorlevel 1 (
 )
 
 ping -n 3 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['runtimeOrderMatched']==1, o; assert o['runtimeOrderUnresolved']==0, o; assert o['runtimeOrderSourceUnavailable']==0, o; print('RUNTIME_ORDER_RECONCILE_EVIDENCE_RESOLVED=PASS')"
+python -c "import json; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['runtimeOrderMatched']==1, o; assert o['runtimeOrderUnresolved']==0, o; assert o['runtimeOrderSourceUnavailable']==0, o; print('RUNTIME_ORDER_RECONCILE_EVIDENCE_RESOLVED=PASS')"
 if errorlevel 1 (
   echo RUNTIME_ORDER_RECONCILE_SMOKE=FAIL EVIDENCE_RESOLUTION
   set RC=10
@@ -127,7 +128,7 @@ if errorlevel 1 (
 del /q "%SNAPDIR%\!ORDER_ID!.json" >nul 2>nul
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['runtimeOrderUnresolved']==1, o; assert o['runtimeOrderSourceUnavailable']==1, o; print('RUNTIME_ORDER_RECONCILE_MISSING_SOURCE=PASS')"
+python -c "import json; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['runtimeOrderUnresolved']==1, o; assert o['runtimeOrderSourceUnavailable']==1, o; print('RUNTIME_ORDER_RECONCILE_MISSING_SOURCE=PASS')"
 if errorlevel 1 (
   echo RUNTIME_ORDER_RECONCILE_SMOKE=FAIL MISSING_SOURCE
   set RC=11
@@ -147,7 +148,7 @@ if errorlevel 1 (
 )
 
 ping -n 3 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['runtimeOrderUnresolved']==1, o; assert o['runtimeOrderSourceUnavailable']==0, o; print('RUNTIME_ORDER_RECONCILE_REQUIRES_EVIDENCE=PASS')"
+python -c "import json; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['runtimeOrderUnresolved']==1, o; assert o['runtimeOrderSourceUnavailable']==0, o; print('RUNTIME_ORDER_RECONCILE_REQUIRES_EVIDENCE=PASS')"
 if errorlevel 1 (
   echo RUNTIME_ORDER_RECONCILE_SMOKE=FAIL AUTO_RESOLVED_WITHOUT_EVIDENCE
   set RC=13
@@ -167,7 +168,7 @@ if errorlevel 1 (
 )
 
 ping -n 3 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['runtimeOrderMatched']==1, o; assert o['runtimeOrderUnresolved']==0, o; assert o['runtimeOrderSourceUnavailable']==0, o; assert o['runtimeOrderSweepErrors']==0, o; assert o['orderRoutingEnabled'] is False; print('RUNTIME_ORDER_RECONCILE_FINAL_MATCH=PASS')"
+python -c "import json; o=__import__('status_json_reader').read_json(r'%STATUS%'); assert o['runtimeOrderMatched']==1, o; assert o['runtimeOrderUnresolved']==0, o; assert o['runtimeOrderSourceUnavailable']==0, o; assert o['runtimeOrderSweepErrors']==0, o; assert o['orderRoutingEnabled'] is False; print('RUNTIME_ORDER_RECONCILE_FINAL_MATCH=PASS')"
 if errorlevel 1 (
   echo RUNTIME_ORDER_RECONCILE_SMOKE=FAIL FINAL_MATCH
   set RC=15

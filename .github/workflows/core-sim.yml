@@ -34,6 +34,9 @@ jobs:
       - name: Test core
         run: ctest --test-dir build/core -C Release --output-on-failure
 
+      - name: Status JSON sharing regressions
+        run: python Core/tests/test_status_json_reader.py
+
       - name: Compile Python bridges
         run: |
           python -m py_compile CleanRoomR2/stack/identity_bridge.py

@@ -12,6 +12,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "astu/ipc/flat_json.hpp"
@@ -870,31 +871,55 @@ private:
         if (!path_.parent_path().empty()) {
             std::filesystem::create_directories(path_.parent_path());
         }
-        const auto tmp = path_.string() + ".tmp";
-        {
-            std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-            if (!out) {
-                throw std::runtime_error("cannot open execution status temp file");
-            }
-            out.write(text.data(), static_cast<std::streamsize>(text.size()));
-            out.flush();
-            if (!out) {
-                throw std::runtime_error("cannot write execution status temp file");
-            }
-        }
+        auto tmp = path_.string() + ".tmp";
 #ifdef _WIN32
-        if (!MoveFileExA(
-                tmp.c_str(),
-                path_.string().c_str(),
-                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-            std::filesystem::remove(tmp);
-            throw std::runtime_error(
-                "cannot publish execution status error=" +
-                std::to_string(GetLastError()));
+        // Separate publisher objects/processes must not truncate one another's
+        // staging file. GetTempFileName reserves a unique file in this directory.
+        char unique[MAX_PATH];
+        const auto directory = path_.parent_path().empty() ? "." : path_.parent_path().string();
+        if (!GetTempFileNameA(directory.c_str(), "asu", 0, unique)) {
+            throw std::runtime_error("cannot create execution status staging file error=" +
+                                     std::to_string(GetLastError()));
         }
-#else
-        std::filesystem::rename(tmp, path_);
+        tmp = unique;
 #endif
+        try {
+            {
+                std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+                if (!out) {
+                    throw std::runtime_error("cannot open execution status temp file");
+                }
+                out.write(text.data(), static_cast<std::streamsize>(text.size()));
+                out.flush();
+                if (!out) {
+                    throw std::runtime_error("cannot write execution status temp file");
+                }
+            }
+#ifdef _WIN32
+            for (unsigned attempt = 0; ; ++attempt) {
+                if (MoveFileExA(
+                        tmp.c_str(),
+                        path_.string().c_str(),
+                        MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+                    break;
+                }
+                const auto error = GetLastError();
+                if (attempt == 4 || (error != ERROR_ACCESS_DENIED &&
+                                    error != ERROR_SHARING_VIOLATION &&
+                                    error != ERROR_LOCK_VIOLATION)) {
+                    throw std::runtime_error("cannot publish execution status attempts=" +
+                        std::to_string(attempt + 1) + " error=" + std::to_string(error));
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(10u << attempt));
+            }
+#else
+            std::filesystem::rename(tmp, path_);
+#endif
+        } catch (...) {
+            std::error_code cleanup_error;
+            std::filesystem::remove(tmp, cleanup_error);
+            throw;
+        }
     }
 
     std::filesystem::path path_;
