@@ -22,6 +22,7 @@ import logging
 import os
 import signal
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -848,23 +849,49 @@ class App:
             "symbols": symbols,
         }
 
-    def save_autotrader_market_status(self) -> None:
+    async def save_autotrader_market_status(self) -> None:
         if not AUTOTRADER_STATUS_ENABLED:
             return
         AUTOTRADER_STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = AUTOTRADER_STATUS_PATH.with_suffix(AUTOTRADER_STATUS_PATH.suffix + ".tmp")
-        tmp.write_text(
-            json.dumps(self.autotrader_market_status(), indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(tmp, AUTOTRADER_STATUS_PATH)
+        # Snapshot on the event-loop thread; never share a staging file with
+        # another writer. Windows readers may temporarily deny delete sharing.
+        payload = json.dumps(self.autotrader_market_status(), indent=2, sort_keys=True) + "\n"
+        tmp: Path | None = None
+        delays = (0.025, 0.05, 0.1, 0.2)
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=AUTOTRADER_STATUS_PATH.parent,
+                prefix=AUTOTRADER_STATUS_PATH.name + ".", suffix=".tmp", delete=False,
+            ) as staging:
+                tmp = Path(staging.name)
+                staging.write(payload)
+            for attempt in range(len(delays) + 1):
+                try:
+                    os.replace(tmp, AUTOTRADER_STATUS_PATH)
+                    if attempt:
+                        LOG.info("market status publication recovered retries=%d", attempt)
+                    return
+                except PermissionError:
+                    if attempt == len(delays):
+                        LOG.error("market status publication exhausted attempts=%d path=%s",
+                                  attempt + 1, AUTOTRADER_STATUS_PATH)
+                        raise
+                    LOG.warning("market status replace denied attempt=%d retry_delay=%.3fs path=%s",
+                                attempt + 1, delays[attempt], AUTOTRADER_STATUS_PATH)
+                    await asyncio.sleep(delays[attempt])
+        finally:
+            if tmp is not None:
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    LOG.exception("market status staging cleanup failed path=%s", tmp)
 
     async def autotrader_status_writer_loop(self) -> None:
         if not AUTOTRADER_STATUS_ENABLED:
             return
         while not self.stop.is_set():
             try:
-                self.save_autotrader_market_status()
+                await self.save_autotrader_market_status()
             except Exception:
                 LOG.exception("auto-trader market status save failed")
             try:
@@ -1306,7 +1333,7 @@ class App:
                 except Exception:
                     LOG.exception("final recovery state save failed")
                 try:
-                    self.save_autotrader_market_status()
+                    await self.save_autotrader_market_status()
                 except Exception:
                     LOG.exception("final auto-trader market status save failed")
                 self.session = None

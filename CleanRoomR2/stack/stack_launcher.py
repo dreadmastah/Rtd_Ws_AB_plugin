@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import getpass
 import hashlib
 import json
 import os
@@ -13,6 +14,7 @@ import subprocess
 import sys
 import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Mapping
 
@@ -517,10 +519,96 @@ def status_from_pidfile() -> int:
     return 0 if alive else 1
 
 
-def stop_from_pidfile(dbname: str, relay_port: int) -> int:
+STOP_SOURCES = ("direct-cli", "cmd-wrapper", "test-harness", "installer", "other")
+
+
+def stop_command_line(dbname: str, relay_port: int, source: str) -> str:
+    """Allowlisted effective command, not raw argv or inherited environment.
+
+    Unknown arguments and parent command lines can contain credentials. Never
+    persist them. PID/parent PID and executable identify the actual requester;
+    source is explicitly caller-declared, not a security authentication claim.
+    """
+    return subprocess.list2cmdline([
+        sys.executable, str(Path(__file__).resolve()), "--stop",
+        "--dbname", dbname, "--relay-port", str(relay_port),
+        "--stop-source", source,
+    ])
+
+
+def append_stop_provenance(record: dict[str, object]) -> None:
+    """Serialize and fsync one append before permitting any pause/stop write."""
+    path = RUNTIME / "stop_provenance.jsonl"
+    payload = (json.dumps(record, sort_keys=True) + "\n").encode("utf-8")
+    with open(path, "a+b", buffering=0) as log:
+        # A byte-range lock works even for an initially empty Windows file.
+        # Bound contention waits; failing to audit must fail before pausing.
+        if os.name == "nt":
+            import msvcrt
+
+            deadline = time.monotonic() + 1.0
+            while True:
+                try:
+                    log.seek(0)
+                    msvcrt.locking(log.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise
+                    time.sleep(0.025)
+            unlock = lambda: msvcrt.locking(log.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(log.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            unlock = lambda: fcntl.flock(log.fileno(), fcntl.LOCK_UN)
+        try:
+            log.seek(0, os.SEEK_END)
+            if log.write(payload) != len(payload):
+                raise OSError("incomplete stop provenance append")
+            os.fsync(log.fileno())
+        finally:
+            log.seek(0)
+            unlock()
+
+
+def record_stop_intent(dbname: str, relay_port: int, data: dict[str, object],
+                       source: str) -> dict[str, object]:
+    if source not in STOP_SOURCES:
+        raise ValueError("unsupported stop source")
+    record: dict[str, object] = {
+        "schemaVersion": 1,
+        "eventId": uuid.uuid4().hex,
+        "timestampUtc": datetime.now(timezone.utc).isoformat(),
+        "event": "stop-publication-intent",
+        "reason": "manual-stop",
+        "requested_by_pid": os.getpid(),
+        "parentPid": os.getppid(),
+        "requested_unix_ms": int(time.time() * 1000),
+        "executable": sys.executable,
+        "commandLine": stop_command_line(dbname, relay_port, source),
+        "commandLinePolicy": "effective allowlisted command; raw argv and environment omitted",
+        "username": getpass.getuser(),
+        "dbname": dbname,
+        "relay_port": relay_port,
+        "instanceId": instance_token(dbname, relay_port),
+        "instance_lock": instance_lock_identity(dbname, relay_port),
+        "sourceDeclared": source,
+        "launcherPid": pid_value(data, "launcher"),
+        "childPids": {name: pid_value(data, name)
+                      for name in ("relay", "server", "identity", "amibroker")},
+        "artifactsIntended": [str(PAUSEFILE)] + (
+            [str(stop_request_path(dbname, relay_port))] if data else []),
+    }
+    append_stop_provenance(record)
+    return record
+
+
+def stop_from_pidfile(dbname: str, relay_port: int, *, source: str = "other") -> int:
     data = load_pidfile()
     if not data:
-        PAUSEFILE.write_text("manual-stop\n", encoding="utf-8")
+        record = record_stop_intent(dbname, relay_port, data, source)
+        PAUSEFILE.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
         print("WSRTD_STACK_STATUS=NOT_RUNNING")
         return 0
     recorded_dbname = str(data.get("dbname", dbname))
@@ -532,11 +620,12 @@ def stop_from_pidfile(dbname: str, relay_port: int) -> int:
             f"RUNNING={instance_key(recorded_dbname, recorded_port)}"
         )
         return 2
-    PAUSEFILE.write_text("manual-stop\n", encoding="utf-8")
+    record = record_stop_intent(dbname, relay_port, data, source)
+    PAUSEFILE.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     launcher = pid_value(data, "launcher")
     request = stop_request_path(dbname, relay_port)
     request.write_text(
-        json.dumps({"requested_by_pid": os.getpid(), "requested_unix_ms": int(time.time() * 1000)}) + "\n",
+        json.dumps(record, indent=2) + "\n",
         encoding="utf-8",
     )
     print(f"WSRTD_STOP_REQUEST_FILE={request}")
@@ -876,6 +965,7 @@ def run_supervisor_locked(
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stop", action="store_true")
+    ap.add_argument("--stop-source", choices=STOP_SOURCES, default="direct-cli")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--ensure-running", action="store_true")
     ap.add_argument("--resume", action="store_true")
@@ -886,7 +976,7 @@ def main() -> int:
         os.getenv("WSRTD_RELAY_PORT", CFG["relay"].get("port", 10101))
     )
     if args.stop:
-        return stop_from_pidfile(args.dbname, relay_port)
+        return stop_from_pidfile(args.dbname, relay_port, source=args.stop_source)
     if args.status:
         return status_from_pidfile()
     if args.resume:
