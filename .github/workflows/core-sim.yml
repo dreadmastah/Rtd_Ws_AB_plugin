@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - chatgpt/core-autotrader-scaffold-sim-only
+      - chatgpt/demo-order-execution-milestone
   pull_request:
     paths:
       - "Core/**"
