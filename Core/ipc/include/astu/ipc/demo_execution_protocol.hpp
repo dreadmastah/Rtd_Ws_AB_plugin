@@ -20,6 +20,7 @@ enum class DemoAdmissionCode {
     RequestStale,
     RequestFromFuture,
     ConvergenceRejected,
+    SourceRejected,
     RoutingNotImplemented,
 };
 
@@ -31,6 +32,7 @@ inline std::string demo_admission_code_to_string(DemoAdmissionCode code) {
     case DemoAdmissionCode::RequestStale: return "REQUEST_STALE";
     case DemoAdmissionCode::RequestFromFuture: return "REQUEST_FROM_FUTURE";
     case DemoAdmissionCode::ConvergenceRejected: return "CONVERGENCE_REJECTED";
+    case DemoAdmissionCode::SourceRejected: return "SOURCE_REJECTED";
     case DemoAdmissionCode::RoutingNotImplemented: return "ROUTING_NOT_IMPLEMENTED";
     }
     return "INVALID_REQUEST";
@@ -44,6 +46,7 @@ inline DemoAdmissionCode demo_admission_code_from_string(
     if (value == "REQUEST_STALE") return DemoAdmissionCode::RequestStale;
     if (value == "REQUEST_FROM_FUTURE") return DemoAdmissionCode::RequestFromFuture;
     if (value == "CONVERGENCE_REJECTED") return DemoAdmissionCode::ConvergenceRejected;
+    if (value == "SOURCE_REJECTED") return DemoAdmissionCode::SourceRejected;
     if (value == "ROUTING_NOT_IMPLEMENTED") return DemoAdmissionCode::RoutingNotImplemented;
     throw std::invalid_argument("unknown Demo admission code");
 }

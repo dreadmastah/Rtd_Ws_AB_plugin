@@ -125,6 +125,9 @@ int main() {
     if (!verify_anonymous_open_denied(astu::ipc::kReconciliationPipeName)) {
         return 3;
     }
+    if (!verify_anonymous_open_denied(astu::ipc::kDemoExecutionPipeName)) {
+        return 4;
+    }
 
     std::cout << "NAMED_PIPE_CURRENT_USER_DACL=PASS\n";
     std::cout << "NAMED_PIPE_NON_OWNER_DENIED=PASS\n";

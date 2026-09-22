@@ -126,7 +126,15 @@ router may be invoked:
 The capability token is request-only sensitive material. It must not be copied
 to responses, journals, status artifacts, or logs.
 
-At this checkpoint no Demo pipe server, Binance order gateway, or
-`/fapi/v1/order` submission path is wired. A successful admission result means
-only that the request passed the pre-routing gate; it is not proof that an
-exchange order was attempted.
+The dedicated Demo pipe host now exists, but remains admission-only. It reloads
+the append-only execution journal for every request and requires the referenced
+simulation order to exist in `SIZING` with matching signal, symbol, side and
+normalized quantity. Source failure returns `SOURCE_REJECTED`.
+
+The host requires `ASTU_DEMO_EXECUTION_CAPABILITY_TOKEN` from its environment;
+there is no command-line token option. After all gates pass it still returns
+`ROUTING_NOT_IMPLEMENTED`, `acceptedForExecution=false`, and
+`orderSubmissionAttempted=false`.
+
+No Binance order gateway or `/fapi/v1/order` submission path is wired at this
+checkpoint.

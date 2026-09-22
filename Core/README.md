@@ -852,8 +852,24 @@ The reserved endpoint is `\\.\pipe\AstuExecutionDemo.v1`. It is separate
 from the simulation pipe so `AstuSimulate` cannot be reinterpreted as an
 order-submission request.
 
-This increment does **not** add a Demo order router, order gateway, private
-mutation endpoint, or executable submission path. The next implementation
-increment is to bind the admission gate to a dedicated Demo pipe host and to
-verify the source simulation/journal identity before any router is introduced.
-Mainnet routing remains out of scope.
+The dedicated Windows Demo pipe host now binds this admission policy to
+`\\.\pipe\AstuExecutionDemo.v1`. It requires the capability token through
+`ASTU_DEMO_EXECUTION_CAPABILITY_TOKEN`; the token is never accepted on the
+command line and is not copied to a response or journal.
+
+For every request, the host reloads the append-only simulation execution journal
+and verifies that `sourceSimulationOrderId` resolves to a normalized
+`SIMULATION_ORDER_INTENT` currently in `SIZING`, with matching signal ID,
+symbol, side and normalized quantity. Missing, malformed, advanced/terminal or
+mismatched source state returns `SOURCE_REJECTED`.
+
+Even after capability, convergence and source verification all pass, the host
+returns `ROUTING_NOT_IMPLEMENTED`, `acceptedForExecution=false`, and
+`orderSubmissionAttempted=false`.
+
+This increment still does **not** add a Demo order router, Binance private
+mutation gateway, or executable submission path. The next implementation
+increment is a Windows end-to-end acceptance for the dedicated Demo pipe,
+including current-user DACL enforcement, request correlation, source-journal
+rejection cases and proof that no submission attempt can occur. Mainnet routing
+remains out of scope.

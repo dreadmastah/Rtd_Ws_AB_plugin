@@ -36,6 +36,15 @@ if(WIN32)
         PRIVATE astu_core
     )
 
+    add_executable(
+        astu_demo_execution_pipe_host
+        execution/src/demo_execution_pipe_host.cpp
+    )
+    target_link_libraries(
+        astu_demo_execution_pipe_host
+        PRIVATE astu_core
+    )
+
     add_executable(astu_trade_pipe_smoke trade_plugin/src/execution_pipe_client_smoke.cpp)
     target_link_libraries(astu_trade_pipe_smoke PRIVATE astu_core)
 
@@ -213,6 +222,19 @@ target_link_libraries(
 add_test(
     NAME astu_demo_execution_protocol_tests
     COMMAND astu_demo_execution_protocol_tests
+)
+
+add_executable(
+    astu_demo_execution_dispatch_tests
+    tests/demo_execution_dispatch_tests.cpp
+)
+target_link_libraries(
+    astu_demo_execution_dispatch_tests
+    PRIVATE astu_core
+)
+add_test(
+    NAME astu_demo_execution_dispatch_tests
+    COMMAND astu_demo_execution_dispatch_tests
 )
 
 if(WIN32)
