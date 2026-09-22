@@ -197,8 +197,13 @@ class LauncherOwnershipTests(unittest.TestCase):
             stack_launcher, "PAUSEFILE", Path(self.temp.name) / "pause"
         )
         self.pause_patch.start()
+        self.snapshot_patch = mock.patch.object(stack_launcher.orphan_recovery,
+                                                "process_snapshot", return_value={})
+        self.snapshot_patch.start()
+        self.dbname, self.port = "WSRTD_TEST", 19102
 
     def tearDown(self) -> None:
+        self.snapshot_patch.stop()
         self.pause_patch.stop()
         self.pid_patch.stop()
         self.temp.cleanup()
@@ -211,7 +216,11 @@ class LauncherOwnershipTests(unittest.TestCase):
         stack_launcher.PIDFILE.write_text(
             json.dumps({
                 "schemaVersion": stack_launcher.PID_SCHEMA_VERSION,
-                "launchNonce": "owner",
+                "launchNonce": "a" * 32,
+                "dbname": self.dbname,
+                "relay_port": self.port,
+                "instance_lock": stack_launcher.instance_lock_identity(self.dbname, self.port),
+                "working_directory": str(stack_launcher.BASE),
                 "processes": {"launcher": launcher_record, **children},
                 "launcher": launcher_record["pid"],
                 **{name: child["pid"] for name, child in children.items()},
@@ -274,13 +283,13 @@ class LauncherOwnershipTests(unittest.TestCase):
         self.assertEqual(result, 4)
         self.assertTrue(stack_launcher.PIDFILE.exists())
 
-    def test_dead_launcher_with_live_relay_refuses_recovery(self) -> None:
+    def test_incomplete_unverified_live_relay_refuses_recovery(self) -> None:
         self.assert_live_child_refuses_recovery("relay")
 
-    def test_dead_launcher_with_live_server_refuses_recovery(self) -> None:
+    def test_incomplete_unverified_live_server_refuses_recovery(self) -> None:
         self.assert_live_child_refuses_recovery("server")
 
-    def test_dead_launcher_with_live_identity_refuses_recovery(self) -> None:
+    def test_incomplete_unverified_live_identity_refuses_recovery(self) -> None:
         self.assert_live_child_refuses_recovery("identity")
 
     def test_live_relay_refuses_ensure_running(self) -> None:
@@ -318,7 +327,9 @@ class LauncherOwnershipTests(unittest.TestCase):
         popen.assert_called_once()
 
     def test_interleaved_ensure_preserves_winning_supervisor_state(self) -> None:
-        self.write_state(process_record(41, 100), relay=process_record(42, 101))
+        self.dbname, self.port = "WSRTD_RACE_TEST", 19107
+        self.write_state(process_record(41, 100), relay=process_record(42, 101),
+                         server=process_record(43, 102), identity=process_record(44, 103))
         old_bytes = stack_launcher.PIDFILE.read_bytes()
         real_adjudicate = stack_launcher.adjudicate_pid_state
         barrier = threading.Barrier(2)
@@ -330,8 +341,8 @@ class LauncherOwnershipTests(unittest.TestCase):
         winning_bytes = []
         acquired_locks = []
 
-        def adjudicate():
-            result = real_adjudicate()
+        def adjudicate(*args, **kwargs):
+            result = real_adjudicate(*args, **kwargs)
             barrier.wait(timeout=5)
             return result
 
@@ -394,7 +405,6 @@ class LauncherOwnershipTests(unittest.TestCase):
             relay=process_record(42, 101),
             server=process_record(43, 102),
             identity=process_record(44, 103),
-            additional=process_record(45, 104),
         )
         with (
             mock.patch.object(stack_launcher, "process_identity", return_value=None),
@@ -431,9 +441,12 @@ class LauncherOwnershipTests(unittest.TestCase):
         self.assertIsNone(acquired)
 
     def test_concurrent_stale_recovery_has_exactly_one_owner(self) -> None:
+        self.dbname, self.port = "WSRTD_CONCURRENT_TEST", 19103
         self.write_state(
             process_record(41, 100),
             relay=process_record(42, 101),
+            server=process_record(43, 102),
+            identity=process_record(44, 103),
         )
         acquire_barrier = threading.Barrier(2)
 

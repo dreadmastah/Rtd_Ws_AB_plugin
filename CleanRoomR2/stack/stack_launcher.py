@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import getpass
 import hashlib
 import json
@@ -17,6 +16,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Mapping
+
+import orphan_recovery
 
 BASE = Path(__file__).resolve().parent
 CFG = json.loads((BASE / "config.json").read_text(encoding="utf-8"))
@@ -59,6 +60,7 @@ PROCESS_OWNER_AMBIGUOUS = "AMBIGUOUS"
 LAUNCH_OWNERSHIP_ACQUIRED = "ACQUIRED"
 LAUNCH_OWNERSHIP_ALREADY_RUNNING = "ALREADY_RUNNING"
 LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS = "LIVE_OWNER_AMBIGUOUS"
+LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT = "ORPHANED_MANAGED_COHORT"
 
 
 def windows_hidden_flags(*, new_process_group: bool = False) -> int:
@@ -275,10 +277,16 @@ def process_identity(pid: int) -> dict[str, object] | None:
         kernel32.GetProcessTimes.restype = wintypes.BOOL
         kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
         kernel32.CloseHandle.restype = wintypes.BOOL
-        handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+        kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        kernel32.WaitForSingleObject.restype = wintypes.DWORD
+        handle = kernel32.OpenProcess(process_query_limited_information | 0x00100000, False, pid)
         if not handle:
             return None
         try:
+            # A terminated process object can remain queryable while cleanup
+            # holds a pinned handle. It must not be reported as a live owner.
+            if kernel32.WaitForSingleObject(handle, 0) != 258:  # WAIT_TIMEOUT
+                return None
             size = wintypes.DWORD(32768)
             image = ctypes.create_unicode_buffer(size.value)
             if not kernel32.QueryFullProcessImageNameW(handle, 0, image, ctypes.byref(size)):
@@ -428,14 +436,32 @@ def save_pids(
     os.replace(tmp, PIDFILE)
 
 
-def adjudicate_pid_state() -> str:
-    """Refuse recovery unless every recorded managed process is dead or stale."""
+def inspect_orphaned_cohort(data: dict, dbname: str, relay_port: int):
+    return orphan_recovery.inspect(
+        data, base=BASE, dbname=dbname, port=relay_port,
+        lock_identity=instance_lock_identity(dbname, relay_port),
+        identity_enabled=bool(CFG.get("identity_bridge", {}).get("enabled", False)),
+        child_python=console_python(), record_status=process_record_status,
+        identity=process_identity,
+    )
+
+
+def adjudicate_pid_state(dbname: str | None = None, relay_port: int | None = None,
+                         *, lock_held: bool = False) -> str:
+    """Classify live owners; only a fully proven cohort may enter recovery."""
     state_file_exists = PIDFILE.exists()
     data = load_pidfile()
     if state_file_exists and not data:
         return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
     if not data:
         return LAUNCH_OWNERSHIP_ACQUIRED
+
+    if dbname is not None:
+        try:
+            if instance_key(data["dbname"], data["relay_port"]) != instance_key(dbname, relay_port):
+                return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+        except (KeyError, TypeError, ValueError, AttributeError):
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
 
     processes = data.get("processes")
     if (
@@ -445,18 +471,49 @@ def adjudicate_pid_state() -> str:
         and isinstance(processes, dict)
         and "launcher" in processes
     ):
-        statuses = {
-            name: process_record_status(record)
-            for name, record in processes.items()
-        }
-        if statuses["launcher"] == PROCESS_OWNER_MATCH:
-            return LAUNCH_OWNERSHIP_ALREADY_RUNNING
-        if any(
-            status in (PROCESS_OWNER_MATCH, PROCESS_OWNER_AMBIGUOUS)
-            for status in statuses.values()
-        ):
+        if (len(data["launchNonce"]) != 32
+                or any(c not in "0123456789abcdef" for c in data["launchNonce"])
+                or processes.keys() - {"launcher", "relay", "server", "identity", "amibroker"}
+                or not orphan_recovery.valid_record(processes["launcher"])
+                or data.get("launcher") != processes["launcher"]["pid"]):
             return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
-        return LAUNCH_OWNERSHIP_ACQUIRED
+        if dbname is not None and (
+                data.get("instance_lock") != instance_lock_identity(dbname, relay_port)
+                or data.get("working_directory") != str(BASE)):
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+        launcher_status = process_record_status(processes["launcher"])
+        if launcher_status == PROCESS_OWNER_MATCH:
+            return LAUNCH_OWNERSHIP_ALREADY_RUNNING
+        required = orphan_recovery.required_roles(
+            bool(CFG.get("identity_bridge", {}).get("enabled", False)))
+        if (not required <= processes.keys()
+                or not all(orphan_recovery.valid_record(record)
+                           and data.get(role) == record["pid"]
+                           for role, record in processes.items())
+                or len({r["pid"] for r in processes.values()}) != len(processes)):
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+        statuses = {name: process_record_status(record)
+                    for name, record in processes.items()}
+        if any(role in data and role not in processes
+               for role in ("launcher", "relay", "server", "identity", "amibroker")):
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+        if any(status == PROCESS_OWNER_AMBIGUOUS for status in statuses.values()):
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+        if statuses.get("amibroker") == PROCESS_OWNER_STALE:
+            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+        if dbname is not None:
+            cohort = inspect_orphaned_cohort(data, dbname, relay_port)
+            if cohort is None:
+                return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+            if cohort.records:
+                if PAUSEFILE.exists():
+                    return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
+                if not lock_held and instance_running(dbname, relay_port):
+                    return LAUNCH_OWNERSHIP_ALREADY_RUNNING
+                return LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT
+            return LAUNCH_OWNERSHIP_ACQUIRED
+        # Recovery needs an explicit requested instance and complete inspection.
+        return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
 
     if any(key in data for key in ("schemaVersion", "launchNonce", "processes")):
         return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
@@ -474,8 +531,9 @@ def adjudicate_pid_state() -> str:
 
 
 def claim_launcher_ownership(dbname: str, relay_port: int) -> tuple[str, InstanceLock | None]:
-    adjudication = adjudicate_pid_state()
-    if adjudication != LAUNCH_OWNERSHIP_ACQUIRED:
+    admissible = (LAUNCH_OWNERSHIP_ACQUIRED, LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT)
+    adjudication = adjudicate_pid_state(dbname, relay_port)
+    if adjudication not in admissible:
         return adjudication, None
 
     lock = InstanceLock(dbname, relay_port)
@@ -484,11 +542,15 @@ def claim_launcher_ownership(dbname: str, relay_port: int) -> tuple[str, Instanc
 
     # Re-adjudicate under exclusive ownership in case another contender
     # changed the PID state between initial inspection and lock acquisition.
-    adjudication = adjudicate_pid_state()
-    if adjudication != LAUNCH_OWNERSHIP_ACQUIRED:
+    try:
+        adjudication = adjudicate_pid_state(dbname, relay_port, lock_held=True)
+    except Exception:
+        lock.release()
+        raise
+    if adjudication not in admissible:
         lock.release()
         return adjudication, None
-    return LAUNCH_OWNERSHIP_ACQUIRED, lock
+    return adjudication, lock
 
 
 def critical_stack_alive() -> tuple[bool, dict[str, object]]:
@@ -689,18 +751,19 @@ def ensure_running(dbname: str, relay_port: int) -> int:
         print("WSRTD_ENSURE_RUNNING=MAINTENANCE_PAUSED")
         return 0
 
-    adjudication = adjudicate_pid_state()
+    adjudication = adjudicate_pid_state(dbname, relay_port)
     if adjudication == LAUNCH_OWNERSHIP_ALREADY_RUNNING:
         print("WSRTD_ENSURE_RUNNING=ALREADY_RUNNING")
         return 0
-    if adjudication != LAUNCH_OWNERSHIP_ACQUIRED:
+    recovering = adjudication == LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT
+    if adjudication != LAUNCH_OWNERSHIP_ACQUIRED and not recovering:
         print("WSRTD_ENSURE_RUNNING=REFUSED_LIVE_OWNER_AMBIGUOUS")
         return 4
     if instance_running(dbname, relay_port):
         print("WSRTD_ENSURE_RUNNING=ALREADY_RUNNING")
         return 0
 
-    if not configure_registry(dbname, relay_port):
+    if not recovering and not configure_registry(dbname, relay_port):
         print("WSRTD_ENSURE_RUNNING=FAIL_REGISTRY")
         return 2
 
@@ -727,7 +790,12 @@ def ensure_running(dbname: str, relay_port: int) -> int:
         creationflags=flags,
         **kwargs,
     )
-    print(f"WSRTD_ENSURE_RUNNING=STARTED LAUNCHER_PID={p.pid}")
+    fh.close()
+    # The detached worker acquires and RETAINS the lock before any cleanup.
+    # This helper never reaps or transfers lock ownership. Multiple candidates
+    # are harmless; only the exclusive winner can clean up and start services.
+    outcome = "RECOVERY_REQUESTED" if recovering else "STARTED"
+    print(f"WSRTD_ENSURE_RUNNING={outcome} LAUNCHER_PID={p.pid}")
     return 0
 
 
@@ -743,25 +811,54 @@ def run_supervisor(dbname: str, relay_port: int | None = None) -> int:
         print(f"Another WSRTD stack instance is already running for {dbname} / port {port}.")
         print(f"INSTANCE_LOCK={instance_lock_identity(dbname, port)}")
         return 3
-    if ownership != LAUNCH_OWNERSHIP_ACQUIRED or lock is None:
+    recovering = ownership == LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT
+    if (ownership != LAUNCH_OWNERSHIP_ACQUIRED and not recovering) or lock is None:
         print("WSRTD_LAUNCH_REFUSED_LIVE_OWNER_AMBIGUOUS")
         return 4
+
+    try:
+        return start_owned_supervisor(dbname, host, port, lock, recovering=recovering)
+    finally:
+        lock.release()
+        print(f"INSTANCE_LOCK_RELEASED={lock.identity}")
+
+
+def start_owned_supervisor(dbname, host, port, lock, *, recovering=False):
+    """The same worker owns the lock from adjudication through its lifetime."""
+    if PAUSEFILE.exists():
+        print("WSRTD_ENSURE_RUNNING=MAINTENANCE_PAUSED")
+        return 0
+    if recovering:
+        original = PIDFILE.read_bytes()
+        data = load_pidfile()
+
+        def revalidate():
+            if not PIDFILE.exists() or PIDFILE.read_bytes() != original:
+                return None
+            return inspect_orphaned_cohort(data, dbname, port)
+
+        cohort = revalidate()
+        if cohort is None or not orphan_recovery.cleanup_verified_orphaned_managed_cohort(
+                cohort, revalidate=revalidate, paused=PAUSEFILE.exists):
+            print("WSRTD_ORPHAN_RECOVERY=CLEANUP_FAILED")
+            print("WSRTD_ENSURE_RUNNING=REFUSED_LIVE_OWNER_AMBIGUOUS")
+            return 4
+        if not configure_registry(dbname, port):
+            print("WSRTD_ENSURE_RUNNING=FAIL_REGISTRY")
+            return 2
+    if PAUSEFILE.exists():
+        print("WSRTD_ENSURE_RUNNING=MAINTENANCE_PAUSED")
+        return 0
 
     request = stop_request_path(dbname, port)
     try:
         request.unlink()
     except OSError:
         pass
-    if PIDFILE.exists():
-        print(f"STALE_PIDFILE_REMOVED={PIDFILE}")
-        with contextlib.suppress(OSError):
-            PIDFILE.unlink()
-
     launch_nonce = uuid.uuid4().hex
     launcher_record = process_identity(os.getpid())
     if launcher_record is None:
         print("WSRTD_STACK_FATAL=launcher process identity unavailable")
-        lock.release()
         return 4
     save_pids(
         {},
@@ -778,19 +875,17 @@ def run_supervisor(dbname: str, relay_port: int | None = None) -> int:
     print(f"DBNAME={dbname}")
     print(f"RELAY_PORT={port}")
     print(f"INSTANCE_LOCK={lock.identity}")
-    try:
-        return run_supervisor_locked(
-            dbname,
-            host,
-            port,
-            lock.identity,
-            request,
-            launch_nonce,
-            launcher_record,
-        )
-    finally:
-        lock.release()
-        print(f"INSTANCE_LOCK_RELEASED={lock.identity}")
+    if recovering:
+        print(f"WSRTD_ENSURE_RUNNING=STARTED LAUNCHER_PID={os.getpid()}")
+    return run_supervisor_locked(
+        dbname,
+        host,
+        port,
+        lock.identity,
+        request,
+        launch_nonce,
+        launcher_record,
+    )
 
 
 def run_supervisor_locked(
