@@ -104,7 +104,7 @@ class StopProvenanceTests(unittest.TestCase):
                 self.assertEqual(launcher.main(), 0)
                 stop.assert_called_once_with("Data", 10101, source="direct-cli")
         wrapper = (launcher.BASE / "stop_wsrtd_stack.cmd").read_text()
-        self.assertIn("--stop %* --stop-source cmd-wrapper", wrapper)
+        self.assertIn("--stop --dbname Data --relay-port 10101 %* --stop-source cmd-wrapper", wrapper)
 
 
 if __name__ == "__main__":

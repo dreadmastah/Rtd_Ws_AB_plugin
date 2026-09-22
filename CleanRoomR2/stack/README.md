@@ -34,7 +34,7 @@ The R2 DLL remains `WsRTD_Compat_3.06.26_R2_x64.dll`; R2.1 changes the runtime s
    - any missing bounded range is repaired automatically.
 
 4. **PC reboot/logon or launcher death**
-   - `install_recovery_autostart.cmd WSRTD` installs an HKCU logon startup command plus a five-minute Task Scheduler watchdog;
+   - `install_recovery_autostart.cmd` defaults to Data and installs an HKCU logon startup command plus a five-minute Task Scheduler watchdog;
    - the watchdog uses `stack_launcher.py --ensure-running` and is a no-op when the relay/server are already healthy;
    - a pair-scoped Windows named mutex permits only one supervisor for a database name and relay port;
    - stale PID state is discarded only after the mutex proves there is no current owner;
@@ -103,7 +103,7 @@ install_wsrtd_stack.cmd
 Manual launch:
 
 ```cmd
-launch_wsrtd_stack.cmd WSRTD
+launch_wsrtd_stack.cmd Data
 ```
 
 For an isolated validation instance when port 10101 is already used by another
@@ -120,7 +120,7 @@ and the selected database's WSRTD registry entry. Defaults remain unchanged.
 Install automatic logon/watchdog recovery:
 
 ```cmd
-install_recovery_autostart.cmd WSRTD
+install_recovery_autostart.cmd
 ```
 
 Verify:
@@ -137,7 +137,12 @@ uninstall_recovery_autostart.cmd
 
 ### Intentional maintenance stop
 
-`stop_wsrtd_stack.cmd` writes `runtime\\maintenance_pause` and asks the owning supervisor to shut down its tracked services. The supervisor waits briefly for its children and force-stops only those owned children if necessary. The logon/watchdog path respects the maintenance marker and will not restart the stack during intentional maintenance. Running `launch_wsrtd_stack.cmd WSRTD` clears the marker and resumes automatic recovery.
+`stop_wsrtd_stack.cmd` writes `runtime\\maintenance_pause` and asks the owning supervisor to shut down its tracked services. The supervisor waits briefly for its children and force-stops only those owned children if necessary. The logon/watchdog path respects the maintenance marker and will not restart the stack during intentional maintenance. Running `launch_wsrtd_stack.cmd Data` clears the marker and resumes automatic recovery.
+
+Operational database defaults are Data. The stop wrapper explicitly defaults to
+Data:10101; override with `stop_wsrtd_stack.cmd --dbname SomeOtherDb --relay-port 10102`.
+The recovery installer accepts a positional override: `install_recovery_autostart.cmd SomeOtherDb`.
+Python entrypoints accept `--dbname SomeOtherDb`; their existing relay-port sourcing is unchanged.
 
 ### Single-instance diagnostics
 

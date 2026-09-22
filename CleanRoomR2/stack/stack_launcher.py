@@ -141,7 +141,7 @@ class InstanceLock:
     """Pair-scoped launcher ownership, using an auto-released Windows mutex."""
 
     def __init__(self, dbname: str, relay_port: int) -> None:
-        self.dbname = dbname.strip() or "WSRTD"
+        self.dbname = dbname.strip() or "Data"
         self.relay_port = int(relay_port)
         self.identity = instance_lock_identity(self.dbname, self.relay_port)
         self._handle = None
@@ -969,7 +969,7 @@ def main() -> int:
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--ensure-running", action="store_true")
     ap.add_argument("--resume", action="store_true")
-    ap.add_argument("--dbname", default="WSRTD")
+    ap.add_argument("--dbname", default="Data")
     ap.add_argument("--relay-port", type=int)
     args = ap.parse_args()
     relay_port = args.relay_port if args.relay_port is not None else int(

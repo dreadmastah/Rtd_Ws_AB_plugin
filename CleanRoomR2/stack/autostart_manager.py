@@ -141,7 +141,7 @@ def main() -> int:
     g.add_argument("--install", action="store_true")
     g.add_argument("--uninstall", action="store_true")
     g.add_argument("--status", action="store_true")
-    ap.add_argument("--dbname", default="WSRTD")
+    ap.add_argument("--dbname", default="Data")
     args = ap.parse_args()
     if args.install:
         return install(args.dbname)
