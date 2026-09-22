@@ -138,3 +138,28 @@ there is no command-line token option. After all gates pass it still returns
 
 No Binance order gateway or `/fapi/v1/order` submission path is wired at this
 checkpoint.
+
+
+## Demo Named Pipe end-to-end acceptance
+
+`Core/tools/run_demo_execution_pipe_e2e.cmd` is the Windows acceptance harness
+for the dedicated Demo endpoint. It runs the current-user DACL/anonymous-token
+security test against all three canonical pipe names, then performs real framed
+requests against `AstuExecutionDemo.v1`.
+
+The harness covers:
+
+- valid capability + fresh convergence + matching journal source ->
+  `ROUTING_NOT_IMPLEMENTED`;
+- missing source simulation order -> `SOURCE_REJECTED`;
+- wrong application capability -> `CAPABILITY_REJECTED`;
+- stale convergence evidence -> `CONVERGENCE_REJECTED`;
+- request/source response correlation;
+- no capability-token field in responses;
+- `acceptedForExecution=false`;
+- `orderSubmissionAttempted=false`;
+- no `TESTNET_ORDER_SUBMISSION_ATTEMPT` or
+  `exchangeSubmissionAttempted=true` evidence in the source journal.
+
+The harness uses no Binance private endpoint and does not require exchange
+credentials.

@@ -867,9 +867,17 @@ Even after capability, convergence and source verification all pass, the host
 returns `ROUTING_NOT_IMPLEMENTED`, `acceptedForExecution=false`, and
 `orderSubmissionAttempted=false`.
 
+Windows end-to-end acceptance now exercises the dedicated Demo pipe with the
+real framed Named Pipe transport. It verifies the current-user-only DACL,
+request/source correlation, a valid admission-to-`ROUTING_NOT_IMPLEMENTED`
+path, missing source rejection, bad-capability rejection, stale-convergence
+rejection, response token non-disclosure, and the absence of any
+`TESTNET_ORDER_SUBMISSION_ATTEMPT` or
+`exchangeSubmissionAttempted=true` journal evidence.
+
 This increment still does **not** add a Demo order router, Binance private
 mutation gateway, or executable submission path. The next implementation
-increment is a Windows end-to-end acceptance for the dedicated Demo pipe,
-including current-user DACL enforcement, request correlation, source-journal
-rejection cases and proof that no submission attempt can occur. Mainnet routing
-remains out of scope.
+increment is to introduce a bounded Demo submission gateway interface behind
+the already-verified admission boundary, initially with a non-network fake
+transport for deterministic request signing/idempotency/error semantics.
+Mainnet routing remains out of scope.

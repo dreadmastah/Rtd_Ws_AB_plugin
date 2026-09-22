@@ -314,6 +314,11 @@ jobs:
         shell: cmd
         run: Core\tools\run_pipe_smoke.cmd
 
+      - name: Windows Demo admission Named Pipe end-to-end
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_demo_execution_pipe_e2e.cmd
+
       - name: Windows live WSRTD DataStatus pipe smoke
         if: runner.os == 'Windows'
         shell: cmd
