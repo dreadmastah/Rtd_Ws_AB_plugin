@@ -829,9 +829,31 @@ Cross-platform CI covers stream-event normalization, ASTU order ownership,
 event-time regression, liveness expiry, account/position REST convergence,
 order convergence, schema shape, and the C++ freshness/convergence model.
 
-## Current next implementation step
+## Current Demo execution milestone - admission foundation
 
-Keep PR #2 simulation-only. Develop any Binance USD-M Demo order submission in
-a separately authorized milestone with a separate execution contract, fresh
-per-request convergence checks, capability-authenticated IPC, and its own
-credentialed acceptance evidence. Mainnet routing remains out of scope.
+PR #2 remains simulation-only. Demo execution work now lives on the separate
+`chatgpt/demo-order-execution-milestone` branch based on reviewed checkpoint
+`a5cf7511353d615a29a67f532cc8fd08cbb8314a`.
+
+The first milestone increment defines a distinct `DemoExecutionRequest.v1`
+and `DemoExecutionResult.v1` contract. It also introduces a fail-closed
+application admission policy requiring:
+
+- a non-simulation source order identity;
+- bounded request freshness and expiry;
+- an explicit high-entropy application capability;
+- a fresh user-data convergence snapshot;
+- live/orderly stream state;
+- converged account, position, and order evidence;
+- no REST fallback requirement;
+- zero unresolved ASTU orders.
+
+The reserved endpoint is `\\.\pipe\AstuExecutionDemo.v1`. It is separate
+from the simulation pipe so `AstuSimulate` cannot be reinterpreted as an
+order-submission request.
+
+This increment does **not** add a Demo order router, order gateway, private
+mutation endpoint, or executable submission path. The next implementation
+increment is to bind the admission gate to a dedicated Demo pipe host and to
+verify the source simulation/journal identity before any router is introduced.
+Mainnet routing remains out of scope.

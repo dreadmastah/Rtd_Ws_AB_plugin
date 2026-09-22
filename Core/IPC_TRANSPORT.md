@@ -97,3 +97,36 @@ A request is rejected before simulated sizing when any of these fail:
 9. synthetic risk gate.
 
 No implementation in this transport opens a Binance private connection or submits an order.
+
+
+## Reserved Demo execution endpoint
+
+The Demo execution milestone reserves a separate local endpoint:
+
+```text
+\\.\pipe\AstuExecutionDemo.v1
+```
+
+This endpoint is deliberately distinct from `AstuExecutionSim.v1`. The
+simulation request must never be reinterpreted as an exchange-submission
+request.
+
+The first Demo milestone increment adds only the request/result contract and
+admission policy. Admission requires all of the following before a future
+router may be invoked:
+
+1. the existing local-user Named Pipe security boundary;
+2. `DemoExecutionRequest.v1` schema validation;
+3. a bounded, unexpired request timestamp;
+4. an explicit application capability ID and high-entropy bearer token;
+5. a fresh `TestnetUserDataState.v1` convergence snapshot;
+6. live/orderly user-data, reconciled account + positions + orders, no REST
+   fallback requirement, and zero unresolved ASTU orders.
+
+The capability token is request-only sensitive material. It must not be copied
+to responses, journals, status artifacts, or logs.
+
+At this checkpoint no Demo pipe server, Binance order gateway, or
+`/fapi/v1/order` submission path is wired. A successful admission result means
+only that the request passed the pre-routing gate; it is not proof that an
+exchange order was attempted.

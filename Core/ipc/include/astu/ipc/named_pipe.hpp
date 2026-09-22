@@ -23,6 +23,8 @@ namespace astu::ipc {
 inline constexpr wchar_t kExecutionPipeName[] = L"\\\\.\\pipe\\AstuExecutionSim.v1";
 inline constexpr wchar_t kReconciliationPipeName[] =
     L"\\\\.\\pipe\\AstuExecutionReconcileSim.v1";
+inline constexpr wchar_t kDemoExecutionPipeName[] =
+    L"\\\\.\\pipe\\AstuExecutionDemo.v1";
 
 #ifdef _WIN32
 

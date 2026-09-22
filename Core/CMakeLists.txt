@@ -202,6 +202,19 @@ add_test(
     COMMAND astu_testnet_convergence_tests
 )
 
+add_executable(
+    astu_demo_execution_protocol_tests
+    tests/demo_execution_protocol_tests.cpp
+)
+target_link_libraries(
+    astu_demo_execution_protocol_tests
+    PRIVATE astu_core
+)
+add_test(
+    NAME astu_demo_execution_protocol_tests
+    COMMAND astu_demo_execution_protocol_tests
+)
+
 if(WIN32)
     add_executable(
         astu_named_pipe_security_tests

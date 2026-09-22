@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:DemoExecutionResult.v1",
+  "title": "DemoExecutionResult.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "requestId",
+    "sourceSimulationOrderId",
+    "decisionCode",
+    "acceptedForExecution",
+    "orderSubmissionAttempted",
+    "executionEnvironment",
+    "exchangeClientOrderId",
+    "exchangeOrderId",
+    "exchangeOrderStatus",
+    "reason"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "messageType": {"const": "DemoExecutionResult.v1"},
+    "requestId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "sourceSimulationOrderId": {"type": "string", "minLength": 1, "maxLength": 64},
+    "decisionCode": {
+      "enum": [
+        "AUTHORIZED",
+        "INVALID_REQUEST",
+        "CAPABILITY_REJECTED",
+        "REQUEST_STALE",
+        "REQUEST_FROM_FUTURE",
+        "CONVERGENCE_REJECTED",
+        "ROUTING_NOT_IMPLEMENTED"
+      ]
+    },
+    "acceptedForExecution": {"type": "boolean"},
+    "orderSubmissionAttempted": {"type": "boolean"},
+    "executionEnvironment": {"const": "BINANCE_USDM_DEMO"},
+    "exchangeClientOrderId": {"type": "string", "maxLength": 36},
+    "exchangeOrderId": {"type": "string", "maxLength": 64},
+    "exchangeOrderStatus": {"type": "string", "maxLength": 64},
+    "reason": {"type": "string", "maxLength": 512}
+  }
+}
