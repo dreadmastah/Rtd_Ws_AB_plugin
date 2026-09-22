@@ -483,10 +483,7 @@ def claim_launcher_ownership(dbname: str, relay_port: int) -> tuple[str, Instanc
     # Re-adjudicate under exclusive ownership in case another contender
     # changed the PID state between initial inspection and lock acquisition.
     adjudication = adjudicate_pid_state()
-    if adjudication not in (
-        LAUNCH_OWNERSHIP_ACQUIRED,
-        LAUNCH_OWNERSHIP_ALREADY_RUNNING,
-    ):
+    if adjudication != LAUNCH_OWNERSHIP_ACQUIRED:
         lock.release()
         return adjudication, None
     return LAUNCH_OWNERSHIP_ACQUIRED, lock
@@ -614,8 +611,6 @@ def ensure_running(dbname: str, relay_port: int) -> int:
         print("WSRTD_ENSURE_RUNNING=ALREADY_RUNNING")
         return 0
 
-    with contextlib.suppress(OSError):
-        PIDFILE.unlink()
     if not configure_registry(dbname, relay_port):
         print("WSRTD_ENSURE_RUNNING=FAIL_REGISTRY")
         return 2

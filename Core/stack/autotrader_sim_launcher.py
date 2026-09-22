@@ -83,6 +83,94 @@ CREDENTIAL_PROFILE_TESTNET_USER_DATA = "TESTNET_USER_DATA"
 RUNTIME.mkdir(parents=True, exist_ok=True)
 LOGS.mkdir(parents=True, exist_ok=True)
 
+_containment_job = None
+
+
+def establish_child_containment() -> None:
+    """Join a private job BEFORE Popen: Windows atomically contains descendants.
+
+    The raw, non-inheritable handle is retained until process exit. Explicitly
+    closing it would kill this dedicated launcher too. Only this launcher joins;
+    existing sibling processes (including AmiBroker) are never attached.
+    """
+    global _containment_job
+    if os.name != "nt" or _containment_job is not None:
+        return
+    import ctypes
+    from ctypes import wintypes
+
+    class BasicLimits(ctypes.Structure):
+        _fields_ = [
+            ("PerProcessUserTimeLimit", ctypes.c_longlong),
+            ("PerJobUserTimeLimit", ctypes.c_longlong),
+            ("LimitFlags", wintypes.DWORD),
+            ("MinimumWorkingSetSize", ctypes.c_size_t),
+            ("MaximumWorkingSetSize", ctypes.c_size_t),
+            ("ActiveProcessLimit", wintypes.DWORD),
+            ("Affinity", ctypes.c_size_t),
+            ("PriorityClass", wintypes.DWORD),
+            ("SchedulingClass", wintypes.DWORD),
+        ]
+
+    class IoCounters(ctypes.Structure):
+        _fields_ = [(name, ctypes.c_ulonglong) for name in (
+            "ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+            "ReadTransferCount", "WriteTransferCount", "OtherTransferCount",
+        )]
+
+    class ExtendedLimits(ctypes.Structure):
+        _fields_ = [
+            ("BasicLimitInformation", BasicLimits),
+            ("IoInfo", IoCounters),
+            ("ProcessMemoryLimit", ctypes.c_size_t),
+            ("JobMemoryLimit", ctypes.c_size_t),
+            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+            ("PeakJobMemoryUsed", ctypes.c_size_t),
+        ]
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+    kernel.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel.SetInformationJobObject.argtypes = [
+        wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
+    ]
+    kernel.SetInformationJobObject.restype = wintypes.BOOL
+    kernel.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    kernel.AssignProcessToJobObject.restype = wintypes.BOOL
+    kernel.GetCurrentProcess.argtypes = []
+    kernel.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    handle = kernel.CreateJobObjectW(None, None)
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    limits = ExtendedLimits()
+    limits.BasicLimitInformation.LimitFlags = 0x2000  # KILL_ON_JOB_CLOSE
+    try:
+        if not kernel.SetInformationJobObject(
+            handle, 9, ctypes.byref(limits), ctypes.sizeof(limits)
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if not kernel.AssignProcessToJobObject(handle, kernel.GetCurrentProcess()):
+            raise ctypes.WinError(ctypes.get_last_error())
+    except BaseException:
+        kernel.CloseHandle(handle)
+        raise
+    _containment_job = handle
+    print("ASTU_CHILD_CONTAINMENT=JOB_OBJECT", flush=True)
+
+
+def stop_child_confirmed(proc: subprocess.Popen) -> bool:
+    """Only a successful wait is proof that the owned process exited."""
+    for operation in (proc.terminate, proc.kill):
+        with contextlib.suppress(Exception):
+            operation()
+        try:
+            return isinstance(proc.wait(timeout=5.0), int)
+        except Exception:
+            pass
+    return False
+
 
 def pid_alive(pid: int) -> bool:
     if pid <= 0:
@@ -454,31 +542,17 @@ def register_spawned_child(
             launch_nonce,
         )
     except Exception as exc:
-        process_records.pop(name, None)
-        with contextlib.suppress(Exception):
-            proc.terminate()
-        try:
-            proc.wait(timeout=5.0)
-        except Exception:
-            with contextlib.suppress(Exception):
-                proc.kill()
-            with contextlib.suppress(Exception):
-                proc.wait(timeout=5.0)
-
+        # If identity capture failed, retain a deliberately ambiguous PID record.
+        # Recovery already rejects records without complete identity fields.
+        process_records.setdefault(name, {"pid": proc.pid})
         with contextlib.suppress(OSError):
-            PID_FILE.with_suffix(".tmp").unlink()
-        state = load_pid_state()
-        state_processes = state.get("processes")
-        if (
-            state.get("launchNonce") == launch_nonce
-            and isinstance(state_processes, dict)
-            and name in state_processes
-        ):
-            try:
+            save_pids(process_records, launch_nonce)
+        if stop_child_confirmed(proc):
+            process_records.pop(name, None)
+            with contextlib.suppress(OSError):
                 save_pids(process_records, launch_nonce)
-            except OSError:
-                with contextlib.suppress(OSError):
-                    PID_FILE.unlink()
+            with contextlib.suppress(OSError):
+                PID_FILE.with_suffix(".tmp").unlink()
         raise RuntimeError(
             f"cannot persist ownership identity for child {name}"
         ) from exc
@@ -543,9 +617,17 @@ def stop() -> int:
             with contextlib.suppress(OSError):
                 os.kill(launcher, signal.SIGTERM)
     deadline = time.monotonic() + 5.0
-    while process_record_matches(launcher_record) and time.monotonic() < deadline:
+    while True:
+        # Job cleanup can finish after the launcher exits. Verify every recorded
+        # identity before discarding evidence, including inaccessible processes.
+        unconfirmed = any(
+            process_record_status(record) not in (PROCESS_OWNER_DEAD, PROCESS_OWNER_STALE)
+            for record in processes.values()
+        )
+        if not unconfirmed or time.monotonic() >= deadline:
+            break
         time.sleep(0.05)
-    if process_record_matches(launcher_record):
+    if unconfirmed:
         print("ASTU_SIM_STACK_STOP_REFUSED=OWNED_PROCESS_DID_NOT_EXIT")
         return 3
     with contextlib.suppress(OSError):
@@ -861,6 +943,8 @@ def run(args: argparse.Namespace) -> int:
             stdout=fh,
             credential_profile=credential_profile,
         )
+        # Include the child in shutdown even if identity/persistence fails.
+        children[name] = proc
         register_spawned_child(process_records, name, proc, launch_nonce)
         child_credential_profiles[name] = credential_profile
         print(f"STARTED_{name.upper()}_PID={proc.pid}")
@@ -1003,6 +1087,7 @@ def run(args: argparse.Namespace) -> int:
         return 5
 
     try:
+        establish_child_containment()
         save_pids(process_records, launch_nonce)
         if risk_command is not None:
             risk_profile = CREDENTIAL_PROFILE_NONE
@@ -1262,26 +1347,27 @@ def run(args: argparse.Namespace) -> int:
                 )
                 save_pids(process_records, launch_nonce, startup_complete=True)
     finally:
-        for proc in reversed(list(children.values())):
-            if proc.poll() is None:
-                with contextlib.suppress(Exception):
-                    proc.terminate()
-        deadline = time.time() + 5.0
-        for proc in reversed(list(children.values())):
-            while proc.poll() is None and time.time() < deadline:
-                time.sleep(0.1)
-            if proc.poll() is None:
-                with contextlib.suppress(Exception):
-                    proc.kill()
+        all_exited = True
+        for name, proc in reversed(list(children.items())):
+            if stop_child_confirmed(proc):
+                process_records.pop(name, None)
+            else:
+                all_exited = False
+                process_records.setdefault(name, {"pid": proc.pid})
         for fh in logs.values():
             with contextlib.suppress(Exception):
                 fh.close()
         state = load_pid_state()
-        if state.get("launchNonce") == launch_nonce:
+        if all_exited and state.get("launchNonce") == launch_nonce:
             with contextlib.suppress(OSError):
                 PID_FILE.unlink()
-        release_launch_lock(launch_nonce)
-        print("ASTU_SIM_STACK_STATUS=STOPPED")
+        if all_exited:
+            release_launch_lock(launch_nonce)
+            print("ASTU_SIM_STACK_STATUS=STOPPED")
+        else:
+            with contextlib.suppress(OSError):
+                save_pids(process_records, launch_nonce)
+            print("ASTU_SIM_STACK_STATUS=SHUTDOWN_UNCONFIRMED")
 
     return 0
 

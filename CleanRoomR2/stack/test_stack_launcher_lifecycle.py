@@ -193,8 +193,13 @@ class LauncherOwnershipTests(unittest.TestCase):
             Path(self.temp.name) / "stack_pids.json",
         )
         self.pid_patch.start()
+        self.pause_patch = mock.patch.object(
+            stack_launcher, "PAUSEFILE", Path(self.temp.name) / "pause"
+        )
+        self.pause_patch.start()
 
     def tearDown(self) -> None:
+        self.pause_patch.stop()
         self.pid_patch.stop()
         self.temp.cleanup()
 
@@ -308,8 +313,80 @@ class LauncherOwnershipTests(unittest.TestCase):
         ):
             result = stack_launcher.ensure_running("WSRTD_TEST", 19102)
         self.assertEqual(result, 0)
-        self.assertFalse(stack_launcher.PIDFILE.exists())
+        # Only the supervisor may replace stale state under exclusive ownership.
+        self.assertTrue(stack_launcher.PIDFILE.exists())
         popen.assert_called_once()
+
+    def test_interleaved_ensure_preserves_winning_supervisor_state(self) -> None:
+        self.write_state(process_record(41, 100), relay=process_record(42, 101))
+        old_bytes = stack_launcher.PIDFILE.read_bytes()
+        real_adjudicate = stack_launcher.adjudicate_pid_state
+        barrier = threading.Barrier(2)
+        winner_published = threading.Event()
+        owner = process_record(99, 300)
+        relay = process_record(100, 301)
+        server = process_record(101, 302)
+        identities = {}
+        winning_bytes = []
+        acquired_locks = []
+
+        def adjudicate():
+            result = real_adjudicate()
+            barrier.wait(timeout=5)
+            return result
+
+        def spawn(*args, **kwargs):
+            # Both real ensure callers saw stale state. Their supervisor
+            # candidates still use the production ownership adjudication.
+            with mock.patch.object(stack_launcher, "adjudicate_pid_state", real_adjudicate):
+                result, lock = stack_launcher.claim_launcher_ownership(
+                    "WSRTD_RACE_TEST", 19107
+                )
+            if result == stack_launcher.LAUNCH_OWNERSHIP_ACQUIRED:
+                acquired_locks.append(lock)
+                identities.update({99: owner, 100: relay, 101: server})
+                self.write_state(owner, relay=relay, server=server)
+                winning_bytes.append(stack_launcher.PIDFILE.read_bytes())
+                winner_published.set()
+            return SimpleNamespace(pid=99)
+
+        probe_lock = threading.Lock()
+        probes = []
+        def probe(*args):
+            with probe_lock:
+                probes.append(True)
+                first = len(probes) == 1
+            if not first:
+                self.assertTrue(winner_published.wait(5))
+            # Reproduce a stale probe result for the resumed caller.
+            return False
+
+        with (
+            mock.patch.object(stack_launcher, "adjudicate_pid_state", adjudicate),
+            mock.patch.object(stack_launcher, "process_identity",
+                              side_effect=lambda pid: identities.get(pid)),
+            mock.patch.object(stack_launcher, "pid_alive",
+                              side_effect=lambda pid: pid in identities),
+            mock.patch.object(stack_launcher, "instance_running", side_effect=probe),
+            mock.patch.object(stack_launcher, "configure_registry", return_value=True),
+            mock.patch.object(stack_launcher, "popen_with_sanitized_environment",
+                              side_effect=spawn),
+            mock.patch.dict(stack_launcher.CFG, {"identity_bridge": {"enabled": False}}),
+            ThreadPoolExecutor(max_workers=2) as pool,
+        ):
+            try:
+                results = list(pool.map(
+                    lambda _: stack_launcher.ensure_running("WSRTD_RACE_TEST", 19107),
+                    range(2),
+                ))
+                self.assertEqual(results, [0, 0])
+                self.assertEqual(len(acquired_locks), 1)
+                self.assertNotEqual(old_bytes, winning_bytes[0])
+                self.assertEqual(stack_launcher.PIDFILE.read_bytes(), winning_bytes[0])
+                self.assertEqual(stack_launcher.status_from_pidfile(), 0)
+            finally:
+                for lock in acquired_locks:
+                    lock.release()
 
     def test_dead_launcher_and_all_dead_children_allow_recovery(self) -> None:
         self.write_state(
