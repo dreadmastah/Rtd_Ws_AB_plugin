@@ -162,9 +162,7 @@ def inspect(data, *, base, dbname, port, lock_identity, identity_enabled,
         if statuses["launcher"] not in ("DEAD", "STALE"):
             return None
         if any(status not in ("MATCH", "DEAD", "STALE") for role, status in statuses.items()
-               if role != "launcher"):
-            return None
-        if statuses.get("amibroker") == "STALE":
+               if role not in ("launcher", "amibroker")):
             return None
         # Enumeration is defensive only; it never supplies missing ownership.
         rows = process_snapshot() if snapshot is None else snapshot
@@ -238,7 +236,9 @@ def inspect(data, *, base, dbname, port, lock_identity, identity_enabled,
                 allowed.add(row["pid"])
         # No second copy of these scripts, or unknown child of the dead launcher,
         # may be silently ignored. Broker is preserved, never a cleanup target.
-        broker_pid = records.get("amibroker", {}).get("pid")
+        # A reused/unreadable Broker PID grants no ownership or exemption.
+        broker_pid = (records["amibroker"]["pid"]
+                      if statuses.get("amibroker") == "MATCH" else None)
         for pid, row in rows.items():
             if pid in allowed:
                 continue

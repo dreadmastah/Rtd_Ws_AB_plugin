@@ -241,11 +241,102 @@ class OrphanRecoveryTests(unittest.TestCase):
         self.assertEqual(launcher.run_supervisor("Data", 10101), 0)
         self.assertIn(90, self.identities)
 
-    def test_ambiguous_broker_record_refuses(self):
+    def test_stale_broker_child_refuses(self):
         self.data["processes"]["amibroker"] = dict(self.identities[90], creationTime100ns=1)
         self.data["amibroker"] = 90
+        self.rows[90]["parent"] = 11
         self.write()
+        self.assertEqual(launcher.process_record_status(self.data["processes"]["amibroker"]), "STALE")
+        self.assertIsNone(launcher.inspect_orphaned_cohort(self.data, "Data", 10101))
         self.assert_refused()
+        self.pins.assert_not_called()
+
+    def broker_reuse(self, status, *, dead_services=False, child=False):
+        self.data["processes"]["amibroker"] = copy.deepcopy(self.identities[90])
+        self.data["amibroker"] = 90
+        if dead_services:
+            for pid in (21, 22, 23, 31, 32, 33):
+                self.rows.pop(pid)
+                self.identities.pop(pid)
+        if status == "DEAD":
+            self.rows.pop(90)
+            self.identities.pop(90)
+        else:
+            self.rows[90]["parent"] = 11 if child else 999
+            if status != "MATCH":
+                self.identities[90] = dict(self.identities[90], creationTime100ns=9999)
+                self.rows[90]["created"] = 9999
+                if not child:
+                    self.rows[90]["executable"] = str(self.base / "svchost.exe")
+                    self.identities[90]["executable"] = self.rows[90]["executable"]
+            if status == "AMBIGUOUS":
+                self.patch(launcher, "process_identity", side_effect=lambda pid:
+                           None if pid == 90 else copy.deepcopy(self.identities.get(pid)))
+                self.assertTrue(launcher.pid_alive(90))
+                self.assertIsNone(launcher.process_identity(90))
+        self.write()
+        self.assertEqual(launcher.process_record_status(self.data["processes"]["amibroker"]), status)
+
+    def assert_reboot_recovery(self, status):
+        self.broker_reuse(status, dead_services=True)
+        self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_ACQUIRED)
+        plan = launcher.inspect_orphaned_cohort(self.data, "Data", 10101)
+        self.assertEqual(plan.records, [])
+        self.assertEqual(launcher.ensure_running("Data", 10101), 0)
+        self.spawn.assert_called_once()
+        self.pins.assert_not_called()
+        self.assertEqual(self.terminated, [])
+
+    def test_reboot_broker_ambiguous_unrelated_pid_reuse(self):
+        self.assert_reboot_recovery("AMBIGUOUS")
+        self.assertIn(90, self.identities)
+
+    def test_reboot_broker_stale_unrelated_pid_reuse(self):
+        self.assert_reboot_recovery("STALE")
+        self.assertIn(90, self.identities)
+
+    def test_reboot_dead_broker_record(self):
+        self.assert_reboot_recovery("DEAD")
+
+    def test_ambiguous_broker_child_basename_does_not_prove_ownership(self):
+        self.broker_reuse("AMBIGUOUS", child=True)
+        self.assertEqual(Path(self.rows[90]["executable"]).name.lower(), "broker.exe")
+        self.assertIsNone(launcher.inspect_orphaned_cohort(self.data, "Data", 10101))
+        self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS)
+        self.assert_refused()
+        self.pins.assert_not_called()
+
+    def assert_broker_preserved_during_cleanup(self, status):
+        self.broker_reuse(status, child=status == "MATCH")
+        self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT)
+        plan = launcher.inspect_orphaned_cohort(self.data, "Data", 10101)
+        expected = {21, 22, 23, 31, 32, 33}
+        expected.update(pid for pid in (41, 42, 43) if pid in self.rows)
+        self.assertEqual({r["pid"] for r in plan.records}, expected)
+        self.assertEqual(launcher.run_supervisor("Data", 10101), 0)
+        self.assertEqual(set(self.terminated), expected)
+        self.assertEqual({c.args[0]["pid"] for c in self.pins.call_args_list}, expected)
+        self.assertIn(90, self.identities)
+        self.assertIn(90, self.rows)
+
+    def test_live_orphans_ambiguous_broker_reuse_preserved(self):
+        self.assert_broker_preserved_during_cleanup("AMBIGUOUS")
+
+    def test_live_orphans_stale_broker_reuse_preserved(self):
+        self.assert_broker_preserved_during_cleanup("STALE")
+
+    def test_matched_broker_child_never_pinned(self):
+        self.assert_broker_preserved_during_cleanup("MATCH")
+
+    def test_malformed_broker_records_still_refuse(self):
+        valid = copy.deepcopy(self.identities[90])
+        for record in (None, {}, dict(valid, pid=0), dict(valid, creationTime100ns=0),
+                       dict(valid, executable="Broker.exe"), dict(valid, pid=21)):
+            with self.subTest(record=record):
+                self.data["processes"]["amibroker"] = record
+                self.data["amibroker"] = 90
+                self.write()
+                self.assert_refused()
 
     def test_pause_no_cleanup_or_spawn(self):
         launcher.PAUSEFILE.touch()
@@ -737,6 +828,10 @@ class PortableDescendantTests(unittest.TestCase):
 
 @unittest.skipUnless(os.name == 'nt', 'Windows conhost topology and executable path semantics')
 class ConhostTests(unittest.TestCase):
+    broker_reuse = OrphanRecoveryTests.broker_reuse
+    assert_broker_preserved_during_cleanup = OrphanRecoveryTests.assert_broker_preserved_during_cleanup
+    test_live_orphans_ambiguous_broker_reuse_preserved = OrphanRecoveryTests.test_live_orphans_ambiguous_broker_reuse_preserved
+    test_live_orphans_stale_broker_reuse_preserved = OrphanRecoveryTests.test_live_orphans_stale_broker_reuse_preserved
     patch = OrphanRecoveryTests.patch
     record = OrphanRecoveryTests.record
     add_process = OrphanRecoveryTests.add_process

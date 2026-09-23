@@ -497,9 +497,10 @@ def adjudicate_pid_state(dbname: str | None = None, relay_port: int | None = Non
         if any(role in data and role not in processes
                for role in ("launcher", "relay", "server", "identity", "amibroker")):
             return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
-        if any(status == PROCESS_OWNER_AMBIGUOUS for status in statuses.values()):
-            return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
-        if statuses.get("amibroker") == PROCESS_OWNER_STALE:
+        # Broker is preserved, never a managed cleanup target. Its old PID
+        # may be reused; only inspection may grant a MATCHED child exemption.
+        if any(status == PROCESS_OWNER_AMBIGUOUS for role, status in statuses.items()
+               if role != "amibroker"):
             return LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS
         if dbname is not None:
             cohort = inspect_orphaned_cohort(data, dbname, relay_port)
