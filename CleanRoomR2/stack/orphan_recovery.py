@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import ctypes
 import json
+import ntpath
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -31,6 +33,34 @@ def absolute_path(path):
 
 def required_roles(identity_enabled):
     return {"launcher", "relay", "server"} | ({"identity"} if identity_enabled else set())
+
+
+def trusted_conhost_path():
+    """Resolve Windows' system directory without environment or PATH lookup."""
+    if os.name != "nt":
+        raise OSError("console host inspection requires Windows")
+    from ctypes import wintypes
+    api = ctypes.WinDLL("kernel32", use_last_error=True).GetSystemDirectoryW
+    api.argtypes = [wintypes.LPWSTR, wintypes.UINT]
+    api.restype = wintypes.UINT
+    buffer = ctypes.create_unicode_buffer(32768)
+    size = api(buffer, len(buffer))
+    if not size or size >= len(buffer):
+        raise OSError("system directory unavailable")
+    return normalized(Path(buffer.value) / "conhost.exe")
+
+
+def conhost_argv_path(path):
+    """Only the observed NT prefix; never relax Python/script path rules."""
+    if not isinstance(path, str):
+        return None
+    if path.startswith("\\??\\"):
+        path = path[4:]
+    # Reject relative, UNC, extended-device, and traversal representations.
+    if (not re.fullmatch(r"[A-Za-z]:\\[^:]*", path)
+            or any(part in (".", "..", "") for part in path[3:].split("\\"))):
+        return None
+    return ntpath.normcase(path)
 
 
 def valid_record(record):
@@ -171,17 +201,39 @@ def inspect(data, *, base, dbname, port, lock_identity, identity_enabled,
             if (normalized(root["executable"]) != expected_python
                     or root["creationTime100ns"] < records["launcher"]["creationTime100ns"]
                     or not verify(root_pid, root, role, expected_python, records["launcher"]["pid"])
-                    or len(descendants) > 1):
+                    or len(descendants) > 2):
                 return None
             result.roots.append(root_pid)
             result.records.append(root)
             allowed.add(root_pid)
+            seen_types = set()
             for row in descendants:
                 child = identity(row["pid"])
                 if (child is None or child["creationTime100ns"] < root["creationTime100ns"]
-                        or not verify(row["pid"], child, role, base_python, root_pid)
                         or any(r.get("parent") == row["pid"] for r in rows.values())):
                     return None
+                if normalized(child["executable"]) == base_python:
+                    kind = "python"
+                    if not verify(row["pid"], child, role, base_python, root_pid):
+                        return None
+                else:
+                    kind = "conhost"
+                    trusted = trusted_conhost_path()
+                    args = row.get("argv", [])
+                    if (not valid_record(child) or child["pid"] != row["pid"]
+                            or identity(row["pid"]) != child
+                            or row.get("parent") != root_pid
+                            or normalized(child["executable"]) != trusted
+                            or normalized(row.get("executable") or "") != trusted
+                            or int(row.get("created", 0)) // 10 != child["creationTime100ns"] // 10
+                            or len(args) != 2
+                            or conhost_argv_path(args[0]) != ntpath.normcase(trusted)
+                            or not isinstance(args[1], str)
+                            or re.fullmatch(r"0x[0-9a-fA-F]+", args[1]) is None):
+                        return None
+                if kind in seen_types:
+                    return None
+                seen_types.add(kind)
                 result.records.append(child)
                 allowed.add(row["pid"])
         # No second copy of these scripts, or unknown child of the dead launcher,

@@ -3,6 +3,7 @@ import contextlib
 import copy
 import io
 import json
+import ntpath
 import os
 from pathlib import Path
 import sys
@@ -683,10 +684,252 @@ class P1RegressionTests(unittest.TestCase):
         self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT)
 
 
+class PortableConhostParserTests(unittest.TestCase):
+    def test_device_prefix_and_case(self):
+        expected = ntpath.normcase(r'C:\Windows\System32\conhost.exe')
+        for value in (r'\??\C:\Windows\System32\conhost.exe', r'C:\WINDOWS\SYSTEM32\CONHOST.EXE'):
+            self.assertEqual(recovery.conhost_argv_path(value), expected)
+        for value in ('conhost.exe', r'\\?\C:\Windows\System32\conhost.exe', r'\Windows\System32\conhost.exe', r'C:conhost.exe', r'C:\Windows\..\Temp\conhost.exe'):
+            self.assertIsNone(recovery.conhost_argv_path(value))
+        # A lexical drive path can parse without identifying the trusted image.
+        self.assertNotEqual(recovery.conhost_argv_path(r'\??\C:\Temp\conhost.exe'), expected)
+
+
+class PortableDescendantTests(unittest.TestCase):
+    setUp = OrphanRecoveryTests.setUp
+    patch = OrphanRecoveryTests.patch
+    record = OrphanRecoveryTests.record
+    add_process = OrphanRecoveryTests.add_process
+    write = OrphanRecoveryTests.write
+    classify = OrphanRecoveryTests.classify
+    assert_refused = OrphanRecoveryTests.assert_refused
+
+    def test_root_only_and_base_python_only(self):
+        self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT)
+        for pid in (31, 32, 33):
+            self.rows.pop(pid); self.identities.pop(pid)
+        self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT)
+
+    def test_portable_negative_siblings(self):
+        rows, identities = copy.deepcopy(self.rows), copy.deepcopy(self.identities)
+        for case in ('second_python', 'third_utility', 'unknown_python'):
+            with self.subTest(case=case):
+                self.rows, self.identities = copy.deepcopy(rows), copy.deepcopy(identities)
+                self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT)
+                if case == 'second_python':
+                    self.add_process(self.record(71, 250, self.python), 21, 'wsrtd_relay.py')
+                else:
+                    executable = self.base / ('utility.exe' if case == 'third_utility' else 'python.exe')
+                    self.add_process(self.record(71, 250, str(executable)), 21, None)
+                    if case == 'third_utility':
+                        self.add_process(self.record(72, 260, str(executable)), 21, None)
+                # Portable expected system path only; no Windows drive strings
+                # are normalized using the host filesystem in this fixture.
+                with mock.patch.object(recovery, 'trusted_conhost_path',
+                                       return_value=recovery.normalized(self.base / 'system' / 'conhost.exe')):
+                    self.assertIsNone(launcher.inspect_orphaned_cohort(self.data, 'Data', 10101))
+                    self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS)
+                    self.assert_refused()
+                    self.assertEqual(launcher.run_supervisor('Data', 10101), 4)
+                    self.pins.assert_not_called()
+                    self.supervise.assert_not_called()
+
+
+@unittest.skipUnless(os.name == 'nt', 'Windows conhost topology and executable path semantics')
+class ConhostTests(unittest.TestCase):
+    patch = OrphanRecoveryTests.patch
+    record = OrphanRecoveryTests.record
+    add_process = OrphanRecoveryTests.add_process
+    write = OrphanRecoveryTests.write
+    classify = OrphanRecoveryTests.classify
+    assert_refused = OrphanRecoveryTests.assert_refused
+
+    def setUp(self):
+        OrphanRecoveryTests.setUp(self)
+        self.conhost = recovery.normalized(Path('C:/Windows/System32/conhost.exe'))
+        self.patch(recovery, 'trusted_conhost_path', return_value=self.conhost)
+        # Observed Windows topology: venv root -> base Python + system conhost.
+        # Console hosts are optional, not universal; no live PID is used here.
+        for root in (21, 22, 23):
+            self.host(root + 20, root)
+
+    def host(self, pid, parent):
+        rec = self.record(pid, self.identities[parent]['creationTime100ns'] + 3, self.conhost)
+        self.add_process(rec, parent, None)
+        self.rows[pid]['argv'] = ['\\??\\' + self.conhost, '0x4']
+
+    def test_live_topology_and_cleanup_plan(self):
+        self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT)
+        plan = launcher.inspect_orphaned_cohort(self.data, 'Data', 10101)
+        self.assertEqual(plan.roots, [21, 22, 23])
+        expected = {21, 22, 23, 31, 32, 33, 41, 42, 43}
+        self.assertEqual({r['pid'] for r in plan.records}, expected)
+        self.assertEqual(launcher.run_supervisor('Data', 10101), 0)
+        self.assertEqual(set(self.terminated), expected)
+        self.assertEqual({c.args[0]['pid'] for c in self.pins.call_args_list}, expected)
+        self.assertTrue({80, 90} <= self.identities.keys())
+
+    def test_optional_descendant_sets(self):
+        original_rows, original_ids = copy.deepcopy(self.rows), copy.deepcopy(self.identities)
+        for keep in (set(), {'python'}, {'conhost'}, {'python', 'conhost'}):
+            with self.subTest(keep=keep):
+                self.rows, self.identities = copy.deepcopy(original_rows), copy.deepcopy(original_ids)
+                for root in (21, 22, 23):
+                    for kind, pid in (('python', root + 10), ('conhost', root + 20)):
+                        if kind not in keep:
+                            self.rows.pop(pid); self.identities.pop(pid)
+                self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_ORPHANED_MANAGED_COHORT)
+
+    def test_negative_console_predicates(self):
+        rows, ids = copy.deepcopy(self.rows), copy.deepcopy(self.identities)
+        def row(key, value): self.rows[41][key] = value
+        def native(**values): self.identities[41].update(values)
+        def outsider():
+            path = recovery.normalized(self.base / 'conhost.exe')
+            row('executable', path); native(executable=path); row('argv', [path, '0x4'])
+        def second_host():
+            self.rows.pop(31); self.identities.pop(31)
+            self.host(71, 21)
+        def second_python():
+            self.rows.pop(41); self.identities.pop(41)
+            self.add_process(self.record(71, 250, self.python), 21, 'wsrtd_relay.py')
+        # Per-case portability audit (18 cases). The five PORTABLE cases also
+        # run without this Windows fixture in the two portable classes above.
+        # Remaining cases need a valid conhost topology as their positive control.
+        portability = {
+            'second_conhost': 'WINDOWS_ONLY', 'second_python': 'PORTABLE',
+            'third_utility': 'PORTABLE', 'outside_system': 'WINDOWS_ONLY',
+            'native_pid_mismatch': 'WINDOWS_ONLY', 'native_time_mismatch': 'WINDOWS_ONLY',
+            'native_executable_mismatch': 'WINDOWS_ONLY', 'older_than_root': 'WINDOWS_ONLY',
+            'empty_argv': 'WINDOWS_ONLY', 'malformed_argv': 'WINDOWS_ONLY',
+            'wrong_argv0': 'PORTABLE', 'nonhex_token': 'WINDOWS_ONLY',
+            'empty_hex_token': 'WINDOWS_ONLY', 'extra_argument': 'WINDOWS_ONLY',
+            'grandchild': 'WINDOWS_ONLY', 'identity_unavailable': 'WINDOWS_ONLY',
+            'unknown_python': 'PORTABLE', 'basename_only': 'PORTABLE',
+        }
+        cases = {
+            'second_conhost': second_host,
+            'second_python': second_python,
+            'third_utility': lambda: self.add_process(self.record(71, 250, str(self.base/'utility.exe')), 21, None),
+            'outside_system': outsider,
+            'native_pid_mismatch': lambda: native(pid=999),
+            'native_time_mismatch': lambda: native(creationTime100ns=999),
+            'native_executable_mismatch': lambda: native(executable=str(self.base/'other.exe')),
+            'older_than_root': lambda: (native(creationTime100ns=190), row('created', 190)),
+            'empty_argv': lambda: row('argv', []),
+            'malformed_argv': lambda: row('argv', None),
+            'wrong_argv0': lambda: row('argv', [r'\??\C:\Temp\conhost.exe', '0x4']),
+            'nonhex_token': lambda: row('argv', [self.conhost, '0xG']),
+            'empty_hex_token': lambda: row('argv', [self.conhost, '0x']),
+            'extra_argument': lambda: row('argv', [self.conhost, '0x4', 'extra']),
+            'grandchild': lambda: self.add_process(self.record(71, 250, self.python), 41, 'wsrtd_relay.py'),
+            'identity_unavailable': lambda: self.identities.pop(41),
+            'unknown_python': lambda: self.add_process(self.record(71, 250, str(self.base/'python.exe')), 21, 'wsrtd_relay.py'),
+            'basename_only': lambda: row('argv', ['conhost.exe', '0x4']),
+        }
+        self.assertEqual(set(cases), set(portability))
+        for name, mutate in cases.items():
+            with self.subTest(case=name):
+                self.rows, self.identities = copy.deepcopy(rows), copy.deepcopy(ids)
+                mutate()
+                self.assertIsNone(launcher.inspect_orphaned_cohort(self.data, 'Data', 10101))
+                self.assertEqual(self.classify(), launcher.LAUNCH_OWNERSHIP_LIVE_AMBIGUOUS)
+                self.assert_refused()
+                self.assertEqual(launcher.run_supervisor('Data', 10101), 4)
+                self.supervise.assert_not_called()
+                self.pins.assert_not_called()
+
+    def test_unrelated_console_is_not_a_cleanup_target(self):
+        self.rows[41]['parent'] = 999
+        plan = launcher.inspect_orphaned_cohort(self.data, 'Data', 10101)
+        self.assertIsNotNone(plan)
+        self.assertNotIn(41, {r['pid'] for r in plan.records})
+
+    def test_system_directory_lookup_failure_refuses(self):
+        self.patch(recovery, 'trusted_conhost_path', side_effect=OSError('unavailable'))
+        self.assert_refused()
+
+    def test_identity_changes_during_console_validation(self):
+        original = launcher.process_identity.side_effect
+        calls = 0
+        def changed(pid):
+            nonlocal calls
+            rec = original(pid)
+            if pid == 41:
+                calls += 1
+                if calls > 1: rec['creationTime100ns'] += 100
+            return rec
+        self.patch(launcher, 'process_identity', side_effect=changed)
+        self.assertIsNone(launcher.inspect_orphaned_cohort(self.data, 'Data', 10101))
+        self.assertFalse(self.terminated)
+
+    def test_device_prefix_and_case(self):
+        for pid in (41, 42, 43): self.rows[pid]['argv'][0] = self.rows[pid]['argv'][0].upper()
+        self.assertIsNotNone(launcher.inspect_orphaned_cohort(self.data, 'Data', 10101))
+
+    def test_pin_failure_before_any_termination(self):
+        pin = self.pins.side_effect
+        def fail(record):
+            if record['pid'] == 41: raise OSError('console pin denied')
+            return pin(record)
+        self.pins.side_effect = fail
+        self.assertEqual(launcher.run_supervisor('Data', 10101), 4)
+        self.assertEqual(self.terminated, [])
+        self.supervise.assert_not_called()
+        self.assertEqual(launcher.PIDFILE.read_bytes(), self.original)
+
+    def test_conhost_termination_failure(self):
+        self.fail_pid = 41
+        self.assertEqual(launcher.run_supervisor('Data', 10101), 4)
+        self.supervise.assert_not_called()
+        self.assertEqual(launcher.PIDFILE.read_bytes(), self.original)
+
+    def test_conhost_wait_timeout(self):
+        self.timeout_pid = 41
+        self.assertEqual(launcher.run_supervisor('Data', 10101), 4)
+        self.supervise.assert_not_called()
+        self.assertEqual(launcher.PIDFILE.read_bytes(), self.original)
+
+    def test_new_descendant_during_conhost_cleanup(self):
+        pin = self.pins.side_effect
+        def wrapped(record):
+            handle = pin(record); terminate = handle.terminate
+            def changed():
+                terminate()
+                if record['pid'] == 41:
+                    self.add_process(self.record(71, 500, self.python), 21, 'wsrtd_relay.py')
+            handle.terminate = changed
+            return handle
+        self.pins.side_effect = wrapped
+        self.assertEqual(launcher.run_supervisor('Data', 10101), 4)
+        self.supervise.assert_not_called()
+        self.assertEqual(launcher.PIDFILE.read_bytes(), self.original)
+
+
 REAL_SUPERVISOR_LOOP = launcher.run_supervisor_locked
 
 
 class WindowsHandleTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == 'nt', 'Windows system-directory API')
+    def test_trusted_conhost_uses_system_api(self):
+        api = mock.MagicMock()
+        def directory(buffer, size):
+            buffer.value = r'C:\Windows\System32'
+            return len(buffer.value)
+        api.GetSystemDirectoryW.side_effect = directory
+        with mock.patch.object(recovery.ctypes, 'WinDLL', return_value=api):
+            self.assertEqual(recovery.trusted_conhost_path(),
+                             recovery.normalized(r'C:\Windows\System32\conhost.exe'))
+        api.GetSystemDirectoryW.assert_called_once()
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows system-directory API')
+    def test_trusted_conhost_api_failure_and_truncation(self):
+        for size in (0, 32768):
+            api = mock.MagicMock()
+            api.GetSystemDirectoryW.return_value = size
+            with mock.patch.object(recovery.ctypes, 'WinDLL', return_value=api):
+                with self.assertRaises(OSError): recovery.trusted_conhost_path()
+
     def kernel(self, *, created=200, executable=None):
         api = mock.MagicMock()
         api.OpenProcess.return_value = 123
