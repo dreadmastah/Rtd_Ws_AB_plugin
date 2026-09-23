@@ -53,7 +53,7 @@ if errorlevel 1 (
 )
 
 ping -n 2 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert abs(float(o['maxNetDirectionalNotional'])-10.0)<1e-12,o; assert o['activeExposureReservations']==2,o; assert abs(float(o['reservedGrossNotional'])-20.0)<1e-9,o; assert abs(float(o['reservedNetDirectionalNotional']))<1e-9,o; assert o['orderRoutingEnabled'] is False; print('NET_DIRECTIONAL_OFFSET=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); assert abs(float(o['maxNetDirectionalNotional'])-10.0)<1e-12,o; assert o['activeExposureReservations']==2,o; assert abs(float(o['reservedGrossNotional'])-20.0)<1e-9,o; assert abs(float(o['reservedNetDirectionalNotional']))<1e-9,o; assert o['orderRoutingEnabled'] is False; print('NET_DIRECTIONAL_OFFSET=PASS')"
 if errorlevel 1 (
   echo NET_DIRECTIONAL_RISK_SMOKE=FAIL LIVE_STATUS
   set RC=6
@@ -73,7 +73,7 @@ start "ASTU Net Directional Risk Host 2" /b "%HOST%" ^
   --execution-status-file "%STATUS%"
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['recoveredActiveExposureReservationsAtStartup']==2,o; assert o['activeExposureReservations']==2,o; assert abs(float(o['reservedNetDirectionalNotional']))<1e-9,o; print('NET_DIRECTIONAL_RESTART=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); assert o['recoveredActiveExposureReservationsAtStartup']==2,o; assert o['activeExposureReservations']==2,o; assert abs(float(o['reservedNetDirectionalNotional']))<1e-9,o; print('NET_DIRECTIONAL_RESTART=PASS')"
 if errorlevel 1 (
   echo NET_DIRECTIONAL_RISK_SMOKE=FAIL RESTART_STATUS
   set RC=7
@@ -95,7 +95,7 @@ if errorlevel 1 (
 )
 
 ping -n 2 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['activeExposureReservations']==3,o; assert abs(float(o['reservedNetDirectionalNotional'])-10.0)<1e-9,o; assert o['orderRoutingEnabled'] is False; print('NET_DIRECTIONAL_RESTART_HEADROOM=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); assert o['activeExposureReservations']==3,o; assert abs(float(o['reservedNetDirectionalNotional'])-10.0)<1e-9,o; assert o['orderRoutingEnabled'] is False; print('NET_DIRECTIONAL_RESTART_HEADROOM=PASS')"
 if errorlevel 1 (
   echo NET_DIRECTIONAL_RISK_SMOKE=FAIL FINAL_STATUS
   set RC=10

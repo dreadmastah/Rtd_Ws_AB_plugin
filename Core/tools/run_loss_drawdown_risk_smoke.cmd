@@ -36,7 +36,7 @@ if errorlevel 1 (
   goto cleanup
 )
 
-python -c "import json, pathlib; o=json.load(open(r'%STATUS%',encoding='utf-8')); b=json.load(open(r'%BASELINE%',encoding='utf-8')); assert o['accountLossBaselineEnabled'] is True,o; assert o['accountLossMetricsReady'] is True,o; assert abs(float(o['dailyStartRiskCapital'])-1000.0)<1e-9,o; assert abs(float(o['dailyRiskCapitalLoss']))<1e-9,o; assert b['messageType']=='AccountLossBaselineState.v1',b; assert abs(float(b['dailyStartRiskCapital'])-1000.0)<1e-9,b; print('LOSS_BASELINE_SEED=PASS')"
+python -c "import json, pathlib; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); b=json.load(open(r'%BASELINE%',encoding='utf-8')); assert o['accountLossBaselineEnabled'] is True,o; assert o['accountLossMetricsReady'] is True,o; assert abs(float(o['dailyStartRiskCapital'])-1000.0)<1e-9,o; assert abs(float(o['dailyRiskCapitalLoss']))<1e-9,o; assert b['messageType']=='AccountLossBaselineState.v1',b; assert abs(float(b['dailyStartRiskCapital'])-1000.0)<1e-9,b; print('LOSS_BASELINE_SEED=PASS')"
 if errorlevel 1 (
   set RC=4
   goto cleanup
@@ -64,7 +64,7 @@ if errorlevel 1 (
   goto cleanup
 )
 
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['accountLossMetricsReady'] is True,o; assert abs(float(o['dailyStartRiskCapital'])-1000.0)<1e-9,o; assert abs(float(o['dailyRiskCapitalLoss'])-60.0)<1e-9,o; assert abs(float(o['weeklyRiskCapitalLoss'])-60.0)<1e-9,o; assert abs(float(o['maxDailyRiskCapitalLoss'])-50.0)<1e-9,o; print('DAILY_RISK_CAPITAL_LOSS_BLOCK=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); assert o['accountLossMetricsReady'] is True,o; assert abs(float(o['dailyStartRiskCapital'])-1000.0)<1e-9,o; assert abs(float(o['dailyRiskCapitalLoss'])-60.0)<1e-9,o; assert abs(float(o['weeklyRiskCapitalLoss'])-60.0)<1e-9,o; assert abs(float(o['maxDailyRiskCapitalLoss'])-50.0)<1e-9,o; print('DAILY_RISK_CAPITAL_LOSS_BLOCK=PASS')"
 if errorlevel 1 (
   set RC=6
   goto cleanup
@@ -110,7 +110,7 @@ start "ASTU Drawdown High Water" /b "%HOST%" ^
   --execution-status-file "%STATUS%"
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); b=json.load(open(r'%BASELINE%',encoding='utf-8')); assert abs(float(o['highWaterMarginBalance'])-1100.0)<1e-9,o; assert abs(float(o['accountDrawdown']))<1e-9,o; assert abs(float(b['highWaterMarginBalance'])-1100.0)<1e-9,b; print('ACCOUNT_HIGH_WATER_ADVANCE=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); b=json.load(open(r'%BASELINE%',encoding='utf-8')); assert abs(float(o['highWaterMarginBalance'])-1100.0)<1e-9,o; assert abs(float(o['accountDrawdown']))<1e-9,o; assert abs(float(b['highWaterMarginBalance'])-1100.0)<1e-9,b; print('ACCOUNT_HIGH_WATER_ADVANCE=PASS')"
 if errorlevel 1 (
   set RC=8
   goto cleanup
@@ -137,7 +137,7 @@ if errorlevel 1 (
   goto cleanup
 )
 
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['accountLossMetricsReady'] is True,o; assert abs(float(o['highWaterMarginBalance'])-1100.0)<1e-9,o; assert abs(float(o['accountDrawdown'])-150.0)<1e-9,o; assert abs(float(o['maxAccountDrawdown'])-100.0)<1e-9,o; assert o['orderRoutingEnabled'] is False; print('ACCOUNT_DRAWDOWN_BLOCK=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); assert o['accountLossMetricsReady'] is True,o; assert abs(float(o['highWaterMarginBalance'])-1100.0)<1e-9,o; assert abs(float(o['accountDrawdown'])-150.0)<1e-9,o; assert abs(float(o['maxAccountDrawdown'])-100.0)<1e-9,o; assert o['orderRoutingEnabled'] is False; print('ACCOUNT_DRAWDOWN_BLOCK=PASS')"
 if errorlevel 1 (
   set RC=10
   goto cleanup

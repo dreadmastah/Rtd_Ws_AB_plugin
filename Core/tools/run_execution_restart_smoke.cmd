@@ -103,7 +103,7 @@ if errorlevel 1 (
 
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json,time; o=json.load(open(r'%EXECSTATUS%',encoding='utf-8')); assert o['schemaVersion']==1; assert o['messageType']=='ExecutionStatus.v1'; assert o['processId']==int('!NEW_PID!'); assert o['lifecycleState']=='READY'; assert o['journalReady'] is True; assert o['pipeReady'] is True; assert o['orderRoutingEnabled'] is False; assert o['requestsSeen']>=1; age=int(time.time()*1000)-int(o['generatedUnixMs']); assert 0<=age<5000, age; print('EXECUTION_STATUS_RESTART_CHECK=PASS')"
+python -c "import json,time; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%EXECSTATUS%'); assert o['schemaVersion']==1; assert o['messageType']=='ExecutionStatus.v1'; assert o['processId']==int('!NEW_PID!'); assert o['lifecycleState']=='READY'; assert o['journalReady'] is True; assert o['pipeReady'] is True; assert o['orderRoutingEnabled'] is False; assert o['requestsSeen']>=1; age=int(time.time()*1000)-int(o['generatedUnixMs']); assert 0<=age<5000, age; print('EXECUTION_STATUS_RESTART_CHECK=PASS')"
 if errorlevel 1 (
   echo EXECUTION_RESTART_SMOKE=FAIL EXECUTION_STATUS
   set RC=13

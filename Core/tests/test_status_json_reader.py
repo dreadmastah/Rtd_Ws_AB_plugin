@@ -14,6 +14,108 @@ import status_json_reader as reader
 
 
 class ReaderTests(unittest.TestCase):
+    def test_all_migrated_live_checkpoints_use_shared_reader(self):
+        consumers = {
+            "available_balance_reservation": ("STATUS", 4),
+            "execution_restart": ("EXECSTATUS", 1),
+            "exposure_reservation": ("STATUS", 4),
+            "loss_drawdown_risk": ("STATUS", 4),
+            "net_directional_risk": ("STATUS", 3),
+            "realized_pnl_risk": ("EXECSTATUS", 2),
+        }
+        for name, (variable, expected_count) in consumers.items():
+            script = (Path(__file__).resolve().parents[1] / "tools" /
+                      f"run_{name}_smoke.cmd").read_text(encoding="utf-8")
+            lines = [line for line in script.splitlines()
+                     if line.startswith('python -c ') and f"%{variable}%" in line]
+            with self.subTest(script=name):
+                self.assertEqual(len(lines), expected_count)
+                for line in lines:
+                    self.assertIn(
+                        r"sys.path.insert(0,r'%ROOT%\tools'); "
+                        "from status_json_reader import read_json; "
+                        f"o=read_json(r'%{variable}%');", line)
+                    self.assertNotIn(f"json.load(open(r'%{variable}%'", line)
+
+    def test_unicode_and_multichunk_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "狀態.json"
+            expected = {"text": "snapshot" * 30000}
+            path.write_text(json.dumps(expected), encoding="utf-8")
+            self.assertEqual(reader.read_json(path), expected)
+            # Successful read must release the handle.
+            path.unlink()
+
+    def test_previously_migrated_live_checkpoints_remain_shared(self):
+        for name, count in [("reconciliation_fsm", 1), ("reconciliation_pipe", 2),
+                            ("runtime_order_reconciliation", 6),
+                            ("startup_order_snapshot", 4)]:
+            script = (Path(__file__).resolve().parents[1] / "tools" /
+                      f"run_{name}_smoke.cmd").read_text(encoding="utf-8")
+            lines = [line for line in script.splitlines()
+                     if line.startswith('python -c ') and "%STATUS%" in line]
+            with self.subTest(script=name):
+                self.assertEqual(len(lines), count)
+                for line in lines:
+                    self.assertIn("__import__('status_json_reader').read_json(r'%STATUS%')", line)
+                    self.assertNotIn("json.load(open(r'%STATUS%'", line)
+
+    @unittest.skipUnless(os.name == "nt", "Windows handle safety")
+    def test_native_partial_reads_close_once(self):
+        from ctypes import wintypes
+        pieces = iter([b'{"ok":', b'true}', b''])
+
+        def read_part(handle, buffer, size, count, overlapped):
+            part = next(pieces)
+            ctypes.memmove(buffer, part, len(part))
+            ctypes.cast(count, ctypes.POINTER(wintypes.DWORD))[0] = len(part)
+            return True
+
+        with mock.patch.object(reader, "_kernel") as kernel:
+            kernel.CreateFileW.return_value = 123
+            kernel.ReadFile.side_effect = read_part
+            kernel.CloseHandle.return_value = True
+            self.assertEqual(reader.read_json("狀態.json"), {"ok": True})
+            kernel.CreateFileW.assert_called_once_with(
+                "狀態.json", 0x80000000, 7, None, 3, 0x80, None)
+            self.assertEqual(kernel.ReadFile.call_count, 3)
+            kernel.CloseHandle.assert_called_once_with(123)
+
+    @unittest.skipUnless(os.name == "nt", "Windows handle safety")
+    def test_native_open_failure_does_not_close_invalid_handle(self):
+        with mock.patch.object(reader, "_kernel") as kernel, \
+                mock.patch.object(reader.ctypes, "get_last_error", return_value=2):
+            kernel.CreateFileW.return_value = ctypes.c_void_p(-1).value
+            with self.assertRaises(FileNotFoundError) as caught:
+                reader._read_bytes("missing")
+            self.assertEqual(caught.exception.winerror, 2)
+            kernel.ReadFile.assert_not_called()
+            kernel.CloseHandle.assert_not_called()
+
+    @unittest.skipUnless(os.name == "nt", "Windows handle safety")
+    def test_native_read_error_closes_and_preserves_original_error(self):
+        with mock.patch.object(reader, "_kernel") as kernel, \
+                mock.patch.object(reader.ctypes, "get_last_error", return_value=1117):
+            kernel.CreateFileW.return_value = 123
+            kernel.ReadFile.return_value = False
+            kernel.CloseHandle.return_value = False
+            with self.assertRaises(OSError) as caught:
+                reader._read_bytes("fixture")
+            self.assertEqual(caught.exception.winerror, 1117)
+            kernel.CloseHandle.assert_called_once_with(123)
+
+    def test_empty_truncated_and_invalid_unicode_are_not_retried(self):
+        for payload, error in [(b"", json.JSONDecodeError),
+                               (b'{"partial":', json.JSONDecodeError),
+                               (b"\xff", UnicodeDecodeError)]:
+            with self.subTest(payload=payload), mock.patch.object(
+                    reader, "_read_bytes", return_value=payload) as read, \
+                    mock.patch.object(reader.time, "sleep") as sleep:
+                with self.assertRaises(error):
+                    reader.read_json("fixture")
+                self.assertEqual(read.call_count, 1)
+                sleep.assert_not_called()
+
     def test_order_fsm_restart_status_reads_use_hardened_reader(self):
         script = (Path(__file__).resolve().parents[1] / "tools" /
                   "run_order_fsm_restart_smoke.cmd").read_text(encoding="utf-8")
@@ -86,6 +188,7 @@ class ReaderTests(unittest.TestCase):
                                       ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
         kernel.CreateFileW.restype = wintypes.HANDLE
         kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel.CloseHandle.restype = wintypes.BOOL
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "status.json"
             path.write_text('{"ok":true}')
@@ -96,8 +199,9 @@ class ReaderTests(unittest.TestCase):
             try:
                 with self.assertRaises(PermissionError):
                     path.read_text()
-                with self.assertRaisesRegex(PermissionError, "exhausted 5 attempts"):
-                    reader.read_json(path)
+                with mock.patch.object(reader.time, "sleep") as sleep:
+                    self.assertEqual(reader.read_json(path), {"ok": True})
+                    sleep.assert_not_called()
             finally:
                 kernel.CloseHandle(handle)
             self.assertEqual(reader.read_json(path), {"ok": True})
@@ -124,13 +228,19 @@ class ReaderTests(unittest.TestCase):
             process = subprocess.Popen([str(binary), "--publish", str(path)],
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                        creationflags=subprocess.CREATE_NO_WINDOW)
-            count = 0
+            total_loop_reads = 0
+            concurrent_execution_status_reads = 0
             try:
                 deadline = time.monotonic() + 45
                 while process.poll() is None:
                     snapshot = reader.read_json(path)
                     self.assertTrue(snapshot.get("seq") == -1 or snapshot.get("messageType") == "ExecutionStatus.v1")
-                    count += 1
+                    total_loop_reads += 1
+                    # Exclude the seed and reads which finish after the child
+                    # exits; only native snapshots observed during its lifetime
+                    # provide evidence of concurrent publication/read sharing.
+                    if snapshot.get("messageType") == "ExecutionStatus.v1" and process.poll() is None:
+                        concurrent_execution_status_reads += 1
                     self.assertLess(time.monotonic(), deadline, "publisher deadline exceeded")
                     time.sleep(0.001)  # 1 kHz sampling; do not busy-spin a reader.
             finally:
@@ -139,8 +249,34 @@ class ReaderTests(unittest.TestCase):
                 stdout, stderr = process.communicate(timeout=5)
             self.assertEqual(process.returncode, 0, stderr)
             self.assertIn(b"PUBLISH_COUNT=1000", stdout)
-            self.assertGreater(count, 0)
             self.assertEqual(reader.read_json(path)["messageType"], "ExecutionStatus.v1")
+            print(f"TOTAL_LOOP_READS={total_loop_reads} "
+                  f"CONCURRENT_EXECUTION_STATUS_READS={concurrent_execution_status_reads}")
+            self.assertGreater(total_loop_reads, 0)
+            self.assertGreater(
+                concurrent_execution_status_reads,
+                0,
+                "no ExecutionStatus.v1 snapshot was read while native publisher was running",
+            )
+
+    @unittest.skipUnless(os.name == "nt", "Windows concurrent test negative control")
+    def test_concurrent_seed_only_is_rejected(self):
+        process = mock.Mock()
+        process.poll.side_effect = [None, 0, 0]
+        process.returncode = 0
+        process.communicate.return_value = (b"PUBLISH_COUNT=1000", b"")
+        with mock.patch.object(subprocess, "Popen", return_value=process), \
+                mock.patch.object(reader, "read_json", side_effect=[
+                    {"seq": -1}, {"messageType": "ExecutionStatus.v1"}]) as read, \
+                mock.patch.object(time, "sleep"), mock.patch("builtins.print") as output:
+            with self.assertRaisesRegex(
+                    AssertionError,
+                    "no ExecutionStatus.v1 snapshot was read while native publisher was running"):
+                self.test_concurrent_atomic_publish_read()
+            self.assertEqual(read.call_count, 2)  # Seed loop read and valid final read.
+            output.assert_called_once_with(
+                "TOTAL_LOOP_READS=1 CONCURRENT_EXECUTION_STATUS_READS=0")
+            process.kill.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -48,7 +48,7 @@ if errorlevel 1 (
   goto cleanup
 )
 
-python -c "import json; o=json.load(open(r'%EXECSTATUS%',encoding='utf-8')); assert o['realizedPnlRequired'] is True,o; assert o['realizedPnlReady'] is True,o; assert o['realizedPnlProvider']=='FILE_BACKED_BINANCE_INCOME_V1',o; assert abs(float(o['dailyRealizedTradeLoss'])-60.0)<1e-9,o; assert abs(float(o['weeklyRealizedTradeLoss'])-60.0)<1e-9,o; assert abs(float(o['dailyFundingFee'])-1.0)<1e-9,o; assert abs(float(o['dailyCommission'])+2.0)<1e-9,o; assert o['realizedPnlIgnoredIncomeRecords']==1,o; assert abs(float(o['maxDailyRealizedTradeLoss'])-50.0)<1e-9,o; assert o['orderRoutingEnabled'] is False,o; print('REALIZED_PNL_DAILY_GATE=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%EXECSTATUS%'); assert o['realizedPnlRequired'] is True,o; assert o['realizedPnlReady'] is True,o; assert o['realizedPnlProvider']=='FILE_BACKED_BINANCE_INCOME_V1',o; assert abs(float(o['dailyRealizedTradeLoss'])-60.0)<1e-9,o; assert abs(float(o['weeklyRealizedTradeLoss'])-60.0)<1e-9,o; assert abs(float(o['dailyFundingFee'])-1.0)<1e-9,o; assert abs(float(o['dailyCommission'])+2.0)<1e-9,o; assert o['realizedPnlIgnoredIncomeRecords']==1,o; assert abs(float(o['maxDailyRealizedTradeLoss'])-50.0)<1e-9,o; assert o['orderRoutingEnabled'] is False,o; print('REALIZED_PNL_DAILY_GATE=PASS')"
 if errorlevel 1 (
   set RC=6
   goto cleanup
@@ -95,7 +95,7 @@ if errorlevel 1 (
   goto cleanup
 )
 
-python -c "import json; o=json.load(open(r'%EXECSTATUS%',encoding='utf-8')); assert o['realizedPnlRequired'] is True,o; assert o['realizedPnlReady'] is False,o; assert o['orderRoutingEnabled'] is False,o; print('REALIZED_PNL_MISSING_EVIDENCE_FAIL_CLOSED=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%EXECSTATUS%'); assert o['realizedPnlRequired'] is True,o; assert o['realizedPnlReady'] is False,o; assert o['orderRoutingEnabled'] is False,o; print('REALIZED_PNL_MISSING_EVIDENCE_FAIL_CLOSED=PASS')"
 if errorlevel 1 set RC=9
 
 :cleanup

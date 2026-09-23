@@ -66,7 +66,7 @@ if errorlevel 1 (
 )
 
 ping -n 2 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['activeExposureReservations']==1, o; assert abs(float(o['reservedGrossNotional'])-10.0)<1e-9, o; assert o['reservedPositionSlots']==1, o; assert o['exposureReservationCreateCount']==1, o; assert o['exposureReservationReleaseCount']==0, o; assert o['orderRoutingEnabled'] is False; print('EXPOSURE_RESERVATION_LIVE_BLOCK=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); assert o['activeExposureReservations']==1, o; assert abs(float(o['reservedGrossNotional'])-10.0)<1e-9, o; assert o['reservedPositionSlots']==1, o; assert o['exposureReservationCreateCount']==1, o; assert o['exposureReservationReleaseCount']==0, o; assert o['orderRoutingEnabled'] is False; print('EXPOSURE_RESERVATION_LIVE_BLOCK=PASS')"
 if errorlevel 1 (
   echo EXPOSURE_RESERVATION_SMOKE=FAIL LIVE_STATUS
   set RC=7
@@ -84,7 +84,7 @@ start "ASTU Exposure Reservation Host 2" /b "%HOST%" ^
   --execution-status-file "%STATUS%"
 ping -n 3 127.0.0.1 >nul
 
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['recoveredActiveExposureReservationsAtStartup']==1, o; assert o['activeExposureReservations']==1, o; assert abs(float(o['reservedGrossNotional'])-10.0)<1e-9, o; assert o['reservedPositionSlots']==1, o; assert o['exposureReservationCreateCount']==1, o; assert o['exposureReservationReleaseCount']==0, o; print('EXPOSURE_RESERVATION_RESTART_RECOVERY=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); assert o['recoveredActiveExposureReservationsAtStartup']==1, o; assert o['activeExposureReservations']==1, o; assert abs(float(o['reservedGrossNotional'])-10.0)<1e-9, o; assert o['reservedPositionSlots']==1, o; assert o['exposureReservationCreateCount']==1, o; assert o['exposureReservationReleaseCount']==0, o; print('EXPOSURE_RESERVATION_RESTART_RECOVERY=PASS')"
 if errorlevel 1 (
   echo EXPOSURE_RESERVATION_SMOKE=FAIL RESTART_STATUS
   set RC=8
@@ -120,7 +120,7 @@ if errorlevel 1 (
 )
 
 ping -n 2 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['activeExposureReservations']==0, o; assert abs(float(o['reservedGrossNotional']))<1e-12, o; assert o['reservedPositionSlots']==0, o; assert o['exposureReservationReleaseCount']==1, o; print('EXPOSURE_RESERVATION_TERMINAL_RELEASE=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); assert o['activeExposureReservations']==0, o; assert abs(float(o['reservedGrossNotional']))<1e-12, o; assert o['reservedPositionSlots']==0, o; assert o['exposureReservationReleaseCount']==1, o; print('EXPOSURE_RESERVATION_TERMINAL_RELEASE=PASS')"
 if errorlevel 1 (
   echo EXPOSURE_RESERVATION_SMOKE=FAIL RELEASE_STATUS
   set RC=13
@@ -135,7 +135,7 @@ if errorlevel 1 (
 )
 
 ping -n 2 127.0.0.1 >nul
-python -c "import json; o=json.load(open(r'%STATUS%',encoding='utf-8')); assert o['activeExposureReservations']==1, o; assert abs(float(o['reservedGrossNotional'])-10.0)<1e-9, o; assert o['exposureReservationCreateCount']==2, o; assert o['exposureReservationReleaseCount']==1, o; assert o['orderRoutingEnabled'] is False; print('EXPOSURE_RESERVATION_HEADROOM_REUSED=PASS')"
+python -c "import json; import sys; sys.path.insert(0,r'%ROOT%\tools'); from status_json_reader import read_json; o=read_json(r'%STATUS%'); assert o['activeExposureReservations']==1, o; assert abs(float(o['reservedGrossNotional'])-10.0)<1e-9, o; assert o['exposureReservationCreateCount']==2, o; assert o['exposureReservationReleaseCount']==1, o; assert o['orderRoutingEnabled'] is False; print('EXPOSURE_RESERVATION_HEADROOM_REUSED=PASS')"
 if errorlevel 1 (
   echo EXPOSURE_RESERVATION_SMOKE=FAIL REUSED_STATUS
   set RC=15
