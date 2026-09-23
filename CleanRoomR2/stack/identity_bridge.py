@@ -21,6 +21,7 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -172,10 +173,35 @@ def build_snapshot(manifest: dict[str, Any], recovery: dict[str, Any]) -> dict[s
 
 
 def write_atomic(path: Path, obj: dict[str, Any]) -> None:
+    payload = json.dumps(obj, indent=2, sort_keys=True) + "\n"
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    tmp: Path | None = None
+    delays = (0.025, 0.05, 0.1, 0.2)
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=path.name + ".", suffix=".tmp", delete=False,
+        ) as staging:
+            tmp = Path(staging.name)
+            staging.write(payload)
+        for attempt in range(len(delays) + 1):
+            try:
+                os.replace(tmp, path)
+                return
+            except OSError as exc:
+                if os.name != "nt" or getattr(exc, "winerror", None) not in (5, 32, 33):
+                    raise
+                if attempt == len(delays):
+                    LOG.error("identity publication exhausted attempts=%d path=%s",
+                              attempt + 1, path)
+                    raise
+                time.sleep(delays[attempt])
+    finally:
+        if tmp is not None:
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                LOG.exception("identity staging cleanup failed path=%s", tmp)
 
 
 def build_runtime_status_files(
