@@ -1,0 +1,598 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:ExecutionStatus.v1",
+  "title": "ExecutionStatus.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "generatedUnixMs",
+    "processId",
+    "lifecycleState",
+    "dataProvider",
+    "riskProvider",
+    "instrumentProvider",
+    "instrumentRulesRequired",
+    "positionProvider",
+    "positionStateRequiredForScaleActions",
+    "startupOrderSnapshotProvider",
+    "startupOrderSnapshotRequired",
+    "startupOrderTracked",
+    "startupOrderMatched",
+    "startupOrderMarkedUnknown",
+    "startupOrderUnresolved",
+    "runtimeOrderReconciliationEnabled",
+    "runtimeOrderLastSweepUtcMs",
+    "runtimeOrderSweepCount",
+    "runtimeOrderTrackedNonterminal",
+    "runtimeOrderMatched",
+    "runtimeOrderMarkedUnknown",
+    "runtimeOrderUnresolved",
+    "runtimeOrderSourceUnavailable",
+    "runtimeOrderTerminalSkipped",
+    "runtimeOrderConcurrentStateChanges",
+    "runtimeOrderSweepErrors",
+    "recoveredActiveExposureReservationsAtStartup",
+    "activeExposureReservations",
+    "reservedGrossNotional",
+    "reservedPositionSlots",
+    "exposureReservationCreateCount",
+    "exposureReservationReleaseCount",
+    "exposureReservationImplicitReleaseCount",
+    "exposureReservationReconstructedCount",
+    "maxPendingEntryScaleInReservations",
+    "maxSymbolNotional",
+    "reservedAvailableBalance",
+    "minimumAvailableBalanceReserve",
+    "simulationMarginReservationRate",
+    "maxEffectiveLeverage",
+    "maxMarginUtilization",
+    "reservedNetDirectionalNotional",
+    "maxNetDirectionalNotional",
+    "accountRiskObservationReady",
+    "accountRiskObservedUnixMs",
+    "accountRiskState",
+    "currentRiskCapital",
+    "currentAvailableBalance",
+    "projectedAvailableBalance",
+    "currentGrossNotional",
+    "projectedGrossNotional",
+    "currentMaxGrossNotional",
+    "currentOpenPositions",
+    "projectedOpenPositions",
+    "currentMaxOpenPositions",
+    "accountMarginMetricsReady",
+    "currentMarginBalance",
+    "currentInitialMargin",
+    "projectedInitialMargin",
+    "projectedEffectiveLeverage",
+    "projectedMarginUtilization",
+    "accountNetDirectionalReady",
+    "currentNetDirectionalNotional",
+    "projectedNetDirectionalNotional",
+    "accountLossBaselineEnabled",
+    "accountLossBaselineFile",
+    "accountLossMetricsReady",
+    "accountLossUtcDayIndex",
+    "accountLossUtcWeekStartDayIndex",
+    "dailyStartRiskCapital",
+    "weeklyStartRiskCapital",
+    "dailyStartMarginBalance",
+    "weeklyStartMarginBalance",
+    "highWaterMarginBalance",
+    "dailyRiskCapitalLoss",
+    "weeklyRiskCapitalLoss",
+    "dailyTotalPnlLoss",
+    "weeklyTotalPnlLoss",
+    "accountDrawdown",
+    "maxDailyRiskCapitalLoss",
+    "maxWeeklyRiskCapitalLoss",
+    "maxDailyTotalPnlLoss",
+    "maxWeeklyTotalPnlLoss",
+    "maxAccountDrawdown",
+    "realizedPnlProvider",
+    "realizedPnlRequired",
+    "realizedPnlStatusFile",
+    "realizedPnlReady",
+    "realizedPnlSettlementAsset",
+    "dailyRealizedTradePnl",
+    "weeklyRealizedTradePnl",
+    "dailyRealizedTradeLoss",
+    "weeklyRealizedTradeLoss",
+    "dailyFundingFee",
+    "weeklyFundingFee",
+    "dailyCommission",
+    "weeklyCommission",
+    "dailyNetTradingIncome",
+    "weeklyNetTradingIncome",
+    "realizedPnlRecordsInCurrentWeek",
+    "realizedPnlIgnoredIncomeRecords",
+    "maxDailyRealizedTradeLoss",
+    "maxWeeklyRealizedTradeLoss",
+    "journalPath",
+    "journalReady",
+    "pipeReady",
+    "orderRoutingEnabled",
+    "executionEnvironment",
+    "requestsSeen",
+    "trackedOrders",
+    "recoveredOrdersAtStartup",
+    "orderTransitionCount",
+    "reconciliationEventCount",
+    "recoveredReconciliationEventsAtStartup",
+    "lastDecisionCode",
+    "detail"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "messageType": {
+      "const": "ExecutionStatus.v1"
+    },
+    "generatedUnixMs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "processId": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "lifecycleState": {
+      "enum": [
+        "STARTING",
+        "READY",
+        "DEGRADED",
+        "STOPPING"
+      ]
+    },
+    "dataProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "riskProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "instrumentProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "instrumentRulesRequired": {
+      "type": "boolean"
+    },
+    "journalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "journalReady": {
+      "type": "boolean"
+    },
+    "pipeReady": {
+      "type": "boolean"
+    },
+    "orderRoutingEnabled": {
+      "type": "boolean"
+    },
+    "requestsSeen": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastDecisionCode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "positionProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "positionStateRequiredForScaleActions": {
+      "const": true
+    },
+    "orderTransitionCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "recoveredOrdersAtStartup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "trackedOrders": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "recoveredReconciliationEventsAtStartup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reconciliationEventCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "startupOrderSnapshotProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "startupOrderSnapshotRequired": {
+      "type": "boolean"
+    },
+    "startupOrderTracked": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "startupOrderMatched": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "startupOrderMarkedUnknown": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "startupOrderUnresolved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderReconciliationEnabled": {
+      "type": "boolean"
+    },
+    "runtimeOrderLastSweepUtcMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderSweepCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderTrackedNonterminal": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderMatched": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderMarkedUnknown": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderUnresolved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderSourceUnavailable": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderTerminalSkipped": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderConcurrentStateChanges": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "runtimeOrderSweepErrors": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "recoveredActiveExposureReservationsAtStartup": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "activeExposureReservations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reservedGrossNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "reservedPositionSlots": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exposureReservationCreateCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exposureReservationReleaseCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exposureReservationImplicitReleaseCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exposureReservationReconstructedCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxPendingEntryScaleInReservations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxSymbolNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "reservedAvailableBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "minimumAvailableBalanceReserve": {
+      "type": "number",
+      "minimum": 0
+    },
+    "simulationMarginReservationRate": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxEffectiveLeverage": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxMarginUtilization": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "reservedNetDirectionalNotional": {
+      "type": "number"
+    },
+    "maxNetDirectionalNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "accountLossBaselineEnabled": {
+      "type": "boolean"
+    },
+    "accountLossBaselineFile": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "accountLossMetricsReady": {
+      "type": "boolean"
+    },
+    "accountLossUtcDayIndex": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "accountLossUtcWeekStartDayIndex": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dailyStartRiskCapital": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyStartRiskCapital": {
+      "type": "number",
+      "minimum": 0
+    },
+    "dailyStartMarginBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyStartMarginBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "highWaterMarginBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "dailyRiskCapitalLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyRiskCapitalLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "dailyTotalPnlLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyTotalPnlLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "accountDrawdown": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxDailyRiskCapitalLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxWeeklyRiskCapitalLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxDailyTotalPnlLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxWeeklyTotalPnlLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxAccountDrawdown": {
+      "type": "number",
+      "minimum": 0
+    },
+    "realizedPnlProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "realizedPnlRequired": {
+      "type": "boolean"
+    },
+    "realizedPnlStatusFile": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "realizedPnlReady": {
+      "type": "boolean"
+    },
+    "dailyRealizedTradePnl": {
+      "type": "number"
+    },
+    "weeklyRealizedTradePnl": {
+      "type": "number"
+    },
+    "dailyRealizedTradeLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "weeklyRealizedTradeLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "dailyFundingFee": {
+      "type": "number"
+    },
+    "weeklyFundingFee": {
+      "type": "number"
+    },
+    "dailyCommission": {
+      "type": "number"
+    },
+    "weeklyCommission": {
+      "type": "number"
+    },
+    "dailyNetTradingIncome": {
+      "type": "number"
+    },
+    "weeklyNetTradingIncome": {
+      "type": "number"
+    },
+    "realizedPnlRecordsInCurrentWeek": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "realizedPnlIgnoredIncomeRecords": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxDailyRealizedTradeLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "maxWeeklyRealizedTradeLoss": {
+      "type": "number",
+      "minimum": 0
+    },
+    "realizedPnlSettlementAsset": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16
+    },
+    "accountRiskObservationReady": {
+      "type": "boolean"
+    },
+    "accountRiskObservedUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "accountRiskState": {
+      "enum": [
+        "NORMAL",
+        "WARNING",
+        "RESTRICTED",
+        "BLOCK_NEW_ENTRIES",
+        "EMERGENCY",
+        "UNKNOWN"
+      ]
+    },
+    "currentRiskCapital": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currentAvailableBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "projectedAvailableBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currentGrossNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "projectedGrossNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currentMaxGrossNotional": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currentOpenPositions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "projectedOpenPositions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "currentMaxOpenPositions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "accountMarginMetricsReady": {
+      "type": "boolean"
+    },
+    "currentMarginBalance": {
+      "type": "number",
+      "minimum": 0
+    },
+    "currentInitialMargin": {
+      "type": "number",
+      "minimum": 0
+    },
+    "projectedInitialMargin": {
+      "type": "number",
+      "minimum": 0
+    },
+    "projectedEffectiveLeverage": {
+      "type": "number",
+      "minimum": 0
+    },
+    "projectedMarginUtilization": {
+      "type": "number",
+      "minimum": 0
+    },
+    "accountNetDirectionalReady": {
+      "type": "boolean"
+    },
+    "currentNetDirectionalNotional": {
+      "type": "number"
+    },
+    "projectedNetDirectionalNotional": {
+      "type": "number"
+    },
+    "executionEnvironment": {
+      "enum": [
+        "SIMULATION_ONLY",
+        "BINANCE_USDM_TESTNET"
+      ]
+    }
+  }
+}

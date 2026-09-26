@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:DataStatus.v1",
+  "title": "DataStatus.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "source", "symbol", "live", "fresh", "cacheReady",
+    "identityReady", "universeId", "universeVersion", "universeHash",
+    "dataGeneration", "generationKind", "detail"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "source": {"type": "string", "minLength": 1, "maxLength": 64},
+    "symbol": {"type": "string", "minLength": 1, "maxLength": 32},
+    "live": {"type": "boolean"},
+    "fresh": {"type": "boolean"},
+    "cacheReady": {"type": "boolean"},
+    "identityReady": {"type": "boolean"},
+    "universeId": {"type": ["string", "null"], "minLength": 1, "maxLength": 128},
+    "universeVersion": {"type": ["integer", "null"], "minimum": 1},
+    "universeHash": {
+      "anyOf": [
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        {"type": "null"}
+      ]
+    },
+    "dataGeneration": {"type": ["integer", "null"], "minimum": 1},
+    "generationKind": {"type": ["string", "null"], "minLength": 1, "maxLength": 64},
+    "cacheEod": {"type": ["integer", "null"], "minimum": 0},
+    "cacheIntraday": {"type": ["integer", "null"], "minimum": 0},
+    "detail": {"type": "string", "maxLength": 512}
+  }
+}

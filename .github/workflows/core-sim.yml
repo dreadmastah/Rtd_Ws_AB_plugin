@@ -1,0 +1,426 @@
+name: Core Simulation CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - chatgpt/core-autotrader-scaffold-sim-only
+  pull_request:
+    paths:
+      - "Core/**"
+      - "CleanRoomR2/stack/identity_bridge.py"
+      - "CleanRoomR2/stack/universe_identity.v1.json"
+      - "CleanRoomR2/stack/config.json"
+      - "CleanRoomR2/stack/binance_usdm_server.py"
+      - "Core/account/**"
+      - ".github/workflows/core-sim.yml"
+
+jobs:
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S Core -B build/core
+
+      - name: Build
+        run: cmake --build build/core --config Release
+
+      - name: Test core
+        run: ctest --test-dir build/core -C Release --output-on-failure
+
+      - name: Status JSON sharing regressions
+        run: python Core/tests/test_status_json_reader.py
+
+      - name: Compile Python bridges
+        run: |
+          python -m py_compile CleanRoomR2/stack/identity_bridge.py
+          python -m py_compile Core/account/binance_usdm_readonly_gateway.py
+          python -m py_compile Core/account/binance_usdm_income_reconciler.py
+          python -m py_compile Core/account/binance_usdm_testnet_user_data.py
+          python -m py_compile Core/stack/autotrader_sim_launcher.py
+          python -m py_compile Core/instrument/binance_usdm_instrument_rules.py
+          python -m py_compile Core/order_state/simulated_order_state_source.py
+          python -m py_compile Core/operator/account_risk_view.py
+
+      - name: Simulation-only boundary and launcher hardening
+        run: |
+          python Core/tests/test_simulation_only_boundary.py
+          python Core/stack/test_autotrader_sim_launcher.py
+
+      - name: Offline LIVE preflight readiness
+        run: python Core/tests/test_binance_usdm_live_preflight.py
+
+      - name: Offline LIVE interlock authorization
+        run: python Core/tests/test_binance_usdm_live_interlocks.py
+
+      - name: Offline LIVE canary configuration
+        run: python Core/tests/test_binance_usdm_live_canary_config.py
+
+      - name: Testnet user-data authority semantics
+        shell: bash
+        run: |
+          python Core/tests/test_testnet_user_data.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          schema = json.loads(
+              Path("Core/schemas/TestnetUserDataState.v1.schema.json")
+              .read_text(encoding="utf-8")
+          )
+          assert schema["properties"]["messageType"]["const"] == "TestnetUserDataState.v1"
+          assert schema["additionalProperties"] is False
+          assert "ordersConverged" in schema["required"]
+          assert "accountConverged" in schema["required"]
+          assert "positionsConverged" in schema["required"]
+          print("TESTNET_USER_DATA_SCHEMA=PASS")
+          PY
+
+      - name: Authoritative simulation order snapshot source
+        shell: bash
+        run: |
+          rm -rf Core/runtime/authoritative_order_snapshot_fixture
+          python Core/order_state/simulated_order_state_source.py \
+            --output-dir Core/runtime/authoritative_order_snapshot_fixture \
+            --order-id SIMORD-CI-FIXTURE \
+            --state SIZING \
+            --cumulative-filled 0 \
+            --detail "CI authoritative startup fixture"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path(
+              "Core/runtime/authoritative_order_snapshot_fixture/"
+              "SIMORD-CI-FIXTURE.json"
+          )
+          obj = json.loads(p.read_text(encoding="utf-8"))
+          assert obj["messageType"] == "AuthoritativeSimulationOrderSnapshot.v1"
+          assert obj["ready"] is True
+          assert obj["simulationOrderId"] == "SIMORD-CI-FIXTURE"
+          assert obj["state"] == "SIZING"
+          assert obj["cumulativeFilledQuantity"] == 0
+          print("AUTHORITATIVE_SIM_ORDER_SNAPSHOT_SOURCE=PASS")
+          PY
+
+      - name: Identity bridge one-shot
+        shell: bash
+        run: |
+          mkdir -p CleanRoomR2/stack/runtime
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          base = Path("CleanRoomR2/stack")
+          symbols = [
+              line.strip().upper()
+              for line in (base / "bootstrap_symbols.tls").read_text(encoding="utf-8-sig").splitlines()
+              if line.strip() and not line.lstrip().startswith("#")
+          ]
+          state = {
+              "version": 1,
+              "saved_utc": "2026-09-19T00:00:00+00:00",
+              "symbols": {
+                  symbol: {
+                      "last_completed_1m_open_ms": 1789824780000,
+                      "last_completed_eod_date": 20260918,
+                      "updated_utc": "2026-09-19T00:00:00+00:00",
+                  }
+                  for symbol in symbols
+              },
+          }
+          import time
+          market = {
+              "schemaVersion": 1,
+              "source": "WSRTD-CleanRoomR2",
+              "marketUp": True,
+              "publicUp": True,
+              "receiverCount": 1,
+              "freshnessMs": 5000,
+              "symbols": {
+                  symbol: {
+                      "live": True,
+                      "fresh": True,
+                      "historyHydrated": True,
+                      "quoteAgeMs": 100,
+                  }
+                  for symbol in symbols
+              },
+          }
+          (base / "runtime" / "recovery_state.json").write_text(
+              json.dumps(state, indent=2) + "\n", encoding="utf-8"
+          )
+          (base / "runtime" / "market_status.v1.json").write_text(
+              json.dumps(market, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
+          python CleanRoomR2/stack/identity_bridge.py --once
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("CleanRoomR2/stack/runtime/data_identity.v1.json")
+          obj = json.loads(p.read_text(encoding="utf-8"))
+          assert obj["identityReady"] is True
+          assert obj["universeVersion"] == 1
+          assert obj["generationKind"] == "WSRTD_R2_COMPLETED_M1_OPEN_MS"
+          assert len(obj["symbols"]) == 12
+          assert all(x["identityReady"] for x in obj["symbols"].values())
+          status = json.loads(
+              Path("CleanRoomR2/stack/runtime/autotrader_status/BTCUSDT.json")
+              .read_text(encoding="utf-8")
+          )
+          assert status["live"] is True
+          assert status["fresh"] is True
+          assert status["cacheReady"] is True
+          assert status["identityReady"] is True
+          assert status["universeVersion"] == 1
+          assert status["dataGeneration"] == 1789824780000
+          print("IDENTITY_BRIDGE_TEST=PASS")
+          PY
+
+      - name: Read-only account reconciliation fixture
+        shell: bash
+        run: |
+          mkdir -p Core/runtime
+          python Core/account/binance_usdm_readonly_gateway.py --once \
+            --fixture Core/account/tests/fixtures/binance_usdm_account_v3.json \
+            --output Core/runtime/account_risk_status.v1.json \
+            --positions-output-dir Core/runtime/position_status \
+            --symbols-file CleanRoomR2/stack/bootstrap_symbols.tls
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("Core/runtime/account_risk_status.v1.json")
+          obj = json.loads(p.read_text(encoding="utf-8"))
+          assert obj["reconciled"] is True
+          assert obj["riskState"] == "NORMAL"
+          assert obj["openPositions"] == 1
+          assert abs(obj["grossNotional"] - 1000.0) < 1e-9
+          assert abs(obj["netDirectionalNotional"] - 1000.0) < 1e-9
+          assert abs(obj["riskCapital"] - 10250.0) < 1e-9
+          assert abs(obj["marginBalance"] - 10250.0) < 1e-9
+          assert abs(obj["initialMargin"] - 100.0) < 1e-9
+
+          symbols = [
+              line.strip()
+              for line in Path("CleanRoomR2/stack/bootstrap_symbols.tls")
+              .read_text(encoding="utf-8-sig").splitlines()
+              if line.strip()
+          ]
+          position_dir = Path("Core/runtime/position_status")
+          files = sorted(p.stem for p in position_dir.glob("*.json"))
+          assert len(symbols) == 12
+          assert set(files) == set(symbols)
+
+          btc = json.loads(
+              (position_dir / "BTCUSDT.json").read_text(encoding="utf-8")
+          )
+          assert btc["reconciled"] is True
+          assert btc["mode"] == "LONG"
+          assert abs(btc["quantity"] - 0.01) < 1e-12
+
+          eth = json.loads(
+              (position_dir / "ETHUSDT.json").read_text(encoding="utf-8")
+          )
+          assert eth["reconciled"] is True
+          assert eth["mode"] == "FLAT"
+          assert eth["quantity"] == 0
+
+          print("READONLY_ACCOUNT_FIXTURE=PASS")
+          print("POSITION_SNAPSHOTS_FIXTURE=PASS")
+          PY
+
+      - name: Position snapshot reconciliation semantics
+        run: python Core/account/tests/test_position_snapshots.py
+
+      - name: Signed net directional account semantics
+        run: python Core/account/tests/test_directional_risk_snapshot.py
+
+      - name: Realized income reconciliation semantics
+        run: python Core/account/tests/test_income_reconciler.py
+
+      - name: Account Risk operator view semantics
+        run: python Core/tests/test_account_risk_view.py
+
+      - name: Account Risk operator view schema
+        run: python Core/tests/test_account_risk_view_schema.py
+
+      - name: Read-only realized income fixture
+        shell: bash
+        run: |
+          rm -f Core/runtime/realized_pnl_status.v1.json Core/runtime/realized_pnl_accumulator.v1.json
+          python Core/account/binance_usdm_income_reconciler.py --once \
+            --fixture Core/account/tests/fixtures/binance_usdm_income_v1.json \
+            --output Core/runtime/realized_pnl_status.v1.json \
+            --state Core/runtime/realized_pnl_accumulator.v1.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          status = json.loads(
+              Path("Core/runtime/realized_pnl_status.v1.json").read_text(encoding="utf-8")
+          )
+          state = json.loads(
+              Path("Core/runtime/realized_pnl_accumulator.v1.json").read_text(encoding="utf-8")
+          )
+          assert status["reconciled"] is True
+          assert status["settlementAsset"] == "USDT"
+          assert abs(status["dailyRealizedTradePnl"] + 60.0) < 1e-9
+          assert abs(status["weeklyRealizedTradePnl"] + 60.0) < 1e-9
+          assert abs(status["dailyRealizedTradeLoss"] - 60.0) < 1e-9
+          assert abs(status["weeklyRealizedTradeLoss"] - 60.0) < 1e-9
+          assert abs(status["dailyFundingFee"] - 1.0) < 1e-9
+          assert abs(status["dailyCommission"] + 2.0) < 1e-9
+          assert status["ignoredIncomeRecords"] == 1
+          assert state["messageType"] == "RealizedPnlAccumulatorState.v1"
+          assert state["settlementAsset"] == "USDT"
+          assert abs(state["dailyRealizedTradeLossConsumed"] - 60.0) < 1e-9
+          assert abs(state["weeklyRealizedTradeLossConsumed"] - 60.0) < 1e-9
+          print("READONLY_REALIZED_INCOME_FIXTURE=PASS")
+          PY
+
+      - name: Public instrument rules bootstrap universe fixture
+        shell: bash
+        run: |
+          rm -rf Core/runtime/instrument_constraints
+          python Core/instrument/binance_usdm_instrument_rules.py --once \
+            --fixture Core/instrument/tests/fixtures/binance_usdm_exchange_info_bootstrap12.json \
+            --output-dir Core/runtime/instrument_constraints \
+            --symbols-file CleanRoomR2/stack/bootstrap_symbols.tls
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          symbols = [
+              line.strip()
+              for line in Path("CleanRoomR2/stack/bootstrap_symbols.tls")
+              .read_text(encoding="utf-8-sig").splitlines()
+              if line.strip()
+          ]
+          out = Path("Core/runtime/instrument_constraints")
+          files = sorted(p.stem for p in out.glob("*.json"))
+          assert len(symbols) == 12
+          assert set(files) == set(symbols)
+          for symbol in symbols:
+              obj = json.loads((out / f"{symbol}.json").read_text(encoding="utf-8"))
+              assert obj["ready"] is True
+              assert obj["source"] == "BINANCE_USDM_EXCHANGE_INFO"
+              assert obj["symbol"] == symbol
+              assert obj["priceTick"] > 0
+              assert obj["quantityStep"] > 0
+              assert obj["maxQuantity"] > 0
+          btc = json.loads((out / "BTCUSDT.json").read_text(encoding="utf-8"))
+          assert abs(btc["quantityStep"] - 0.001) < 1e-12
+          assert abs(btc["minNotional"] - 5.0) < 1e-12
+          print("INSTRUMENT_RULES_BOOTSTRAP12_FIXTURE=PASS")
+          PY
+
+      - name: Instrument rules refresh recovery
+        run: python Core/instrument/tests/test_rules_publisher.py
+
+      - name: Windows Named Pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_pipe_smoke.cmd
+
+      - name: Windows live WSRTD DataStatus pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_pipe_live_smoke.cmd
+
+      - name: Windows strict instrument filter pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_instrument_filter_pipe_smoke.cmd
+
+      - name: Windows bootstrap-12 instrument pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_bootstrap12_instrument_pipe_smoke.cmd
+
+      - name: Windows reconciled position scale-action pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_position_scale_pipe_smoke.cmd
+
+      - name: Windows restart reconciliation smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_reconciliation_restart_smoke.cmd
+
+      - name: Windows AstuTrade DLL end-to-end smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_amibroker_trade_e2e_smoke.cmd
+
+      - name: Windows supervised simulation stack smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_sim_stack_fixture_smoke.cmd
+
+      - name: Windows execution crash restart smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_execution_restart_smoke.cmd
+
+      - name: Windows simulation order FSM restart smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_order_fsm_restart_smoke.cmd
+
+      - name: Windows unknown-state reconciliation restart smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_reconciliation_fsm_smoke.cmd
+
+      - name: Windows live reconciliation Named Pipe smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_reconciliation_pipe_smoke.cmd
+
+      - name: Windows authoritative startup order snapshot smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_startup_order_snapshot_smoke.cmd
+
+      - name: Windows periodic runtime order reconciliation smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_runtime_order_reconciliation_smoke.cmd
+
+      - name: Windows projected exposure reservation smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_exposure_reservation_smoke.cmd
+
+      - name: Windows projected pending/symbol risk limit smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_projected_risk_limits_smoke.cmd
+
+      - name: Windows available-balance margin reservation smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_available_balance_reservation_smoke.cmd
+
+      - name: Windows effective leverage and margin utilization smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_leverage_margin_risk_smoke.cmd
+
+      - name: Windows net directional exposure smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_net_directional_risk_smoke.cmd
+
+      - name: Windows persisted loss budget and drawdown smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_loss_drawdown_risk_smoke.cmd
+
+      - name: Windows exact realized PnL risk smoke
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: Core\tools\run_realized_pnl_risk_smoke.cmd

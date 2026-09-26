@@ -1,0 +1,114 @@
+{
+  "timezone": "UTC",
+  "serverTime": 0,
+  "symbols": [
+    {
+      "symbol": "BTCUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.10","maxPrice":"1000000","tickSize":"0.10"},
+        {"filterType":"LOT_SIZE","minQty":"0.001","maxQty":"1000","stepSize":"0.001"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "SOLUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.001","maxPrice":"100000","tickSize":"0.001"},
+        {"filterType":"LOT_SIZE","minQty":"0.1","maxQty":"100000","stepSize":"0.1"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "BNBUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.010","maxPrice":"1000000","tickSize":"0.010"},
+        {"filterType":"LOT_SIZE","minQty":"0.01","maxQty":"10000","stepSize":"0.01"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "XRPUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.0001","maxPrice":"100000","tickSize":"0.0001"},
+        {"filterType":"LOT_SIZE","minQty":"0.1","maxQty":"10000000","stepSize":"0.1"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.00001","maxPrice":"100000","tickSize":"0.00001"},
+        {"filterType":"LOT_SIZE","minQty":"1","maxQty":"100000000","stepSize":"1"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "ADAUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.0001","maxPrice":"100000","tickSize":"0.0001"},
+        {"filterType":"LOT_SIZE","minQty":"1","maxQty":"10000000","stepSize":"1"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "TRXUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.00001","maxPrice":"100000","tickSize":"0.00001"},
+        {"filterType":"LOT_SIZE","minQty":"1","maxQty":"100000000","stepSize":"1"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.001","maxPrice":"100000","tickSize":"0.001"},
+        {"filterType":"LOT_SIZE","minQty":"0.1","maxQty":"1000000","stepSize":"0.1"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "LINKUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.001","maxPrice":"100000","tickSize":"0.001"},
+        {"filterType":"LOT_SIZE","minQty":"0.1","maxQty":"1000000","stepSize":"0.1"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "1000SHIBUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.000001","maxPrice":"100000","tickSize":"0.000001"},
+        {"filterType":"LOT_SIZE","minQty":"1","maxQty":"100000000","stepSize":"1"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "DOTUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.001","maxPrice":"100000","tickSize":"0.001"},
+        {"filterType":"LOT_SIZE","minQty":"0.1","maxQty":"1000000","stepSize":"0.1"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    },
+    {
+      "symbol": "ETHUSDT",
+      "status": "TRADING",
+      "filters": [
+        {"filterType":"PRICE_FILTER","minPrice":"0.01","maxPrice":"1000000","tickSize":"0.01"},
+        {"filterType":"LOT_SIZE","minQty":"0.001","maxQty":"10000","stepSize":"0.001"},
+        {"filterType":"MIN_NOTIONAL","notional":"5"}
+      ]
+    }
+  ]
+}

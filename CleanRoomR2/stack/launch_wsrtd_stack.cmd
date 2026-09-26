@@ -4,6 +4,11 @@ cd /d "%~dp0"
 if exist "runtime\maintenance_pause" del /q "runtime\maintenance_pause" >nul 2>nul
 set "DBNAME=%~1"
 if "%DBNAME%"=="" set "DBNAME=Data"
+set "PORT=%~2"
+if "%PORT%"=="" set "PORT=10101"
+set "WSRTD_RELAY_HOST=127.0.0.1"
+set "WSRTD_RELAY_PORT=%PORT%"
+set "WSRTD_RELAY_URI=ws://127.0.0.1:%PORT%/sender"
 
 if not exist ".venv\Scripts\python.exe" (
   call install_wsrtd_stack.cmd
@@ -18,16 +23,16 @@ if errorlevel 1 (
 echo.
 echo WSRTD headless stack launch requested for AmiBroker DB name "%DBNAME%".
 echo Bootstrap list: bootstrap_symbols.tls
-echo Relay: ws://127.0.0.1:10101
+echo Relay: ws://127.0.0.1:%PORT%
 echo Runtime: background/no-console
 echo.
 
-".venv\Scripts\python.exe" stack_launcher.py --ensure-running --dbname "%DBNAME%"
+".venv\Scripts\python.exe" stack_launcher.py --ensure-running --dbname "%DBNAME%" --relay-port "%PORT%"
 if errorlevel 1 (
   echo WSRTD_HEADLESS_LAUNCH=FAIL
   exit /b 1
 )
-timeout /t 3 /nobreak >nul
+".venv\Scripts\python.exe" -c "import time; time.sleep(3)" >nul 2>nul
 ".venv\Scripts\python.exe" stack_launcher.py --status
 if errorlevel 1 (
   echo WSRTD_HEADLESS_LAUNCH=FAIL_STATUS

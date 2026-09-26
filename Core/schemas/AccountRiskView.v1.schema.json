@@ -1,0 +1,518 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:AccountRiskView.v1",
+  "title": "AccountRiskView.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "generatedUnixMs",
+    "sourceExecutionStatusPath",
+    "sourceGeneratedUnixMs",
+    "sourceAgeMs",
+    "sourceFresh",
+    "maxSourceAgeMs",
+    "lifecycleState",
+    "riskProvider",
+    "realizedPnlProvider",
+    "orderRoutingEnabled",
+    "executionEnvironment",
+    "gateState",
+    "blockReasons",
+    "periods",
+    "budgets",
+    "realizedPnlEvidence",
+    "accountRiskObservation",
+    "symbolRisk",
+    "projectedRisk",
+    "lastDecisionCode",
+    "detail"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "messageType": {
+      "const": "AccountRiskView.v1"
+    },
+    "generatedUnixMs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sourceExecutionStatusPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "sourceGeneratedUnixMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sourceAgeMs": {
+      "type": "integer"
+    },
+    "sourceFresh": {
+      "type": "boolean"
+    },
+    "maxSourceAgeMs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "lifecycleState": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "riskProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "realizedPnlProvider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "orderRoutingEnabled": {
+      "type": "boolean"
+    },
+    "gateState": {
+      "enum": [
+        "CLEAR",
+        "ACCOUNT_NOT_RECONCILED",
+        "RISK_BLOCKED"
+      ]
+    },
+    "blockReasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 320
+      },
+      "maxItems": 16
+    },
+    "periods": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "utcDayIndex",
+        "utcDay",
+        "utcWeekStartDayIndex",
+        "utcWeekStart"
+      ],
+      "properties": {
+        "utcDayIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "utcDay": {
+          "type": "string",
+          "maxLength": 16
+        },
+        "utcWeekStartDayIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "utcWeekStart": {
+          "type": "string",
+          "maxLength": 16
+        }
+      }
+    },
+    "budgets": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "baselineKind",
+          "baselineValue",
+          "consumption",
+          "limit",
+          "headroom",
+          "consumedRatio",
+          "enabled",
+          "evidenceReady",
+          "blocked",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "baselineKind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "baselineValue": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "consumption": {
+            "type": "number",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "headroom": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "consumedRatio": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "evidenceReady": {
+            "type": "boolean"
+          },
+          "blocked": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "DISABLED",
+              "UNAVAILABLE",
+              "BLOCKED",
+              "HEADROOM"
+            ]
+          }
+        }
+      }
+    },
+    "realizedPnlEvidence": {
+      "type": "object"
+    },
+    "projectedRisk": {
+      "type": "object"
+    },
+    "lastDecisionCode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "accountRiskObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ready",
+        "observedUnixMs",
+        "riskState",
+        "riskCapital",
+        "availableBalance",
+        "projectedAvailableBalance",
+        "availableBalanceHeadroom",
+        "grossNotional",
+        "projectedGrossNotional",
+        "maxGrossNotional",
+        "grossNotionalHeadroom",
+        "openPositions",
+        "projectedOpenPositions",
+        "maxOpenPositions",
+        "openPositionHeadroom",
+        "marginMetricsReady",
+        "marginBalance",
+        "initialMargin",
+        "projectedInitialMargin",
+        "projectedEffectiveLeverage",
+        "effectiveLeverageHeadroom",
+        "projectedMarginUtilization",
+        "marginUtilizationHeadroom",
+        "netDirectionalReady",
+        "netDirectionalNotional",
+        "projectedNetDirectionalNotional",
+        "longDirectionalHeadroom",
+        "shortDirectionalHeadroom"
+      ],
+      "properties": {
+        "ready": {
+          "type": "boolean"
+        },
+        "observedUnixMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "riskState": {
+          "enum": [
+            "NORMAL",
+            "WARNING",
+            "RESTRICTED",
+            "BLOCK_NEW_ENTRIES",
+            "EMERGENCY",
+            "UNKNOWN"
+          ]
+        },
+        "riskCapital": {
+          "type": "number",
+          "minimum": 0
+        },
+        "availableBalance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "projectedAvailableBalance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "availableBalanceHeadroom": {
+          "type": "number",
+          "minimum": 0
+        },
+        "grossNotional": {
+          "type": "number",
+          "minimum": 0
+        },
+        "projectedGrossNotional": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maxGrossNotional": {
+          "type": "number",
+          "minimum": 0
+        },
+        "grossNotionalHeadroom": {
+          "type": "number",
+          "minimum": 0
+        },
+        "openPositions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "projectedOpenPositions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxOpenPositions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "openPositionHeadroom": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "marginMetricsReady": {
+          "type": "boolean"
+        },
+        "marginBalance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "initialMargin": {
+          "type": "number",
+          "minimum": 0
+        },
+        "projectedInitialMargin": {
+          "type": "number",
+          "minimum": 0
+        },
+        "projectedEffectiveLeverage": {
+          "type": "number",
+          "minimum": 0
+        },
+        "effectiveLeverageHeadroom": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "projectedMarginUtilization": {
+          "type": "number",
+          "minimum": 0
+        },
+        "marginUtilizationHeadroom": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "netDirectionalReady": {
+          "type": "boolean"
+        },
+        "netDirectionalNotional": {
+          "type": "number"
+        },
+        "projectedNetDirectionalNotional": {
+          "type": "number"
+        },
+        "longDirectionalHeadroom": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "shortDirectionalHeadroom": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "symbolRisk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourcePath",
+        "sourceGeneratedUnixMs",
+        "sourceAgeMs",
+        "sourceFresh",
+        "maxSourceAgeMs",
+        "ready",
+        "reason",
+        "symbols"
+      ],
+      "properties": {
+        "sourcePath": {
+          "type": "string",
+          "maxLength": 2048
+        },
+        "sourceGeneratedUnixMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourceAgeMs": {
+          "type": "integer"
+        },
+        "sourceFresh": {
+          "type": "boolean"
+        },
+        "maxSourceAgeMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "symbols": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "symbol",
+              "positionReady",
+              "positionMode",
+              "currentNotional",
+              "activeReservations",
+              "reservedGrossNotional",
+              "projectedNotional",
+              "maxSymbolNotional",
+              "headroom",
+              "limitEnabled",
+              "status",
+              "detail"
+            ],
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[A-Z0-9]+$"
+              },
+              "positionReady": {
+                "type": "boolean"
+              },
+              "positionMode": {
+                "enum": [
+                  "FLAT",
+                  "LONG",
+                  "SHORT",
+                  "HEDGED",
+                  "UNKNOWN"
+                ]
+              },
+              "currentNotional": {
+                "type": "number",
+                "minimum": 0
+              },
+              "activeReservations": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reservedGrossNotional": {
+                "type": "number",
+                "minimum": 0
+              },
+              "projectedNotional": {
+                "type": "number",
+                "minimum": 0
+              },
+              "maxSymbolNotional": {
+                "type": "number",
+                "minimum": 0
+              },
+              "headroom": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "limitEnabled": {
+                "type": "boolean"
+              },
+              "status": {
+                "enum": [
+                  "DISABLED",
+                  "UNAVAILABLE",
+                  "HEADROOM",
+                  "BLOCKED"
+                ]
+              },
+              "detail": {
+                "type": "string",
+                "maxLength": 512
+              }
+            }
+          }
+        }
+      }
+    },
+    "executionEnvironment": {
+      "enum": [
+        "SIMULATION_ONLY",
+        "BINANCE_USDM_TESTNET"
+      ]
+    }
+  }
+}

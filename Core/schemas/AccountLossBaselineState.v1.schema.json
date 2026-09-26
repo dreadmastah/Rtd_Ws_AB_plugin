@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:AccountLossBaselineState.v1",
+  "title": "AccountLossBaselineState.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "utcDayIndex",
+    "utcWeekStartDayIndex",
+    "dailyStartRiskCapital",
+    "weeklyStartRiskCapital",
+    "dailyStartMarginBalance",
+    "weeklyStartMarginBalance",
+    "highWaterMarginBalance",
+    "lastObservedUnixMs"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "messageType": {"const": "AccountLossBaselineState.v1"},
+    "utcDayIndex": {"type": "integer", "minimum": 0},
+    "utcWeekStartDayIndex": {"type": "integer", "minimum": 0},
+    "dailyStartRiskCapital": {"type": "number", "minimum": 0},
+    "weeklyStartRiskCapital": {"type": "number", "minimum": 0},
+    "dailyStartMarginBalance": {"type": "number", "minimum": 0},
+    "weeklyStartMarginBalance": {"type": "number", "minimum": 0},
+    "highWaterMarginBalance": {"type": "number", "minimum": 0},
+    "lastObservedUnixMs": {"type": "integer", "minimum": 1}
+  }
+}

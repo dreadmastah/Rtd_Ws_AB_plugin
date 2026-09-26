@@ -44,5 +44,18 @@
     "market_liveness_startup_grace_seconds": 30,
     "market_event_stall_seconds": 20,
     "market_completed_kline_stall_seconds": 90
+  },
+  "identity_bridge": {
+    "enabled": true,
+    "manifest_file": "universe_identity.v1.json",
+    "output_file": "runtime/data_identity.v1.json",
+    "poll_seconds": 1,
+    "status_dir": "runtime/autotrader_status"
+  },
+  "autotrader_status": {
+    "enabled": true,
+    "output_file": "runtime/market_status.v1.json",
+    "flush_seconds": 1,
+    "freshness_ms": 5000
   }
 }

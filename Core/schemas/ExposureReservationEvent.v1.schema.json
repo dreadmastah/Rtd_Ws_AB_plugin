@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:ExposureReservationEvent.v1",
+  "title": "ExposureReservationEvent.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "simulationOrderId",
+        "signalId",
+        "symbol",
+        "action",
+        "side",
+        "reservedQuantity",
+        "reservedGrossNotional",
+        "reservesPositionSlot",
+        "simulationOnly",
+        "exchangeSubmissionAttempted"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "EXPOSURE_RESERVATION_CREATED"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "simulationOrderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "signalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "action": {
+          "enum": [
+            "BUY",
+            "SCALE_IN"
+          ]
+        },
+        "side": {
+          "enum": [
+            "LONG",
+            "SHORT"
+          ]
+        },
+        "reservedQuantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "reservedGrossNotional": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "reservesPositionSlot": {
+          "type": "boolean"
+        },
+        "simulationOnly": {
+          "const": true
+        },
+        "exchangeSubmissionAttempted": {
+          "const": false
+        },
+        "marginReservationRate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "reservedAvailableBalance": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "simulationOrderId",
+        "symbol",
+        "releasedGrossNotional",
+        "releasedPositionSlot",
+        "terminalState",
+        "simulationOnly",
+        "exchangeSubmissionAttempted",
+        "reason"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "EXPOSURE_RESERVATION_RELEASED"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "simulationOrderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "releasedGrossNotional": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "releasedPositionSlot": {
+          "type": "boolean"
+        },
+        "terminalState": {
+          "enum": [
+            "FILLED",
+            "CANCELED",
+            "REJECTED"
+          ]
+        },
+        "simulationOnly": {
+          "const": true
+        },
+        "exchangeSubmissionAttempted": {
+          "const": false
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "releasedAvailableBalance": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  ]
+}

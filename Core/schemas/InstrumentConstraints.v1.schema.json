@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:InstrumentConstraints.v1",
+  "title": "InstrumentConstraints.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "messageType",
+    "generatedUnixMs",
+    "ready",
+    "source",
+    "symbol",
+    "priceTick",
+    "quantityStep",
+    "minQuantity",
+    "maxQuantity",
+    "minNotional",
+    "maxNotional",
+    "detail"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "messageType": {"const": "InstrumentConstraints.v1"},
+    "generatedUnixMs": {"type": "integer", "minimum": 1},
+    "ready": {"type": "boolean"},
+    "source": {"type": "string", "minLength": 1, "maxLength": 128},
+    "symbol": {"type": "string", "minLength": 1, "maxLength": 32},
+    "priceTick": {"type": "number", "exclusiveMinimum": 0},
+    "quantityStep": {"type": "number", "exclusiveMinimum": 0},
+    "minQuantity": {"type": "number", "minimum": 0},
+    "maxQuantity": {"type": "number", "minimum": 0},
+    "minNotional": {"type": "number", "minimum": 0},
+    "maxNotional": {"type": "number", "minimum": 0},
+    "detail": {"type": "string", "maxLength": 512}
+  }
+}

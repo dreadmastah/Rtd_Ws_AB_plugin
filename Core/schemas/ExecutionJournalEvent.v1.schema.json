@@ -1,0 +1,582 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:ExecutionJournalEvent.v1",
+  "title": "ExecutionJournalEvent.v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "idempotencyKey"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "IDEMPOTENCY_RESERVATION"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "requestId",
+        "idempotencyKey",
+        "signalId",
+        "simulationOrderId",
+        "symbol",
+        "universeId",
+        "universeVersion",
+        "dataGeneration",
+        "decisionCode",
+        "acceptedForSimulation",
+        "wouldIncreaseExposure",
+        "simulatedQuantity",
+        "simulatedNotional",
+        "orderRoutingEnabled",
+        "reason"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "SIMULATION_DECISION"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "signalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "universeId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "universeVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "dataGeneration": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "decisionCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "acceptedForSimulation": {
+          "type": "boolean"
+        },
+        "wouldIncreaseExposure": {
+          "type": "boolean"
+        },
+        "simulatedQuantity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "simulatedNotional": {
+          "type": "number",
+          "minimum": 0
+        },
+        "orderRoutingEnabled": {
+          "const": false
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "simulationOrderId": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "simulationOrderId",
+        "requestId",
+        "signalId",
+        "symbol",
+        "fromState",
+        "toState",
+        "transitionSequence",
+        "simulationOnly",
+        "exchangeSubmissionAttempted",
+        "reason"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "ORDER_STATE_TRANSITION"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "simulationOrderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "signalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "fromState": {
+          "enum": [
+            "NONE",
+            "INTENT_RECEIVED",
+            "VALIDATING",
+            "RISK_APPROVED",
+            "SIZING",
+            "SUBMITTING",
+            "ACKNOWLEDGED",
+            "WORKING",
+            "PARTIAL",
+            "FILLED",
+            "CANCELED",
+            "REJECTED",
+            "UNKNOWN_RECONCILE_REQUIRED"
+          ]
+        },
+        "toState": {
+          "enum": [
+            "INTENT_RECEIVED",
+            "VALIDATING",
+            "RISK_APPROVED",
+            "SIZING",
+            "SUBMITTING",
+            "ACKNOWLEDGED",
+            "WORKING",
+            "PARTIAL",
+            "FILLED",
+            "CANCELED",
+            "REJECTED",
+            "UNKNOWN_RECONCILE_REQUIRED"
+          ]
+        },
+        "transitionSequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "simulationOnly": {
+          "const": true
+        },
+        "exchangeSubmissionAttempted": {
+          "const": false
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "simulationOrderId",
+        "requestId",
+        "idempotencyKey",
+        "signalId",
+        "symbol",
+        "action",
+        "side",
+        "quantity",
+        "referencePrice",
+        "notional",
+        "simulationOnly",
+        "orderRoutingEnabled",
+        "exchangeSubmissionAttempted"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "SIMULATION_ORDER_INTENT"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "simulationOrderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "signalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "action": {
+          "enum": [
+            "BUY",
+            "SELL",
+            "SCALE_IN",
+            "SCALE_OUT"
+          ]
+        },
+        "side": {
+          "enum": [
+            "LONG",
+            "SHORT"
+          ]
+        },
+        "quantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "referencePrice": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "notional": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "simulationOnly": {
+          "const": true
+        },
+        "orderRoutingEnabled": {
+          "const": false
+        },
+        "exchangeSubmissionAttempted": {
+          "const": false
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "eventId",
+        "simulationOrderId",
+        "reconciliationType",
+        "fromState",
+        "toState",
+        "transitionSequence",
+        "reconciliationSequence",
+        "orderQuantity",
+        "cumulativeFilledQuantity",
+        "simulationOnly",
+        "exchangeSubmissionAttempted",
+        "detail"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "SIMULATION_RECONCILIATION_EVENT"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "simulationOrderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "reconciliationType": {
+          "enum": [
+            "MARK_UNKNOWN",
+            "ACKNOWLEDGED",
+            "WORKING",
+            "PARTIAL_FILL",
+            "FILLED",
+            "CANCELED",
+            "REJECTED"
+          ]
+        },
+        "fromState": {
+          "enum": [
+            "INTENT_RECEIVED",
+            "VALIDATING",
+            "RISK_APPROVED",
+            "SIZING",
+            "SUBMITTING",
+            "ACKNOWLEDGED",
+            "WORKING",
+            "PARTIAL",
+            "FILLED",
+            "CANCELED",
+            "REJECTED",
+            "UNKNOWN_RECONCILE_REQUIRED"
+          ]
+        },
+        "toState": {
+          "enum": [
+            "UNKNOWN_RECONCILE_REQUIRED",
+            "ACKNOWLEDGED",
+            "WORKING",
+            "PARTIAL",
+            "FILLED",
+            "CANCELED",
+            "REJECTED"
+          ]
+        },
+        "transitionSequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reconciliationSequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "orderQuantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "cumulativeFilledQuantity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "simulationOnly": {
+          "const": true
+        },
+        "exchangeSubmissionAttempted": {
+          "const": false
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "simulationOrderId",
+        "signalId",
+        "symbol",
+        "action",
+        "side",
+        "reservedQuantity",
+        "reservedGrossNotional",
+        "reservesPositionSlot",
+        "simulationOnly",
+        "exchangeSubmissionAttempted"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "EXPOSURE_RESERVATION_CREATED"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "simulationOrderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "signalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "action": {
+          "enum": [
+            "BUY",
+            "SCALE_IN"
+          ]
+        },
+        "side": {
+          "enum": [
+            "LONG",
+            "SHORT"
+          ]
+        },
+        "reservedQuantity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "reservedGrossNotional": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "reservesPositionSlot": {
+          "type": "boolean"
+        },
+        "simulationOnly": {
+          "const": true
+        },
+        "exchangeSubmissionAttempted": {
+          "const": false
+        },
+        "marginReservationRate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "reservedAvailableBalance": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "eventType",
+        "utcMs",
+        "simulationOrderId",
+        "symbol",
+        "releasedGrossNotional",
+        "releasedPositionSlot",
+        "terminalState",
+        "simulationOnly",
+        "exchangeSubmissionAttempted",
+        "reason"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "eventType": {
+          "const": "EXPOSURE_RESERVATION_RELEASED"
+        },
+        "utcMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "simulationOrderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "releasedGrossNotional": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "releasedPositionSlot": {
+          "type": "boolean"
+        },
+        "terminalState": {
+          "enum": [
+            "FILLED",
+            "CANCELED",
+            "REJECTED"
+          ]
+        },
+        "simulationOnly": {
+          "const": true
+        },
+        "exchangeSubmissionAttempted": {
+          "const": false
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "releasedAvailableBalance": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  ]
+}

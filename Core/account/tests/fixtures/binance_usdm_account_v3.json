@@ -1,0 +1,131 @@
+{
+  "feeTier": 0,
+  "canTrade": true,
+  "canDeposit": true,
+  "canWithdraw": true,
+  "updateTime": 1789825000000,
+  "multiAssetsMargin": false,
+  "tradeGroupId": -1,
+  "totalInitialMargin": "100.00000000",
+  "totalMaintMargin": "10.00000000",
+  "totalWalletBalance": "10000.00000000",
+  "totalUnrealizedProfit": "250.00000000",
+  "totalMarginBalance": "10250.00000000",
+  "totalPositionInitialMargin": "100.00000000",
+  "totalOpenOrderInitialMargin": "0.00000000",
+  "totalCrossWalletBalance": "10000.00000000",
+  "totalCrossUnPnl": "250.00000000",
+  "availableBalance": "9150.00000000",
+  "maxWithdrawAmount": "9150.00000000",
+  "assets": [],
+  "positions": [
+    {
+      "symbol": "BTCUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0.010",
+      "unrealizedProfit": "250.00000000",
+      "notional": "1000.00000000",
+      "isolatedWallet": "0",
+      "updateTime": 1789825000000
+    },
+    {
+      "symbol": "ETHUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "SOLUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "BNBUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "XRPUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "ADAUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "TRXUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "LINKUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "1000SHIBUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    },
+    {
+      "symbol": "DOTUSDT",
+      "positionSide": "BOTH",
+      "positionAmt": "0",
+      "unrealizedProfit": "0",
+      "notional": "0",
+      "isolatedWallet": "0",
+      "updateTime": 0
+    }
+  ]
+}

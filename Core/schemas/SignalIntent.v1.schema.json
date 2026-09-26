@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:astu:SignalIntent.v1",
+  "title": "SignalIntent.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "signalId", "analysisRunId", "strategyId", "strategyVersion",
+    "universeId", "universeVersion", "symbol", "action", "side",
+    "sourcePeriodicity", "sourceBarTime", "signalTime", "triggerPrice",
+    "validFromUtc", "expiresUtc", "quantityModel", "priorityScore", "dataGeneration"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "signalId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "analysisRunId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "strategyId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "strategyVersion": {"type": "string", "minLength": 1, "maxLength": 64},
+    "universeId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "universeVersion": {"type": "integer", "minimum": 1},
+    "symbol": {"type": "string", "minLength": 1, "maxLength": 32},
+    "action": {"enum": ["BUY", "SELL", "SCALE_IN", "SCALE_OUT"]},
+    "side": {"enum": ["LONG", "SHORT"]},
+    "sourcePeriodicity": {"type": "string", "minLength": 1, "maxLength": 32},
+    "sourceBarTime": {"type": "integer", "minimum": 0},
+    "signalTime": {"type": "integer", "minimum": 0},
+    "triggerPrice": {"type": "number", "exclusiveMinimum": 0},
+    "validFromUtc": {"type": "integer", "minimum": 0},
+    "expiresUtc": {"type": "integer", "minimum": 1},
+    "quantityModel": {"type": "string", "minLength": 1, "maxLength": 128},
+    "priorityScore": {"type": "number"},
+    "dataGeneration": {"type": "integer", "minimum": 1}
+  }
+}
