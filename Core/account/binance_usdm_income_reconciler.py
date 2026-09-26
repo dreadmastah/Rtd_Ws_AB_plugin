@@ -23,12 +23,24 @@ import hmac
 import json
 import math
 import os
+import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
+
+_ACCOUNT_MODULE_DIR = str(Path(__file__).resolve().parent)
+if _ACCOUNT_MODULE_DIR not in sys.path:
+    sys.path.insert(0, _ACCOUNT_MODULE_DIR)
+
+from binance_usdm_credential_binding import (
+    CredentialBindingError,
+    read_bound_credentials,
+    resolve_credential_binding,
+    safe_diagnostic,
+)
 
 DEFAULT_BASE_URL = "https://fapi.binance.com"
 DEFAULT_OUTPUT = Path("Core/runtime/realized_pnl_status.v1.json")
@@ -497,9 +509,7 @@ def signed_get_income_page(
             f"Binance income USER_DATA HTTP {exc.code}"
         ) from exc
     except urllib.error.URLError as exc:
-        raise IncomeReconcilerError(
-            f"Binance income USER_DATA request failed: {exc.reason}"
-        ) from exc
+        raise IncomeReconcilerError("Binance income USER_DATA request failed") from None
 
     try:
         obj = json.loads(payload)
@@ -561,6 +571,8 @@ def main() -> int:
     ap.add_argument("--timeout-seconds", type=float, default=10.0)
     ap.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
     ap.add_argument("--settlement-asset", default="USDT")
+    ap.add_argument("--environment", choices=("DEMO", "LIVE"), default=os.getenv("ASTU_BINANCE_ENVIRONMENT"))
+    ap.add_argument("--credential-profile", choices=("TESTNET_SIGNED_READONLY", "LIVE_SIGNED_READONLY"), default=os.getenv("ASTU_BINANCE_CREDENTIAL_PROFILE"))
     ap.add_argument(
         "--base-url",
         default=os.getenv("BINANCE_USDM_BASE_URL", DEFAULT_BASE_URL),
@@ -588,8 +600,34 @@ def main() -> int:
         print(f"OUTPUT={args.output}")
         return 3
 
-    api_key = os.getenv("BINANCE_API_KEY", "")
-    api_secret = os.getenv("BINANCE_API_SECRET", "")
+    profile = args.credential_profile or {
+        "DEMO": "TESTNET_SIGNED_READONLY",
+        "LIVE": "LIVE_SIGNED_READONLY",
+    }.get(args.environment)
+    if fixture_mode:
+        api_key = api_secret = ""
+    else:
+        try:
+            binding = resolve_credential_binding(
+                environment=args.environment,
+                profile=profile,
+                rest_base_url=args.base_url,
+            )
+            api_key, api_secret = read_bound_credentials(binding, os.environ)
+        except CredentialBindingError as exc:
+            diagnostic = safe_diagnostic(
+                environment=args.environment,
+                profile=profile,
+                reason_code=exc.reason_code,
+                exception=exc,
+            )
+            snapshot = fail_closed_snapshot(
+                source="BINANCE_USDM_INCOME_INVALID_BINDING",
+                reason=diagnostic,
+            )
+            write_atomic(args.output, snapshot)
+            print(f"BINANCE_INCOME_READONLY=INVALID_BINDING reason={exc.reason_code}")
+            return 4
     if not fixture_mode and (not api_key or not api_secret):
         snapshot = fail_closed_snapshot(
             source="BINANCE_USDM_INCOME_MISSING_CREDENTIALS",
@@ -608,15 +646,22 @@ def main() -> int:
     except Exception as exc:
         snapshot = fail_closed_snapshot(
             source="BINANCE_USDM_INCOME_STATE_INVALID",
-            reason=(
-                "persisted income state invalid: "
-                f"{type(exc).__name__}: {exc}"
+            reason=safe_diagnostic(
+                environment=args.environment,
+                profile=profile,
+                reason_code="PERSISTED_STATE_INVALID",
+                exception=exc,
             ),
         )
         write_atomic(args.output, snapshot)
         print(
             "BINANCE_INCOME_READONLY=FAIL_CLOSED "
-            f"error={type(exc).__name__}: {exc}"
+            + safe_diagnostic(
+                environment=args.environment,
+                profile=profile,
+                reason_code="PERSISTED_STATE_INVALID",
+                exception=exc,
+            )
         )
         return 5
 
@@ -661,15 +706,22 @@ def main() -> int:
         except Exception as exc:
             snapshot = fail_closed_snapshot(
                 source=source,
-                reason=(
-                    "income reconciliation failed: "
-                    f"{type(exc).__name__}: {exc}"
+                reason=safe_diagnostic(
+                    environment=args.environment,
+                    profile=profile,
+                    reason_code="INCOME_RECONCILIATION_FAILED",
+                    exception=exc,
                 ),
             )
             write_atomic(args.output, snapshot)
             print(
                 "BINANCE_INCOME_READONLY=FAIL_CLOSED "
-                f"error={type(exc).__name__}: {exc}"
+                + safe_diagnostic(
+                    environment=args.environment,
+                    profile=profile,
+                    reason_code="INCOME_RECONCILIATION_FAILED",
+                    exception=exc,
+                )
             )
 
         if args.once:

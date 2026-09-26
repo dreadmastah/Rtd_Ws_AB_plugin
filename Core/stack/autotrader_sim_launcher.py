@@ -58,6 +58,8 @@ SENSITIVE_ENV_NAMES = frozenset({
     "BINANCE_API_SECRET",
     "ASTU_BINANCE_TESTNET_API_KEY",
     "ASTU_BINANCE_TESTNET_API_SECRET",
+    "ASTU_BINANCE_LIVE_API_KEY",
+    "ASTU_BINANCE_LIVE_API_SECRET",
     "ASTU_PRIVATE_TOKEN",
     "GH_TOKEN",
     "GITHUB_TOKEN",
@@ -78,6 +80,7 @@ BENIGN_ENV_NAMES = frozenset({"TOKENIZERS_PARALLELISM"})
 CREDENTIAL_PROFILE_NONE = "NONE"
 CREDENTIAL_PROFILE_BINANCE_READONLY = "BINANCE_READONLY"
 CREDENTIAL_PROFILE_BINANCE_DEMO_SIGNED = "BINANCE_DEMO_SIGNED"
+CREDENTIAL_PROFILE_BINANCE_LIVE_SIGNED = "BINANCE_LIVE_SIGNED_READONLY"
 CREDENTIAL_PROFILE_TESTNET_USER_DATA = "TESTNET_USER_DATA"
 
 RUNTIME.mkdir(parents=True, exist_ok=True)
@@ -651,6 +654,7 @@ def sanitized_child_environment(
         key: value
         for key, value in os.environ.items()
         if not is_sensitive_environment_name(key)
+        and key != "BINANCE_USDM_BASE_URL"
     }
     env["PYTHONUNBUFFERED"] = "1"
     if overrides:
@@ -666,27 +670,65 @@ def selected_parent_environment(names: tuple[str, ...]) -> dict[str, str]:
     }
 
 
-def child_environment(credential_profile: str) -> dict[str, str]:
+def child_environment(
+    credential_profile: str,
+    environment: str | None = None,
+) -> dict[str, str]:
     overrides: dict[str, str] = {}
-    if credential_profile == CREDENTIAL_PROFILE_BINANCE_READONLY:
-        overrides = selected_parent_environment((
-            "ASTU_BINANCE_PRIVATE_READONLY_ENABLED",
-            "BINANCE_API_KEY",
-            "BINANCE_API_SECRET",
-            "BINANCE_USDM_BASE_URL",
-        ))
-    elif credential_profile == CREDENTIAL_PROFILE_BINANCE_DEMO_SIGNED:
+    if credential_profile in {
+        CREDENTIAL_PROFILE_BINANCE_READONLY,
+        CREDENTIAL_PROFILE_BINANCE_DEMO_SIGNED,
+        CREDENTIAL_PROFILE_BINANCE_LIVE_SIGNED,
+    }:
+        selected_environment = environment
+        if credential_profile == CREDENTIAL_PROFILE_BINANCE_DEMO_SIGNED:
+            selected_environment = selected_environment or "DEMO"
+        elif credential_profile == CREDENTIAL_PROFILE_BINANCE_LIVE_SIGNED:
+            selected_environment = selected_environment or "LIVE"
+        if selected_environment not in {"DEMO", "LIVE"}:
+            raise ValueError("qualified read-only profile requires DEMO or LIVE environment")
+        if (
+            credential_profile == CREDENTIAL_PROFILE_BINANCE_DEMO_SIGNED
+            and selected_environment != "DEMO"
+        ) or (
+            credential_profile == CREDENTIAL_PROFILE_BINANCE_LIVE_SIGNED
+            and selected_environment != "LIVE"
+        ):
+            raise ValueError("credential profile does not match selected environment")
+        if credential_profile == CREDENTIAL_PROFILE_BINANCE_READONLY:
+            profile_name = (
+                "TESTNET_SIGNED_READONLY"
+                if selected_environment == "DEMO"
+                else "LIVE_SIGNED_READONLY"
+            )
+        elif selected_environment == "DEMO":
+            profile_name = "TESTNET_SIGNED_READONLY"
+        else:
+            profile_name = "LIVE_SIGNED_READONLY"
+        prefix = "ASTU_BINANCE_TESTNET" if selected_environment == "DEMO" else "ASTU_BINANCE_LIVE"
         overrides = {
             "ASTU_BINANCE_PRIVATE_READONLY_ENABLED": "1",
-            "BINANCE_API_KEY": os.environ["ASTU_BINANCE_TESTNET_API_KEY"],
-            "BINANCE_API_SECRET": os.environ["ASTU_BINANCE_TESTNET_API_SECRET"],
+            "ASTU_BINANCE_ENVIRONMENT": selected_environment,
+            "ASTU_BINANCE_CREDENTIAL_PROFILE": profile_name,
         }
+        for suffix in ("API_KEY", "API_SECRET"):
+            parent_name = f"{prefix}_{suffix}"
+            value = os.environ.get(parent_name, "")
+            if not value:
+                raise ValueError("selected credential profile is unavailable")
+            overrides[parent_name] = value
     elif credential_profile == CREDENTIAL_PROFILE_TESTNET_USER_DATA:
+        if environment not in {None, "DEMO"}:
+            raise ValueError("Testnet user-data profile requires DEMO environment")
         overrides = selected_parent_environment((
             "ASTU_BINANCE_TESTNET_USER_DATA_ENABLED",
             "ASTU_BINANCE_TESTNET_API_KEY",
             "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE",
         ))
+        overrides["ASTU_BINANCE_ENVIRONMENT"] = "DEMO"
+        overrides["ASTU_BINANCE_CREDENTIAL_PROFILE"] = "TESTNET_USER_DATA"
+        if not overrides.get("ASTU_BINANCE_TESTNET_API_KEY"):
+            raise ValueError("selected credential profile is unavailable")
     elif credential_profile != CREDENTIAL_PROFILE_NONE:
         raise ValueError(f"unknown child credential profile: {credential_profile}")
     return sanitized_child_environment(overrides)
@@ -697,13 +739,14 @@ def popen_child_process(
     *,
     stdout: object,
     credential_profile: str,
+    environment: str | None = None,
 ) -> subprocess.Popen:
     return subprocess.Popen(
         command,
         cwd=REPO,
         stdout=stdout,
         stderr=subprocess.STDOUT,
-        env=child_environment(credential_profile),
+        env=child_environment(credential_profile, environment),
         creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
     )
 
@@ -747,7 +790,7 @@ def wait_for_demo_convergence(
                 f"fallback={fallback} ageMs={age_ms}"
             )
         except Exception as exc:
-            last_detail = str(exc)
+            last_detail = f"status unavailable ({type(exc).__name__})"
         time.sleep(0.25)
     return False, last_detail
 
@@ -816,6 +859,17 @@ def run(args: argparse.Namespace) -> int:
 
     demo_authority_active = args.testnet_user_data_mode == "live"
     demo_authority_only = args.demo_authority_only
+    credential_environment = args.binance_environment
+    if demo_authority_active:
+        if credential_environment not in (None, "DEMO"):
+            print("ASTU_SIM_STACK_FATAL=credential environment conflicts with Demo authority")
+            return 2
+        credential_environment = "DEMO"
+    if (
+        args.risk_mode == "readonly" or args.realized_pnl_mode == "readonly"
+    ) and credential_environment not in {"DEMO", "LIVE"}:
+        print("ASTU_SIM_STACK_FATAL=read-only account mode requires --binance-environment DEMO or LIVE")
+        return 2
 
     if demo_authority_only:
         if not demo_authority_active:
@@ -934,6 +988,7 @@ def run(args: argparse.Namespace) -> int:
         name: str,
         command: list[str],
         credential_profile: str = CREDENTIAL_PROFILE_NONE,
+        environment: str | None = None,
     ) -> subprocess.Popen:
         log_path = LOGS / f"{name}.log"
         fh = open(log_path, "a", encoding="utf-8", buffering=1)
@@ -942,6 +997,7 @@ def run(args: argparse.Namespace) -> int:
             command,
             stdout=fh,
             credential_profile=credential_profile,
+            environment=environment,
         )
         # Include the child in shutdown even if identity/persistence fails.
         children[name] = proc
@@ -981,7 +1037,7 @@ def run(args: argparse.Namespace) -> int:
             "--poll-seconds",
             str(args.risk_poll_seconds),
         ]
-        if demo_authority_active:
+        if credential_environment == "DEMO":
             risk_command.extend([
                 "--base-url",
                 str(args.testnet_rest_base_url),
@@ -1018,6 +1074,11 @@ def run(args: argparse.Namespace) -> int:
             "--poll-seconds",
             str(args.realized_pnl_poll_seconds),
         ]
+        if credential_environment == "DEMO":
+            realized_pnl_command.extend([
+                "--base-url",
+                str(args.testnet_rest_base_url),
+            ])
 
     testnet_user_data_command: list[str] | None = None
     if args.testnet_user_data_mode == "live":
@@ -1099,6 +1160,7 @@ def run(args: argparse.Namespace) -> int:
                 "risk",
                 risk_command,
                 risk_profile,
+                credential_environment,
             )
             time.sleep(0.5)
         if realized_pnl_command is not None:
@@ -1111,6 +1173,7 @@ def run(args: argparse.Namespace) -> int:
                 "realized_pnl",
                 realized_pnl_command,
                 realized_pnl_profile,
+                credential_environment,
             )
             time.sleep(0.5)
         if instrument_command is not None:
@@ -1121,6 +1184,7 @@ def run(args: argparse.Namespace) -> int:
                 "testnet_user_data",
                 testnet_user_data_command,
                 CREDENTIAL_PROFILE_TESTNET_USER_DATA,
+                "DEMO",
             )
             time.sleep(0.5)
 
@@ -1490,6 +1554,12 @@ def parse_args() -> argparse.Namespace:
         "--risk-mode",
         choices=("disabled", "fixture", "readonly"),
         default="disabled",
+    )
+    ap.add_argument(
+        "--binance-environment",
+        choices=("DEMO", "LIVE"),
+        default=None,
+        help="Explicit environment required for signed read-only Binance account sidecars.",
     )
     ap.add_argument("--risk-poll-seconds", type=float, default=5.0)
     ap.add_argument(

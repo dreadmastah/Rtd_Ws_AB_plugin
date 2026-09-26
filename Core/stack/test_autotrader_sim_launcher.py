@@ -674,11 +674,26 @@ class LauncherOwnershipTests(unittest.TestCase):
 
 
 class ChildEnvironmentTests(unittest.TestCase):
+    def test_qualified_readonly_profile_needs_explicit_environment_and_namespaced_values(self) -> None:
+        with mock.patch.dict(
+            launcher.os.environ,
+            {"BINANCE_API_KEY": "generic-key", "BINANCE_API_SECRET": "generic-secret"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(ValueError, "requires DEMO or LIVE"):
+                launcher.child_environment(launcher.CREDENTIAL_PROFILE_BINANCE_READONLY)
+            with self.assertRaisesRegex(ValueError, "unavailable"):
+                launcher.child_environment(
+                    launcher.CREDENTIAL_PROFILE_BINANCE_READONLY,
+                    "LIVE",
+                )
+
     def test_secrets_are_removed_from_default_child_environment(self) -> None:
         parent = {
             "PATH": "safe-path",
             "BINANCE_API_KEY": "key",
             "BINANCE_API_SECRET": "secret",
+            "BINANCE_USDM_BASE_URL": "https://attacker.invalid",
             "ASTU_PRIVATE_TOKEN": "token",
             "ASTU_SURPRISE_ACCESS_TOKEN": "surprise",
             "NPM_TOKEN": "npm",
@@ -693,6 +708,7 @@ class ChildEnvironmentTests(unittest.TestCase):
         self.assertEqual(child["PYTHONUNBUFFERED"], "1")
         self.assertNotIn("BINANCE_API_KEY", child)
         self.assertNotIn("BINANCE_API_SECRET", child)
+        self.assertNotIn("BINANCE_USDM_BASE_URL", child)
         self.assertNotIn("ASTU_PRIVATE_TOKEN", child)
         self.assertNotIn("ASTU_SURPRISE_ACCESS_TOKEN", child)
         self.assertNotIn("NPM_TOKEN", child)
@@ -704,13 +720,13 @@ class ChildEnvironmentTests(unittest.TestCase):
     def test_only_explicit_secret_grants_reach_privileged_child(self) -> None:
         with mock.patch.dict(
             launcher.os.environ,
-            {"PATH": "safe-path", "BINANCE_API_KEY": "parent-key"},
+            {"PATH": "safe-path", "ASTU_BINANCE_LIVE_API_KEY": "parent-key"},
             clear=True,
         ):
             child = launcher.sanitized_child_environment(
-                {"BINANCE_API_KEY": "granted-key"}
+                {"ASTU_BINANCE_LIVE_API_KEY": "granted-key"}
             )
-        self.assertEqual(child["BINANCE_API_KEY"], "granted-key")
+        self.assertEqual(child["ASTU_BINANCE_LIVE_API_KEY"], "granted-key")
 
     def test_actual_popen_environments_follow_child_profiles(self) -> None:
         parent = {
@@ -721,6 +737,8 @@ class ChildEnvironmentTests(unittest.TestCase):
             "ASTU_BINANCE_TESTNET_USER_DATA_ENABLED": "1",
             "ASTU_BINANCE_TESTNET_API_KEY": "demo-key",
             "ASTU_BINANCE_TESTNET_API_SECRET": "demo-secret",
+            "ASTU_BINANCE_LIVE_API_KEY": "live-key",
+            "ASTU_BINANCE_LIVE_API_SECRET": "live-secret",
             "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE": "wss://example/{listenKey}",
             "ASTU_SURPRISE_AUTH_TOKEN": "must-not-leak",
             "NPM_TOKEN": "must-not-leak",
@@ -748,6 +766,8 @@ class ChildEnvironmentTests(unittest.TestCase):
                 env = popen.call_args.kwargs["env"]
                 self.assertNotIn("ASTU_BINANCE_TESTNET_API_KEY", env, role)
                 self.assertNotIn("ASTU_BINANCE_TESTNET_API_SECRET", env, role)
+                self.assertNotIn("ASTU_BINANCE_LIVE_API_KEY", env, role)
+                self.assertNotIn("ASTU_BINANCE_LIVE_API_SECRET", env, role)
                 self.assertNotIn("BINANCE_API_KEY", env, role)
                 self.assertNotIn("BINANCE_API_SECRET", env, role)
                 self.assertNotIn("ASTU_SURPRISE_AUTH_TOKEN", env, role)
@@ -766,6 +786,8 @@ class ChildEnvironmentTests(unittest.TestCase):
                 user_data_env["ASTU_BINANCE_TESTNET_API_KEY"],
                 "demo-key",
             )
+            self.assertEqual(user_data_env["ASTU_BINANCE_ENVIRONMENT"], "DEMO")
+            self.assertEqual(user_data_env["ASTU_BINANCE_CREDENTIAL_PROFILE"], "TESTNET_USER_DATA")
             self.assertNotIn("ASTU_BINANCE_TESTNET_API_SECRET", user_data_env)
             self.assertNotIn("NPM_TOKEN", user_data_env)
             self.assertNotIn("SENTRY_TOKEN", user_data_env)
@@ -781,9 +803,26 @@ class ChildEnvironmentTests(unittest.TestCase):
                 credential_profile=launcher.CREDENTIAL_PROFILE_BINANCE_DEMO_SIGNED,
             )
             risk_env = popen.call_args.kwargs["env"]
-            self.assertEqual(risk_env["BINANCE_API_KEY"], "demo-key")
-            self.assertEqual(risk_env["BINANCE_API_SECRET"], "demo-secret")
-            self.assertNotIn("ASTU_BINANCE_TESTNET_API_SECRET", risk_env)
+            self.assertEqual(risk_env["ASTU_BINANCE_TESTNET_API_KEY"], "demo-key")
+            self.assertEqual(risk_env["ASTU_BINANCE_TESTNET_API_SECRET"], "demo-secret")
+            self.assertEqual(risk_env["ASTU_BINANCE_ENVIRONMENT"], "DEMO")
+            self.assertEqual(risk_env["ASTU_BINANCE_CREDENTIAL_PROFILE"], "TESTNET_SIGNED_READONLY")
+            self.assertNotIn("BINANCE_API_KEY", risk_env)
+            self.assertNotIn("BINANCE_API_SECRET", risk_env)
+
+            launcher.popen_child_process(
+                ["live-risk"],
+                stdout=launcher.subprocess.DEVNULL,
+                credential_profile=launcher.CREDENTIAL_PROFILE_BINANCE_LIVE_SIGNED,
+                environment="LIVE",
+            )
+            live_env = popen.call_args.kwargs["env"]
+            self.assertEqual(live_env["ASTU_BINANCE_LIVE_API_KEY"], "live-key")
+            self.assertEqual(live_env["ASTU_BINANCE_LIVE_API_SECRET"], "live-secret")
+            self.assertEqual(live_env["ASTU_BINANCE_ENVIRONMENT"], "LIVE")
+            self.assertEqual(live_env["ASTU_BINANCE_CREDENTIAL_PROFILE"], "LIVE_SIGNED_READONLY")
+            self.assertNotIn("BINANCE_API_KEY", live_env)
+            self.assertNotIn("BINANCE_API_SECRET", live_env)
 
 
 def containment_test_helper(root_text: str, count: int) -> None:

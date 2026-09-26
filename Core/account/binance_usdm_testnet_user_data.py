@@ -22,6 +22,7 @@ import os
 import secrets
 import socket
 import ssl
+import sys
 import struct
 import time
 import urllib.error
@@ -30,6 +31,17 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+_ACCOUNT_MODULE_DIR = str(Path(__file__).resolve().parent)
+if _ACCOUNT_MODULE_DIR not in sys.path:
+    sys.path.insert(0, _ACCOUNT_MODULE_DIR)
+
+from binance_usdm_credential_binding import (
+    CredentialBindingError,
+    read_bound_credentials,
+    resolve_credential_binding,
+    safe_diagnostic,
+)
 from urllib.parse import urlparse
 
 DEFAULT_STATUS = Path("Core/runtime/testnet_user_data_status.v1.json")
@@ -415,8 +427,8 @@ def api_request(
             return response.read()
     except urllib.error.HTTPError as exc:
         raise UserDataError(f"Binance Demo Trading USER_STREAM HTTP {exc.code}") from exc
-    except urllib.error.URLError as exc:
-        raise UserDataError(f"Binance Demo Trading USER_STREAM request failed: {exc}") from exc
+    except urllib.error.URLError:
+        raise UserDataError("Binance Demo Trading USER_STREAM request failed") from None
 
 
 def start_listen_key(base_url: str, api_key: str, timeout_seconds: float) -> str:
@@ -597,15 +609,23 @@ def run_live(args: argparse.Namespace, authority: Authority) -> int:
         raise UserDataError(
             "live Demo Trading user-data stream requires ASTU_BINANCE_TESTNET_USER_DATA_ENABLED=1"
         )
-    api_key = os.getenv("ASTU_BINANCE_TESTNET_API_KEY", "")
-    if not api_key:
-        raise UserDataError("ASTU_BINANCE_TESTNET_API_KEY is required")
-
-    if not args.ws_url_template.strip():
-        raise UserDataError(
-            "live Demo Trading user-data stream requires an explicit "
-            "ASTU_BINANCE_TESTNET_USER_STREAM_URL_TEMPLATE"
+    try:
+        binding = resolve_credential_binding(
+            environment="DEMO",
+            profile="TESTNET_USER_DATA",
+            rest_base_url=args.rest_base_url,
+            private_ws_template=args.ws_url_template,
         )
+        (api_key,) = read_bound_credentials(binding, os.environ)
+    except CredentialBindingError as exc:
+        raise UserDataError(
+            safe_diagnostic(
+                environment="DEMO",
+                profile="TESTNET_USER_DATA",
+                reason_code=exc.reason_code,
+                exception=exc,
+            )
+        ) from None
 
     while True:
         listen_key = start_listen_key(args.rest_base_url, api_key, args.timeout_seconds)
@@ -645,7 +665,12 @@ def run_live(args: argparse.Namespace, authority: Authority) -> int:
                     )
                     keepalive_due = time.monotonic() + args.keepalive_seconds
         except Exception as exc:
-            authority.detail = f"user-data transport reconnect required: {exc}"
+            authority.detail = safe_diagnostic(
+                environment="DEMO",
+                profile="TESTNET_USER_DATA",
+                reason_code="TRANSPORT_RECONNECT_REQUIRED",
+                exception=exc,
+            )
             authority.last_frame_unix_ms = 0
             authority.publish(now_ms())
             time.sleep(args.reconnect_seconds)
@@ -690,10 +715,15 @@ def main() -> int:
             return run_fixture(args, authority)
         return run_live(args, authority)
     except Exception as exc:
-        authority.detail = f"user-data authority fail-closed: {exc}"
+        authority.detail = safe_diagnostic(
+            environment="DEMO",
+            profile="TESTNET_USER_DATA",
+            reason_code="AUTHORITY_FAIL_CLOSED",
+            exception=exc,
+        )
         authority.last_frame_unix_ms = 0
         authority.publish(now_ms())
-        print(f"TESTNET_USER_DATA_FATAL={exc}")
+        print(f"TESTNET_USER_DATA_FATAL={type(exc).__name__}")
         return 2
 
 

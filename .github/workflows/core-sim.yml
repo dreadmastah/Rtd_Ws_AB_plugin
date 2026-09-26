@@ -53,6 +53,15 @@ jobs:
           python Core/tests/test_simulation_only_boundary.py
           python Core/stack/test_autotrader_sim_launcher.py
 
+      - name: Offline LIVE preflight readiness
+        run: python Core/tests/test_binance_usdm_live_preflight.py
+
+      - name: Offline LIVE interlock authorization
+        run: python Core/tests/test_binance_usdm_live_interlocks.py
+
+      - name: Offline LIVE canary configuration
+        run: python Core/tests/test_binance_usdm_live_canary_config.py
+
       - name: Testnet user-data authority semantics
         shell: bash
         run: |
