@@ -1,0 +1,10 @@
+// Analysis: 1-minute periodicity, selected watchlist, last bar range.
+SetBarsRequired(100, 0);
+Filter = Status("lastbarinrange");
+AddTextColumn(Name(), "Symbol");
+AddColumn(DateTime(), "Bar UTC", formatDateTime);
+AddColumn(C, "Close", 1.6);
+AddColumn(V, "Base volume", 1.3);
+AddColumn(ROC(C, 1), "1m ROC %", 1.3);
+AddColumn(Now(4), "Evaluation local", formatTime);
+// Now(4) has second resolution. Bar UTC is minute-open time, not quote arrival.
