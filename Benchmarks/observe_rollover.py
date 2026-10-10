@@ -20,6 +20,18 @@ def assess(expected, pre, post, daily, samples, connected, stable, fresh):
                 missing_daily=sorted(expected-set(daily)), stale_live=sorted(expected-fresh))
 
 
+def candle_timestamp(row):
+    return datetime.strptime(f"{int(row['d']):08d}{int(row['t']):06d}",
+                             '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc).timestamp()
+
+
+def fresh_symbols(latest, observed_end):
+    # Quotes can re-emit a cached candle. Arrival alone does not prove freshness.
+    return {symbol for symbol, (received, candle) in latest.items()
+            if 0 <= observed_end - received <= 90 and
+               0 <= observed_end - candle <= 90}
+
+
 def read_state(runtime):
     state = json.loads((runtime / 'status.json').read_text())
     if time.time() - datetime.fromisoformat(state['utc']).timestamp() > 30:
@@ -77,7 +89,7 @@ async def observe(args, boundary):
                                 pre.add(symbol)
                             elif int(row['d']) >= new_date:
                                 post.add(symbol)
-                                latest[symbol] = now
+                                latest[symbol] = (now, candle_timestamp(row))
                     elif data.get('format') == 'dohlcv' and data.get('hist') in expected:
                         if now >= boundary.timestamp():
                             bars = [bar for bar in data['bars'] if bar[0] == target_date]
@@ -103,7 +115,7 @@ async def observe(args, boundary):
                                    daily.get(symbol) == [target_date, *[float(v) for v in rows[0][1:6]]])
         identity = lambda s: (s['supervisor_pid'], s['sender_pid'], s['native_receivers'])
         stable = all(identity(s) == identity(states[0]) for s in states)
-        fresh = {s for s, t in latest.items() if observed_end-t <= 90}
+        fresh = fresh_symbols(latest, observed_end)
         result.update(assess(expected, pre, post, daily, samples, True, stable, fresh))
     except Exception as exc:
         result.update(status='FAIL', error=f'{type(exc).__name__}: {exc}')
@@ -112,6 +124,7 @@ async def observe(args, boundary):
                       finished_utc=datetime.now(timezone.utc).isoformat(),
                       before_count=len(pre), after_count=len(post), daily_count=len(daily),
                       sample_matches=samples, states=states,
+                      latest_live=latest, freshness_limit_seconds=90,
                       actual_boundary_observed=started < boundary.timestamp() <= time.time())
         result_path.write_text(json.dumps(result, indent=2) + '\n')
     return result

@@ -51,3 +51,27 @@ class RolloverWindowTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn('Observer started', result['error'])
                 self.assertFalse(result['actual_boundary_observed'])
                 connect.assert_not_called()
+
+
+class CandleFreshnessTests(unittest.TestCase):
+    def test_repeated_quote_does_not_refresh_cached_candle(self):
+        from Benchmarks.observe_rollover import candle_timestamp, fresh_symbols
+        candle = candle_timestamp(dict(d=20261011, t=0))
+        now = candle + 300
+        self.assertEqual(fresh_symbols({'BTCUSDT': (now, candle)}, now), set())
+
+    def test_current_candle_and_recent_delivery_pass(self):
+        from Benchmarks.observe_rollover import candle_timestamp, fresh_symbols
+        candle = candle_timestamp(dict(d=20261011, t=100))
+        self.assertEqual(fresh_symbols({'BTCUSDT': (candle+39, candle)}, candle+40),
+                         {'BTCUSDT'})
+
+    def test_future_candle_or_old_delivery_cannot_pass(self):
+        from Benchmarks.observe_rollover import fresh_symbols
+        self.assertEqual(fresh_symbols({'future': (1000, 1060),
+                                       'old_delivery': (900, 960)}, 1000), set())
+
+    def test_wire_timestamp_is_utc_across_date_boundary(self):
+        from Benchmarks.observe_rollover import candle_timestamp
+        self.assertEqual(candle_timestamp(dict(d=20261011, t=0)) -
+                         candle_timestamp(dict(d=20261010, t=235900)), 60)

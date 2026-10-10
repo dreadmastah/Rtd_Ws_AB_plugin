@@ -320,7 +320,8 @@ live symbols and complete quote sets in the same sender generation.
 `Benchmarks/observe_rollover.py` reads the test relay without sending commands.
 Run it within three minutes before an explicit UTC midnight. It records all
 500 symbols before and after the boundary, collects the newly closed daily
-history, checks recent post-boundary live bars and stable sender/native identity,
+history, checks both candle timestamps and receive times (each no more than 90 seconds
+old, rejecting future timestamps) and stable sender/native identity,
 and compares BTCUSDT, ETHUSDT and XRPUSDT daily OHLCV with public REST responses.
 It observes at least five minutes after midnight and stops by fifteen minutes
 afterward plus bounded REST requests. Missing coverage, disconnects, changed
