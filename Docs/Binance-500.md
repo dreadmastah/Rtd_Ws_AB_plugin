@@ -47,8 +47,9 @@ success. Refresh the universe by restarting after editing the priority file.
   Distinct minutes remain ordered. Kline open time determines UTC d/t, preventing
   local-time/DST shifts. Do not reinterpret these UTC dates as Manila dates.
 - Cumulative kline v replaces previous volume; it is never added repeatedly.
-  Unavailable bid/ask, daily totals and open interest are omitted rather than
-  manufactured. Realtime Quote window fields beyond candle price may be absent.
+  By default bid/ask, daily totals and open interest are omitted. With `--quotes`,
+  ticker and bookTicker supply the native quote fields without changing candle
+  OHLCV or adding daily totals to minute volume. Open interest is still omitted.
 - Final versions reject later unfinished versions of the same candle. Old
   event times are rejected. Pending capacity is 5,000 symbol-minute entries;
   exceeding it stops the sender explicitly rather than silently losing bars.
@@ -67,14 +68,20 @@ success. Refresh the universe by restarting after editing the priority file.
 The sender answers bfsym (`y SYMBOL DAYS`), bffull and bfauto using the existing
 hist + format + bars schema. History is ascending, closed bars only, UTC, and
 limited to 1..7 days. bfauto currently reloads `--history-days` (default one day),
-not the supplied exact last-bar timestamp. History pages interleave RTD flushes.
+not the supplied exact last-bar timestamp. An independent live pump continues
+during history downloads and REST retries; socket writes are serialized.
 Check DLL history merge behavior while a live bar is present: native behavior
 cannot be audited here. A one-day preload across 500 symbols needs about 1,500
 REST calls and takes minutes at the deliberately conservative request pace.
 
-There is no automatic gap-repair scheduler or durable outage spool in this
-version. After upstream, relay or DLL outages, explicitly request backfill for
-affected symbols. Reconnect resumes live updates but does not prove continuity.
+Upstream reconnects automatically queue closed-minute recovery from each
+symbol's last observation, including that minute when its final update was
+missed. A jump in candle timestamps also queues recovery even without a socket
+disconnect. Jobs coalesce per symbol, use ascending REST pages, and retry after
+60 seconds if REST fails or returns an incomplete range. Live data continues
+while recovery is pending. Recovery is capped at the latest 1,500 minutes in
+native-history mode, or `--history-days` otherwise; truncation is logged.
+There is no durable outage spool or ingestion acknowledgement.
 The sender removes a batch after relay socket send completes; this is not an
 AmiBroker ingestion acknowledgement. If no receiver is connected the relay does
 not retain data. After DLL reconnect, ensure backfill requests run (reset the
@@ -179,6 +186,57 @@ loopback-only unauthenticated relay; it does not replicate production relay
 authentication or status messages. Default `--protocol role` is unchanged.
 For synthetic tests with this DLL, use the same explicit mode on 18102 and
 append `/sender` to the load generator's relay URL.
+
+### Restore daily/hourly history and live quotes with CleanRoomR2
+
+After the test database receiver is connected to the path-mode relay, run:
+
+```powershell
+.\.venv\Scripts\python.exe Binance/sender.py --symbols validation/universe/selected-symbols.txt --limit 13 --relay ws://127.0.0.1:18101/sender --native-history --quotes
+```
+
+`--native-history` preloads the latest 1,500 completed one-minute bars and 300
+completed daily bars for each selected symbol on every sender-to-relay connection.
+Daily records use `dohlcv` (native EOD markers), while minute records use `dtohlcv`.
+AmiBroker derives hourly candles from the retained minute bars. Newly listed
+contracts may have fewer available daily bars. Live delivery continues
+independently of history downloads. Preload does not depend on the plugin
+repeating its first-access request, and failed attempts retry after 60 seconds.
+`bfauto` and `bffull` also restore both histories in this mode; `bfsymeod`,
+`bfeodall`, and `bfall` are supported. The default minute-only mode is unchanged.
+
+`--quotes` subscribes to `ticker` on the market endpoint and `bookTicker` on
+`wss://fstream.binance.com/public/stream` (override with `--public-ws`). It fills
+the existing WSRTD daily-volume, previous-close, daily-range and bid/ask fields.
+Quote changes re-emit the latest real minute candle; no candles are synthesized
+from quotes, and OHLCV remains from `kline_1m`. This provides live quote updates,
+not a historical tick-by-tick trade database. Binance ticker daily fields are
+rolling 24-hour statistics, matching the previous sender's mapping.
+
+The Realtime Quote list is separate from the chart selection. Right-click its
+empty area and use **Add selected symbol**, or **Add symbol**, to populate it.
+The sender runs until stopped; a bounded benchmark feed exits at its deadline.
+Receiver-only reconnects still require explicit backfill or a supervisor that
+restarts the sender when the native receiver reconnects: this relay mode has no
+receiver-presence notifications. Upstream minute recovery is automatic.
+With `--native-history`, the history worker detects a new UTC day and fetches
+the newly closed daily bar for each symbol whose daily preload completed. It
+catches up multiple missed days, capped at 300 days, retries incomplete results,
+and never sends the current unfinished daily candle as EOD history. Failed
+repairs remain queued and `repair_jobs` in the log indicates outstanding work.
+Start the native receiver
+before this sender, because a relay with no receivers does not retain preload.
+
+The 13-symbol native check on 2026-10-10 loaded 1,500 minute and 300 daily bars
+per selected symbol, and the operator confirmed both 1H/1D views and live quotes.
+The operator subsequently confirmed smooth 500-symbol RADAR operation and
+loaded history with advancing prices for BTCUSDT, ETHUSDT and XRPUSDT on 1m,
+1H and 1D charts (2026-10-11). This is operator acceptance, not a native export
+comparison of every stored bar or a measured RADAR latency percentile.
+
+Sources: [Binance market streams](https://developers.binance.com/en/docs/catalog/core-trading-derivatives-trading-usd-s-m-futures/api/ws-streams/market),
+[Binance public streams](https://developers.binance.com/en/docs/catalog/core-trading-derivatives-trading-usd-s-m-futures/api/ws-streams/public),
+[AmiBroker Realtime Quote window](https://www.amibroker.com/guide/w_rtquote.html).
 
 Generated `.tls` files use CRLF explicitly on every platform. Preserve their
 bytes when copying: an LF-only copy imported incompletely in the native test.
