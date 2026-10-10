@@ -278,3 +278,57 @@ a 500-symbol full-history/backfill capacity test. CPU is process-tree CPU time
 delta, with one logical core equal to 100%; RSS includes the Windows venv wrapper.
 These exclude collector and AmiBroker CPU. A zero CPU delta is not proof of
 zero work. Short runs do not establish long-duration memory stability.
+
+### Windows ownership and supervisor recovery (test feed only)
+
+`Benchmarks/supervise_test_feed.py` owns the isolated port-18101 relay and
+sender in a Windows Job Object. If the supervisor exits unexpectedly, Windows
+terminates its child processes too, avoiding an orphan relay that blocks restart.
+A named mutex refuses duplicate supervisors; an occupied port is never taken over.
+The existing test runtime STOP file prevents startup and causes an orderly stop.
+The supervisor never starts or stops AmiBroker.
+
+`Benchmarks/install_test_watchdog.ps1` registers **WSRTD PR3 Test Supervisor
+Watchdog** for the current user's interactive logon, with a one-minute repeating
+trigger, restart-on-failure, and no execution time limit. It runs independently
+of the Codex terminal. It is user-logon recovery, not pre-logon boot service
+coverage. It does not recover a still-running but hung supervisor. Keep the
+configured Python environment and source checkout available.
+
+Example installation, after connecting the test database to port 18101:
+
+```powershell
+.\Benchmarks\install_test_watchdog.ps1 -Root C:\path\to\WSRTD -Runtime D:\WSRTD_TEST\runtime -Python C:\path\to\WSRTD\.venv\Scripts\pythonw.exe
+```
+
+The runtime must already contain `selected-symbols.txt`. The installer refuses
+an existing task or supervisor installation file rather than overwriting it.
+Read the task and source bindings before intentionally replacing an installation.
+To stop recovery, create the runtime STOP file before stopping the task.
+To uninstall after stopping, remove only the named test task; production's
+WSRTD R2.1 Recovery Watchdog is a separate task.
+
+The 2026-10-11 forced-supervisor-exit check recovered automatically in 15.125
+seconds with no orphan children and the same AmiBroker receiver. All 500 candle
+symbols were observed in the first 90 seconds; complete quote fields appeared
+for 471 during that initial window. Treat warm-up coverage separately from
+process-recovery success. A later 83.609-second passive capture observed all 500
+live symbols and complete quote sets in the same sender generation.
+
+### Passive actual UTC-rollover acceptance
+
+`Benchmarks/observe_rollover.py` reads the test relay without sending commands.
+Run it within three minutes before an explicit UTC midnight. It records all
+500 symbols before and after the boundary, collects the newly closed daily
+history, checks recent post-boundary live bars and stable sender/native identity,
+and compares BTCUSDT, ETHUSDT and XRPUSDT daily OHLCV with public REST responses.
+It observes at least five minutes after midnight and stops by fifteen minutes
+afterward plus bounded REST requests. Missing coverage, disconnects, changed
+process identity, late startup or incomplete REST comparisons cannot pass.
+
+Use a fresh output directory. The artifacts are relay evidence; they do not
+prove native storage of every daily bar or replace a native export comparison.
+An actual scheduled boundary crossing remains pending until its result exists.
+
+Sources: [Windows Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
+and [Task Scheduler settings](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/new-scheduledtasksettingsset).
