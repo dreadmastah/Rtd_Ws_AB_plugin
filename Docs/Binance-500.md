@@ -129,3 +129,69 @@ Official sources checked during implementation:
 - https://developers.binance.com/en/docs/catalog/core-trading-derivatives-trading-usd-s-m-futures/api/ws-streams/market
 - https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info
 - https://forum.amibroker.com/t/amibroker-7-20-0-beta-released/40853
+
+## Isolated validation and saved universe
+
+Use a virtual environment in a separate checkout. Do not use the production
+relay or database. From the repository root:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r Benchmarks/requirements.txt
+.\.venv\Scripts\python.exe Binance/sender.py --discover-only --limit 500 --universe-dir validation/universe
+```
+
+Discovery logs the eligible count and creates a fresh directory containing raw
+exchangeInfo, timestamped universe metadata, selected-symbols.txt, and nested
+watchlist-13/100/250/500.tls files. Existing output directories are refused.
+TRADING + USDT quote + PERPETUAL are all required; no spot, USDC, or delivery
+contracts are substituted. If fewer than 500 exist, metadata records actual
+stage sizes. Reuse this selection for all stages. The sender revalidates
+eligibility on startup and rejects an ineligible symbol rather than replacing it.
+
+In separate terminals, for each desired count:
+
+```powershell
+.\.venv\Scripts\python.exe Relay/Server/Python/relay.py 18101 startserver
+.\.venv\Scripts\python.exe Binance/sender.py --symbols validation/universe/selected-symbols.txt --limit 13 --relay ws://127.0.0.1:18101
+```
+
+Connect only the separate live-test database to port 18101. Use a unique
+database basename, not just a different folder named Data: WSRTD shares registry
+settings between databases having the same basename. Enable local storage and
+a 1-minute base interval. Import the corresponding saved .tls watchlist.
+
+For synthetic RADAR load, use another uniquely named, synthetic-only database,
+connected to a separate relay on port 18102. Never mix fabricated prices with
+the live-validation or production databases. Import the same saved watchlist,
+then use Benchmarks/radar.afl at 1-minute periodicity and last-bar range:
+
+```powershell
+.\.venv\Scripts\python.exe Benchmarks/load_sender.py --symbols-file validation/universe/selected-symbols.txt --symbols 500 --seconds 600 --relay ws://127.0.0.1:18102
+```
+
+Synthetic volume increases within the actual UTC candle minute and resets at
+its boundary. Intervals of 60 seconds or longer no longer divide by zero, and
+no extra cycle is emitted after the requested duration.
+
+### Repeatable Python-only checks
+
+The following owns and stops its sender/relay processes, refuses the production
+default port 10101 and any occupied port, and creates fresh per-stage directories.
+It does not run AmiBroker, ingest through the DLL, or measure RADAR.
+Do not attach native clients to these collector runs.
+
+```powershell
+.\.venv\Scripts\python.exe Benchmarks/validate_transport.py --mode live --symbols validation/universe/selected-symbols.txt --output validation/live --seconds 150 --port 18101
+.\.venv\Scripts\python.exe Benchmarks/validate_transport.py --mode synthetic --symbols validation/universe/selected-symbols.txt --output validation/synthetic --seconds 150 --port 18102
+.\.venv\Scripts\python.exe -m Benchmarks.audit_saved_live --input validation/live --symbols validation/universe/selected-symbols.txt --output validation/rest-audit
+```
+
+The live run compares captured closed OHLCV with REST and requests one day's
+backfill for the first selected symbol at each size. The audit conservatively
+excludes each symbol's last captured minute, preserves raw REST responses, checks
+every interior minute, and verifies contiguous backfill timestamps. It is not
+a 500-symbol full-history/backfill capacity test. CPU is process-tree CPU time
+delta, with one logical core equal to 100%; RSS includes the Windows venv wrapper.
+These exclude collector and AmiBroker CPU. A zero CPU delta is not proof of
+zero work. Short runs do not establish long-duration memory stability.

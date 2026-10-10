@@ -1,0 +1,2 @@
+-r ../Binance/requirements.txt
+psutil>=5.9,<8

@@ -16,6 +16,38 @@ from websockets.exceptions import ConnectionClosed
 LOG = logging.getLogger('binance')
 
 
+def eligible_symbols(info):
+    """One deterministic futures-only universe for feeds and watchlists."""
+    return sorted({s['symbol'] for s in info['symbols']
+                   if s.get('quoteAsset') == 'USDT'
+                   and s.get('contractType') == 'PERPETUAL'
+                   and s.get('status') == 'TRADING'})
+
+
+def save_universe(directory, info, selected):
+    """Create a fresh evidence directory; never overwrite a prior selection."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=False)
+    eligible = eligible_symbols(info)
+    (directory / 'exchangeInfo.json').write_text(
+        json.dumps(info, indent=2) + '\n', encoding='utf-8')
+    (directory / 'selected-symbols.txt').write_text(
+        '\n'.join(selected) + '\n', encoding='utf-8')
+    counts = {}
+    for requested in (13, 100, 250, 500):
+        subset = selected[:requested]
+        counts[str(requested)] = len(subset)
+        # AmiBroker import-watchlist format: one symbol per line.
+        (directory / f'watchlist-{requested}.tls').write_text(
+            '\n'.join(subset) + '\n', encoding='utf-8')
+    (directory / 'universe.json').write_text(json.dumps(dict(
+        discovered_at_utc=datetime.now(timezone.utc).isoformat(),
+        filter=dict(status='TRADING', quoteAsset='USDT', contractType='PERPETUAL'),
+        eligible_count=len(eligible), selected_count=len(selected),
+        selected=selected, stage_actual_counts=counts), indent=2) + '\n',
+        encoding='utf-8')
+
+
 def compact(value):
     return json.dumps(value, separators=(',', ':'), allow_nan=False)
 
@@ -93,9 +125,7 @@ class Sender:
 
     async def discover(self):
         info = await self.rest('/fapi/v1/exchangeInfo')
-        eligible = {s['symbol'] for s in info['symbols']
-                    if s['quoteAsset'] == 'USDT' and s['contractType'] == 'PERPETUAL'
-                    and s['status'] == 'TRADING'}
+        eligible = set(eligible_symbols(info))
         if self.args.symbols:
             selected = list(dict.fromkeys(Path(self.args.symbols).read_text().upper().split()))
             bad = set(selected) - eligible
@@ -107,6 +137,8 @@ class Sender:
         if not self.symbols:
             raise ValueError('No eligible symbols')
         LOG.info('Universe: %s selected, %s eligible', len(self.symbols), len(eligible))
+        if getattr(self.args, 'universe_dir', None):
+            save_universe(self.args.universe_dir, info, self.symbols)
 
     async def shard(self, symbols):
         delay = 1
@@ -226,6 +258,8 @@ class Sender:
 
     async def run(self):
         await self.discover()
+        if getattr(self.args, 'discover_only', False):
+            return
         tasks = [asyncio.create_task(self.relay()), asyncio.create_task(self.metrics())]
         tasks += [asyncio.create_task(self.shard(set(self.symbols[i:i+self.args.shard_size])))
                   for i in range(0, len(self.symbols), self.args.shard_size)]
@@ -241,6 +275,8 @@ def arguments():
     p = argparse.ArgumentParser()
     p.add_argument('--limit', type=int, default=500)
     p.add_argument('--symbols', help='Whitespace-separated priority list; optional')
+    p.add_argument('--universe-dir', help='Fresh directory for exchangeInfo, selection and watchlists')
+    p.add_argument('--discover-only', action='store_true', help='Save discovery without connecting the relay')
     p.add_argument('--shard-size', type=int, default=100)
     p.add_argument('--batch-size', type=int, default=100)
     p.add_argument('--flush-ms', type=int, default=250)
@@ -249,6 +285,8 @@ def arguments():
     p.add_argument('--ws', default='wss://fstream.binance.com/market/stream')
     p.add_argument('--rest', default='https://fapi.binance.com')
     a = p.parse_args()
+    if a.discover_only and not a.universe_dir:
+        p.error('--discover-only requires --universe-dir')
     if not (1 <= a.limit <= 500 and 1 <= a.shard_size <= 100 and
             1 <= a.batch_size <= 100 and 50 <= a.flush_ms <= 5000 and
             1 <= a.history_days <= 7):
