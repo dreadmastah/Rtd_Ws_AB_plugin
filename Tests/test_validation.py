@@ -30,6 +30,8 @@ class UniverseTests(unittest.TestCase):
             for n in (13, 100, 250, 500):
                 self.assertEqual((root / f'watchlist-{n}.tls').read_text().split(),
                                  selected[:n])
+                self.assertEqual((root / f'watchlist-{n}.tls').read_bytes(),
+                                 ('\r\n'.join(selected[:n])+'\r\n').encode('utf-8'))
             self.assertEqual(json.loads((root/'universe.json').read_text())
                              ['stage_actual_counts']['500'], 260)
             with self.assertRaises(FileExistsError):
@@ -43,6 +45,30 @@ class UniverseTests(unittest.TestCase):
 
 
 class SenderTests(unittest.IsolatedAsyncioTestCase):
+    async def test_path_relay_receiver_without_handshake(self):
+        instance = relay.Relay(protocol='path')
+        async with serve(instance.handler, '127.0.0.1', 0) as server:
+            url = f'ws://127.0.0.1:{server.sockets[0].getsockname()[1]}'
+            async with connect(url) as receiver, connect(url+'/sender') as sender:
+                await sender.send('rolesend')
+                await sender.send('[{"n":"BTCUSDT"}]')
+                self.assertEqual(await asyncio.wait_for(receiver.recv(), 2), '[{"n":"BTCUSDT"}]')
+                await receiver.send('{"cmd":"bfauto","arg":"BTCUSDT"}')
+                self.assertEqual(await asyncio.wait_for(sender.recv(), 2),
+                                 '{"cmd":"bfauto","arg":"BTCUSDT"}')
+
+    async def test_path_relay_rejects_unknown_path_and_conflicting_role(self):
+        instance = relay.Relay(protocol='path')
+        async with serve(instance.handler, '127.0.0.1', 0) as server:
+            url = f'ws://127.0.0.1:{server.sockets[0].getsockname()[1]}'
+            async with connect(url+'/unknown') as unknown:
+                await asyncio.wait_for(unknown.wait_closed(), 2)
+                self.assertEqual(unknown.close_code, 1008)
+            async with connect(url) as receiver:
+                await receiver.send('rolesend')
+                await asyncio.wait_for(receiver.wait_closed(), 2)
+                self.assertEqual(receiver.close_code, 1008)
+
     def sender(self):
         return Sender(SimpleNamespace(batch_size=100, history_days=1, flush_ms=50), None)
 

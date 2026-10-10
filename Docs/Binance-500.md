@@ -161,6 +161,31 @@ database basename, not just a different folder named Data: WSRTD shares registry
 settings between databases having the same basename. Enable local storage and
 a 1-minute base interval. Import the corresponding saved .tls watchlist.
 
+### CleanRoomR2 native receiver compatibility
+
+The installed WSRTD Compatible 3.06.26 R2 receiver was observed connecting to
+`/` without sending a role message. The default relay intentionally requires a
+role message and therefore cannot register that receiver. For this DLL only,
+explicitly select path mode on the isolated test relay:
+
+```powershell
+.\.venv\Scripts\python.exe Relay/Server/Python/relay.py 18101 --protocol path
+.\.venv\Scripts\python.exe Binance/sender.py --symbols validation/universe/selected-symbols.txt --limit 13 --relay ws://127.0.0.1:18101/sender
+```
+
+Path mode assigns `/` and `/receiver` to receivers and `/sender` to senders.
+Unknown paths and conflicting role messages are rejected. This remains a
+loopback-only unauthenticated relay; it does not replicate production relay
+authentication or status messages. Default `--protocol role` is unchanged.
+For synthetic tests with this DLL, use the same explicit mode on 18102 and
+append `/sender` to the load generator's relay URL.
+
+Generated `.tls` files use CRLF explicitly on every platform. Preserve their
+bytes when copying: an LF-only copy imported incompletely in the native test.
+Verify all imported counts and symbols against the saved selection; a file's
+name does not prove its imported size. Do not count connection or Python relay
+delivery as native OHLCV/RADAR acceptance; export and compare AmiBroker data.
+
 For synthetic RADAR load, use another uniquely named, synthetic-only database,
 connected to a separate relay on port 18102. Never mix fabricated prices with
 the live-validation or production databases. Import the same saved watchlist,

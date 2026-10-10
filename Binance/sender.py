@@ -37,9 +37,9 @@ def save_universe(directory, info, selected):
     for requested in (13, 100, 250, 500):
         subset = selected[:requested]
         counts[str(requested)] = len(subset)
-        # AmiBroker import-watchlist format: one symbol per line.
+        # AmiBroker import-watchlist format: CRLF, including on non-Windows hosts.
         (directory / f'watchlist-{requested}.tls').write_text(
-            '\n'.join(subset) + '\n', encoding='utf-8')
+            '\n'.join(subset) + '\n', encoding='utf-8', newline='\r\n')
     (directory / 'universe.json').write_text(json.dumps(dict(
         discovered_at_utc=datetime.now(timezone.utc).isoformat(),
         filter=dict(status='TRADING', quoteAsset='USDT', contractType='PERPETUAL'),

@@ -43,7 +43,10 @@ from websockets.exceptions import ConnectionClosed
 LOG = logging.getLogger("relay")
 
 class Relay:
-    def __init__(self, queue_size=256):
+    def __init__(self, queue_size=256, protocol="role"):
+        if protocol not in ("role", "path"):
+            raise ValueError("Unknown relay protocol")
+        self.protocol = protocol
         self.clients = {}
         self.senders = {}
         self.queue_size = queue_size
@@ -70,7 +73,19 @@ class Relay:
         peers = None
         writer = None
         try:
-            role = await asyncio.wait_for(ws.recv(), 10)
+            if self.protocol == "path":
+                # Explicit opt-in for CleanRoomR2: the native receiver sends no
+                # role handshake. Never guess this mode after a timeout.
+                path = ws.request.path
+                if path in ("/", "/receiver"):
+                    role = "rolerecv"
+                elif path == "/sender":
+                    role = "rolesend"
+                else:
+                    await ws.close(1008, "Unknown role path")
+                    return
+            else:
+                role = await asyncio.wait_for(ws.recv(), 10)
             if role in ("rolesend", "--rolesend"):
                 peers, targets = self.senders, self.clients
             elif role in ("rolerecv", "--rolerecv"):
@@ -83,6 +98,12 @@ class Relay:
             writer = asyncio.create_task(self.writer(ws, queue))
             async def reader():
                 async for message in ws:
+                    if self.protocol == "path" and message in (
+                            "rolesend", "--rolesend", "rolerecv", "--rolerecv"):
+                        if message.lstrip("-") != role:
+                            await ws.close(1008, "Role conflicts with path")
+                            return
+                        continue
                     if message in ("zzz", "close"):
                         LOG.info("Ignored legacy shutdown command")
                         continue
@@ -105,8 +126,8 @@ class Relay:
                 await asyncio.gather(writer, return_exceptions=True)
             await ws.close()
 
-async def run(port=10101, queue_size=256):
-    relay = Relay(queue_size)
+async def run(port=10101, queue_size=256, protocol="role"):
+    relay = Relay(queue_size, protocol)
     async with serve(relay.handler, "127.0.0.1", port, compression=None,
                      max_size=4 * 1024 * 1024, max_queue=32):
         LOG.info("Relay listening on 127.0.0.1:%s", port)
@@ -117,11 +138,13 @@ if __name__ == "__main__":
     parser.add_argument("port", nargs="?", type=int, default=10101)
     parser.add_argument("action", nargs="?", choices=["startserver"], default="startserver")
     parser.add_argument("--queue-size", type=int, default=256)
+    parser.add_argument("--protocol", choices=["role", "path"], default="role",
+                        help="path: CleanRoomR2 root receiver and /sender; loopback only")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535 or args.queue_size < 1:
         parser.error("invalid port or queue size")
     logging.basicConfig(level=logging.INFO)
     try:
-        asyncio.run(run(args.port, args.queue_size))
+        asyncio.run(run(args.port, args.queue_size, args.protocol))
     except KeyboardInterrupt:
         pass
