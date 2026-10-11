@@ -369,5 +369,11 @@ The revised sender passed 51 automated tests and an isolated in-memory replay
 using public REST: all three daily OHLCV comparisons matched the saved five-minute
 responses, and the real missing AWEUSDT minute was restored without creating a
 current bar. Original failure artifacts remain unchanged. This is not a new
-actual-midnight PASS or native storage certification. The corrected sender still
-requires controlled test deployment and a fresh live rollover observation.
+actual-midnight PASS or native storage certification. The corrected sender was deployed to the isolated port-18101 test feed from a
+pinned a2401ca release snapshot. A 124.450-second live relay smoke observed all 500
+candle symbols and complete quote sets, fresh BTCUSDT/ETHUSDT/XRPUSDT candles,
+and matching daily OHLCV for those three against REST. The same AmiBroker
+instance stayed connected; old test children exited and production was not
+modified. This does not certify full preload completion or native storage.
+The next actual rollover observation is scheduled for 2026-10-12 at 08:00 Taipei,
+with capture beginning at 07:58 and a read-only result check at 08:20.
