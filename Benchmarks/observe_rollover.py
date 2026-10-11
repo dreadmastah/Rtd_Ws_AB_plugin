@@ -32,6 +32,11 @@ def fresh_symbols(latest, observed_end):
                0 <= observed_end - candle <= 90}
 
 
+def ready_to_finish(expected, post, rechecked, latest, now, boundary):
+    return (now >= boundary + 300 and post == expected and
+            rechecked == expected and fresh_symbols(latest, now) == expected)
+
+
 def read_state(runtime):
     state = json.loads((runtime / 'status.json').read_text())
     if time.time() - datetime.fromisoformat(state['utc']).timestamp() > 30:
@@ -49,6 +54,7 @@ async def observe(args, boundary):
     result_path.write_text(json.dumps(result, indent=2))
     expected = set(args.symbols.read_text().split())
     pre, post, daily, latest = set(), set(), {}, {}
+    rechecked = set()
     samples = {}
     states = []
     started = time.time()
@@ -73,7 +79,7 @@ async def observe(args, boundary):
                         states.append(read_state(args.runtime))
                         (args.output / 'progress.json').write_text(json.dumps(dict(
                             utc=datetime.now(timezone.utc).isoformat(), before=len(pre),
-                            after=len(post), daily=len(daily)), indent=2))
+                            after=len(post), daily=len(daily), rechecked=len(rechecked)), indent=2))
                         last_status = now
                     try:
                         data = json.loads(await asyncio.wait_for(ws.recv(), 3))
@@ -95,10 +101,12 @@ async def observe(args, boundary):
                             bars = [bar for bar in data['bars'] if bar[0] == target_date]
                             if bars:
                                 daily[data['hist']] = bars[-1]
+                                if now >= boundary.timestamp() + 300:
+                                    rechecked.add(data['hist'])
                                 frames.write(json.dumps(dict(received_utc=now, frame=data)) + '\n')
                                 frames.flush()
                     # Observe at least five real minutes after midnight, even if all jobs finish early.
-                    if now >= boundary.timestamp() + 300 and set(daily) == expected and post == expected:
+                    if ready_to_finish(expected, post, rechecked, latest, now, boundary.timestamp()):
                         break
         observed_end = time.time()
         states.append(read_state(args.runtime))
@@ -117,6 +125,9 @@ async def observe(args, boundary):
         stable = all(identity(s) == identity(states[0]) for s in states)
         fresh = fresh_symbols(latest, observed_end)
         result.update(assess(expected, pre, post, daily, samples, True, stable, fresh))
+        result['checks']['delayed_daily_500'] = rechecked == expected
+        result['status'] = 'PASS' if all(result['checks'].values()) else 'FAIL'
+        result['observed_end_utc'] = datetime.fromtimestamp(observed_end, timezone.utc).isoformat()
     except Exception as exc:
         result.update(status='FAIL', error=f'{type(exc).__name__}: {exc}')
     finally:
@@ -124,6 +135,7 @@ async def observe(args, boundary):
                       finished_utc=datetime.now(timezone.utc).isoformat(),
                       before_count=len(pre), after_count=len(post), daily_count=len(daily),
                       sample_matches=samples, states=states,
+                      delayed_daily_count=len(rechecked), missing_delayed_daily=sorted(expected-rechecked),
                       latest_live=latest, freshness_limit_seconds=90,
                       actual_boundary_observed=started < boundary.timestamp() <= time.time())
         result_path.write_text(json.dumps(result, indent=2) + '\n')

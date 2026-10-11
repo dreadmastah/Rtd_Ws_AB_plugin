@@ -14,6 +14,15 @@ from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosed
 
 LOG = logging.getLogger('binance')
+DAY_MS = 86400000
+DAILY_SETTLE_SECONDS = 60
+DAILY_RECHECK_SECONDS = 300
+
+
+def daily_end(now):
+    # A just-closed REST candle can still change immediately after midnight.
+    return int((now - DAILY_SETTLE_SECONDS) * 1000) // DAY_MS * DAY_MS
+
 
 
 def eligible_symbols(info):
@@ -134,6 +143,8 @@ class Sender:
         self.repairs = {}
         self.retry_after = {}
         self.daily_through = {}
+        self.daily_rechecked = {}
+        self.stale_retry_after = {}
         self.flush_lock = asyncio.Lock()
         self.send_lock = asyncio.Lock()
 
@@ -169,9 +180,31 @@ class Sender:
     def schedule_rollover(self):
         if not getattr(self.args, 'native_history', False):
             return
-        end = int(time.time() * 1000) // 86400000 * 86400000
+        now = time.time()
+        end = daily_end(now)
         for symbol, start in list(self.daily_through.items()):
             self.queue_repair(symbol, '1d', start, end)
+            if (now * 1000 >= end + DAILY_RECHECK_SECONDS * 1000 and
+                    self.daily_rechecked.get(symbol, 0) < end):
+                self.queue_repair(symbol, '1d', end - DAY_MS, end)
+
+    def schedule_stale_repairs(self):
+        # Other symbols or quote streams can keep a shard alive while one
+        # symbol's minute feed stalls. Repair real closed bars without inventing
+        # a current candle or interpreting quote arrival as candle freshness.
+        if not getattr(self.args, 'native_history', False):
+            return
+        now = time.time()
+        end = int(now * 1000) // 60000 * 60000
+        for symbol, old in list(self.buffer.seen.items()):
+            if now * 1000 - old[0] <= 90000:
+                continue
+            if self.stale_retry_after.get(symbol, 0) > time.monotonic():
+                continue
+            start = old[0] + (60000 if old[2] else 0)
+            if start < end:
+                self.queue_repair(symbol, '1m', start, end)
+                self.stale_retry_after[symbol] = time.monotonic() + 60
 
     async def send(self, ws, message):
         async with self.send_lock:
@@ -190,6 +223,7 @@ class Sender:
             if start != bounds[0]:
                 LOG.warning('Repair retention limit symbol=%s interval=%s omitted_before=%s',
                             symbol, interval, start)
+            requested_at = time.time()
             try:
                 total = await self.history_range(ws, symbol, interval, start, end, strict=True)
             except (aiohttp.ClientError, TimeoutError, RuntimeError, ValueError) as exc:
@@ -201,6 +235,9 @@ class Sender:
                 self.retry_after.pop(key, None)
                 if interval == '1d':
                     self.daily_through[symbol] = max(end, self.daily_through.get(symbol, 0))
+                    if requested_at * 1000 >= end + DAILY_RECHECK_SECONDS * 1000:
+                        self.daily_rechecked[symbol] = max(
+                            end, self.daily_rechecked.get(symbol, 0))
                 LOG.info('Repair complete symbol=%s interval=%s start=%s end=%s bars=%s',
                          symbol, interval, start, end, total)
             return True
@@ -288,11 +325,16 @@ class Sender:
         if symbol not in self.symbols:
             raise ValueError('Symbol outside configured universe')
         step = {'1m': 60000, '1d': 86400000}[interval]
-        end = int(time.time() * 1000) // step * step - 1  # closed bars only
+        requested_at = time.time()
+        end = (daily_end(requested_at) if interval == '1d' else
+               int(requested_at * 1000) // step * step) - 1  # closed bars only
         start = end + 1 - (count * step if count is not None else days * 86400000)
         total = await self.history_range(ws, symbol, interval, start, end + 1)
         if interval == '1d':
             self.daily_through[symbol] = max(end + 1, self.daily_through.get(symbol, 0))
+            if requested_at * 1000 >= end + 1 + DAILY_RECHECK_SECONDS * 1000:
+                self.daily_rechecked[symbol] = max(
+                    end + 1, self.daily_rechecked.get(symbol, 0))
         LOG.info('History symbol=%s interval=%s bars=%s', symbol, interval, total)
         return total
 
@@ -328,10 +370,17 @@ class Sender:
                     for stamp, rec in records:
                         self.buffer.pending.pop((symbol, stamp), None)
                         latest = self.buffer.latest.get(symbol)
-                        if latest and latest[0][1] == stamp:
+                        if latest and latest[0][1] <= stamp:
                             self.buffer.latest[symbol] = ((symbol, stamp), rec)
                             old = self.buffer.seen[symbol]
                             self.buffer.seen[symbol] = (stamp, old[1], True)
+                            # History already delivered the page. Only re-emit
+                            # its newest real closed bar as the live snapshot.
+                            if stamp == records[-1][0]:
+                                if len(self.buffer.pending) >= self.buffer.capacity:
+                                    raise OverflowError('Candle backlog full after repair')
+                                self.buffer.pending[(symbol, stamp)] = dict(
+                                    rec, **self.buffer.quotes.get(symbol, {}))
             total += len(bars)
             start = int(rows[-1][0]) + step
         return total
@@ -358,6 +407,7 @@ class Sender:
         preload_retry = {}
         while True:
             self.schedule_rollover()
+            self.schedule_stale_repairs()
             await self.repair_one(ws)
             try:
                 cmd = self.commands.get_nowait()

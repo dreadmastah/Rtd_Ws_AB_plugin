@@ -36,7 +36,8 @@ class RecoveryTests(unittest.IsolatedAsyncioTestCase):
         # A later quote must never re-emit the unfinished pre-outage volume.
         s.buffer.ingest_quote(dict(e='bookTicker', s='BTCUSDT', E=250000,
                                    b='10', B='1', a='12', A='1'))
-        self.assertEqual(s.buffer.pending[('BTCUSDT', 60000)]['v'], 17)
+        self.assertEqual(s.buffer.pending[('BTCUSDT', 180000)]['v'], 17)
+        self.assertNotIn(('BTCUSDT', 60000), s.buffer.pending)
         self.assertFalse(s.ingest(event(E=250001, volume='8')))
 
     async def test_boundary_repairs_missing_final_even_without_disconnect(self):
@@ -69,10 +70,11 @@ class RecoveryTests(unittest.IsolatedAsyncioTestCase):
         s = self.sender()
         day = 86400000
         s.daily_through['BTCUSDT'] = day * 10
+        s.daily_rechecked['BTCUSDT'] = day * 10
         with patch('Binance.sender.time.time', return_value=day * 10 / 1000 + 86399):
             s.schedule_rollover()
         self.assertFalse(s.repairs)
-        with patch('Binance.sender.time.time', return_value=day * 12 / 1000 + 1):
+        with patch('Binance.sender.time.time', return_value=day * 12 / 1000 + 60):
             s.schedule_rollover()
             s.schedule_rollover()
         self.assertEqual(s.repairs, {('BTCUSDT', '1d'): (day * 10, day * 12)})
@@ -163,3 +165,108 @@ class RecoveryTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await s.history_range(ws, 'BTCUSDT', '1m', 60000, 180000)
         ws.send.assert_not_awaited()
+
+
+    async def test_daily_settlement_delay_and_later_volume_correction(self):
+        s = self.sender()
+        day = 86400000
+        boundary = day * 12
+        s.daily_through['BTCUSDT'] = boundary-day
+        s.daily_rechecked['BTCUSDT'] = boundary-day
+        ws = SimpleNamespace(send=AsyncMock())
+        s.rest = AsyncMock(return_value=[[boundary-day, 10, 12, 9, 11, 100]])
+        with patch('Binance.sender.time.time', return_value=boundary/1000+1):
+            s.schedule_rollover()
+            self.assertFalse(s.repairs)
+        with patch('Binance.sender.time.time', return_value=boundary/1000+60):
+            s.schedule_rollover()
+            await s.repair_one(ws)
+        self.assertEqual(s.daily_through['BTCUSDT'], boundary)
+        with patch('Binance.sender.time.time', return_value=boundary/1000+299):
+            s.schedule_rollover()
+            self.assertFalse(s.repairs)
+        s.rest.return_value = [[boundary-day, 10, 12, 9, 11, 125]]
+        with patch('Binance.sender.time.time', return_value=boundary/1000+300):
+            s.schedule_rollover()
+            await s.repair_one(ws)
+            s.schedule_rollover()
+        self.assertFalse(s.repairs)
+        self.assertEqual(json.loads(ws.send.call_args.args[0])['bars'][0][-1], 125)
+        self.assertEqual(s.daily_rechecked['BTCUSDT'], boundary)
+
+    async def test_daily_preload_near_boundary_defers_newly_closed_bar(self):
+        s = self.sender()
+        day = 86400000
+        s.rest = AsyncMock(side_effect=self.full_rest)
+        with patch('Binance.sender.time.time', return_value=12*day/1000+1):
+            await s.history(SimpleNamespace(send=AsyncMock()), 'BTCUSDT', 0,
+                            interval='1d', count=1)
+        self.assertEqual(s.rest.call_args.kwargs['endTime'], 11*day-1)
+        self.assertEqual(s.daily_through['BTCUSDT'], 11*day)
+
+    async def test_failed_daily_recheck_remains_pending(self):
+        s = self.sender()
+        day = 86400000
+        s.daily_through['BTCUSDT'] = day*12
+        s.daily_rechecked['BTCUSDT'] = day*11
+        s.rest = AsyncMock(return_value=[])
+        with patch('Binance.sender.time.time', return_value=12*day/1000+300):
+            s.schedule_rollover()
+            await s.repair_one(SimpleNamespace(send=AsyncMock()))
+        self.assertIn(('BTCUSDT', '1d'), s.repairs)
+        self.assertEqual(s.daily_rechecked['BTCUSDT'], day*11)
+
+    async def test_stalled_symbol_repairs_without_shard_reconnect(self):
+        s = self.sender(['BTCUSDT', 'ETHUSDT'])
+        s.ingest(event(stamp=60000, E=60001, closed=True))
+        s.buffer.ingest_quote(dict(e='bookTicker', s='BTCUSDT', E=210000,
+                                  b='10', B='1', a='12', A='1'))
+        with patch('Binance.sender.time.time', return_value=211):
+            s.schedule_stale_repairs()
+        self.assertEqual(s.repairs[('BTCUSDT', '1m')], (120000, 180000))
+        s.rest = AsyncMock(side_effect=self.full_rest)
+        ws = SimpleNamespace(send=AsyncMock())
+        await s.repair_one(ws)
+        self.assertEqual(s.buffer.latest['BTCUSDT'][0][1], 120000)
+        self.assertEqual(s.buffer.latest['BTCUSDT'][1]['v'], 17)
+        self.assertEqual(s.buffer.pending[('BTCUSDT', 120000)]['bp'], 10)
+        s.schedule_stale_repairs()
+        self.assertFalse(s.repairs)  # per-symbol cooldown
+        self.assertNotIn('ETHUSDT', s.buffer.latest)  # no fabricated unseen bar
+
+    async def test_rest_repair_does_not_replace_newer_websocket_candle(self):
+        s = self.sender()
+        s.ingest(event(stamp=60000, E=60001, closed=True))
+        s.queue_repair('BTCUSDT', '1m', 120000, 180000)
+        async def rest(path, **params):
+            s.ingest(event(stamp=240000, E=240001, volume='4'))
+            return await self.full_rest(path, **params)
+        s.rest = rest
+        await s.repair_one(SimpleNamespace(send=AsyncMock()))
+        self.assertEqual(s.buffer.latest['BTCUSDT'][0][1], 240000)
+        self.assertEqual(s.buffer.latest['BTCUSDT'][1]['v'], 4)
+
+
+    async def test_request_started_before_recheck_window_is_not_confirmation(self):
+        s = self.sender()
+        day = 86400000
+        s.daily_through['BTCUSDT'] = day*11
+        s.queue_repair('BTCUSDT', '1d', day*11, day*12)
+        s.rest = AsyncMock(side_effect=self.full_rest)
+        # Completion time may cross the threshold; the request began too early.
+        with patch('Binance.sender.time.time', side_effect=[12*day/1000+299,
+                                                           12*day/1000+301]):
+            await s.repair_one(SimpleNamespace(send=AsyncMock()))
+        self.assertNotIn('BTCUSDT', s.daily_rechecked)
+        with patch('Binance.sender.time.time', return_value=12*day/1000+301):
+            s.schedule_rollover()
+        self.assertIn(('BTCUSDT', '1d'), s.repairs)
+
+    async def test_history_page_does_not_reenqueue_every_repaired_candle(self):
+        s = self.sender()
+        s.ingest(event(stamp=60000, E=60001, closed=True))
+        s.buffer.pending.clear()
+        s.rest = AsyncMock(side_effect=self.full_rest)
+        await s.history_range(SimpleNamespace(send=AsyncMock()), 'BTCUSDT',
+                              '1m', 120000, 300000)
+        self.assertEqual(set(s.buffer.pending), {('BTCUSDT', 240000)})

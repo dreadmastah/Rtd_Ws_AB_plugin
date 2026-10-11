@@ -75,3 +75,15 @@ class CandleFreshnessTests(unittest.TestCase):
         from Benchmarks.observe_rollover import candle_timestamp
         self.assertEqual(candle_timestamp(dict(d=20261011, t=0)) -
                          candle_timestamp(dict(d=20261010, t=235900)), 60)
+
+
+class RolloverCompletionTests(unittest.TestCase):
+    def test_waits_for_delayed_daily_delivery_and_live_freshness(self):
+        from Benchmarks.observe_rollover import ready_to_finish
+        symbols = {'BTCUSDT', 'AWEUSDT'}
+        latest = dict.fromkeys(symbols, (360, 360))
+        self.assertFalse(ready_to_finish(symbols, symbols, set(), latest, 360, 0))
+        self.assertFalse(ready_to_finish(symbols, symbols, symbols,
+                         {'BTCUSDT': (360, 360), 'AWEUSDT': (360, 180)}, 360, 0))
+        self.assertTrue(ready_to_finish(symbols, symbols, symbols, latest, 360, 0))
+        self.assertFalse(ready_to_finish(symbols, symbols, symbols, latest, 299, 0))

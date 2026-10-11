@@ -221,9 +221,20 @@ restarts the sender when the native receiver reconnects: this relay mode has no
 receiver-presence notifications. Upstream minute recovery is automatic.
 With `--native-history`, the history worker detects a new UTC day and fetches
 the newly closed daily bar for each symbol whose daily preload completed. It
+waits 60 seconds after midnight before requesting the newly closed daily bar,
+then rechecks that day after five minutes to replace an early REST value.
+Daily preload uses the same 60-second eligibility delay. These delays are bounded
+reconciliation policy, not an exchange finality guarantee. It
 catches up multiple missed days, capped at 300 days, retries incomplete results,
 and never sends the current unfinished daily candle as EOD history. Failed
 repairs remain queued and `repair_jobs` in the log indicates outstanding work.
+In native mode, a per-symbol timer also queues closed-minute repair when its
+latest candle is over 90 seconds old, even if other symbols or quote traffic keep
+the shard active. Each symbol has a 60-second retry cooldown. Recovered REST
+candles can advance the latest stored candle, but never replace a newer WebSocket
+candle or create an unfinished current candle. REST repair does not prove that
+the upstream WebSocket is fresh.
+
 Start the native receiver
 before this sender, because a relay with no receivers does not retain preload.
 
@@ -323,7 +334,10 @@ Run it within three minutes before an explicit UTC midnight. It records all
 history, checks both candle timestamps and receive times (each no more than 90 seconds
 old, rejecting future timestamps) and stable sender/native identity,
 and compares BTCUSDT, ETHUSDT and XRPUSDT daily OHLCV with public REST responses.
-It observes at least five minutes after midnight and stops by fifteen minutes
+It requires all 500 daily bars to be received again at least five minutes after
+midnight and all 500 candles to pass the freshness check before early completion.
+Receipt time does not prove when an upstream REST request began; sample REST
+comparisons remain mandatory. It stops by fifteen minutes
 afterward plus bounded REST requests. Missing coverage, disconnects, changed
 process identity, late startup or incomplete REST comparisons cannot pass.
 
@@ -333,3 +347,27 @@ An actual scheduled boundary crossing remains pending until its result exists.
 
 Sources: [Windows Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 and [Task Scheduler settings](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/new-scheduledtasksettingsset).
+
+### 2026-10-11 rollover failure and repair follow-up
+
+The actual midnight observer returned FAIL despite 500 symbols before/after,
+500 daily bars and stable process identities. BTCUSDT and XRPUSDT daily bars
+arrived 0.557 and 1.116 seconds after midnight with volumes below the saved
+five-minute REST responses; their OHLC values matched. ETHUSDT matched fully.
+The sender previously advanced its daily cursor after the first successful
+request and never reconciled later changes. Delayed exchange finalization is
+consistent with the evidence, but the original raw sender REST responses were
+not captured, so the exact upstream cause is not established.
+
+AWEUSDT's latest captured candle was about 121 seconds old. Later historical
+REST showed six trades and volume 4,525 in the missing 00:04 UTC minute.
+That rules out an empty interval for this case; no raw upstream capture exists
+to establish why its WebSocket update was missed. The per-symbol repair path
+addresses this gap without relying on a shard-wide reconnect.
+
+The revised sender passed 51 automated tests and an isolated in-memory replay
+using public REST: all three daily OHLCV comparisons matched the saved five-minute
+responses, and the real missing AWEUSDT minute was restored without creating a
+current bar. Original failure artifacts remain unchanged. This is not a new
+actual-midnight PASS or native storage certification. The corrected sender still
+requires controlled test deployment and a fresh live rollover observation.
