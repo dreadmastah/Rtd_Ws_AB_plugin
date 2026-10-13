@@ -106,6 +106,37 @@ Material upstream documentation points:
 
 **Next source-lineage requirement:** Obtain a byte-for-byte copy of the **currently installed DLL** (without replacing or unloading it), its original installed path, and any matching release ZIP/build manifest. Bind the binary SHA-256/version/build metadata against the actual upstream/fork source lineage. Do not assume version-string equality proves exact source equivalence. Upload only the DLL or non-secret build documentation; do **not** share license keys or credentials.
 
+## Uploaded clean-room R2 DLL: static fingerprint (2026-10-13)
+
+**Artifact inspected:** Operator-uploaded copy named `WsRTD_Compat_3.06.26_R2_x64.dll` (the file **was not loaded or executed** during analysis). **The on-PC installed DLL has not yet been independently hashed**; matching filename/version and operator attribution are not a byte-for-byte installed-binary verification.
+
+| Static property | Finding |
+|---|---|
+| Uploaded copy SHA-256 | `19952cef822ba2a470e52caa4d4edfeb82933bc9886411d6e85126d95fcf0379` |
+| Byte size | `30720` |
+| Portable Executable type | PE32+ / x86-64 Windows DLL |
+| PE linker timestamp | `2026-09-19 09:36:36` (PE header value; not independently authenticated build time) |
+| Embedded identity string | `WSRTD Compatible 3.06.26 R2 (Clean-room)` |
+| Embedded lineage statement | `Independent clean-room rebuild` |
+| Version resource / embedded signature | No PE version-information resource or Authenticode certificate-table entry present |
+| Selected exported functions | `Init`, `Release`, `Configure`, `DataPluginCmd`, `GetPluginInfo`, `GetQuotes`, `GetQuotesEx`, `GetStatus`, `Notify`, `SetTimeBase` |
+| Selected imported functions | `CreateFileA`, `ReadFile`, `WriteFile`, `RegQueryValueExA`, `RegSetValueExA`, `connect`, `recv`, `send` |
+
+**Persistence-relevant embedded strings (presence only, not behavioral proof):**
+
+- `AutoSavePluginDB`; `AutoSavePendingBF`
+- `DBG: WSRTD-CR state saved`; `DBG: WSRTD-CR state loaded`
+- `%s\\WsRTD_%s_30626R2.cleanroom.bin` (a formatted candidate plugin-state filename; neither its expanded path nor live existence was verified)
+- `SOFTWARE\\TJP\\WsRtD\\%s` and `HKCU\\SOFTWARE\\TJP\\WsRtD\\%s`
+- `R2 partitions EOD and intraday retention so live 1-minute updates cannot evict the 300-bar EOD history.`
+- `WSRTD clean-room R2 active: 300 EOD + 1500 intraday retention defaults.`
+
+**Interpretation and limits:** The copy contains a native AmiBroker-compatible interface and indications of file/registry I/O and internal state-saving functionality. The embedded text explicitly describes a *clean-room* implementation, so the original [ideepcoder documentation](https://github.com/ideepcoder/Rtd_Ws_AB_plugin/blob/main/Docs/WSRTD%20Doc.md) is background/reference and **must not** be treated as a verified source contract for this exact binary. Internal plugin retention of 300 EOD + 1500 intraday records is a separate concept from the AmiBroker database's operator-attested 100000-bar setting. Static import/export/string inspection **does not prove** when files are flushed, whether pending bars become durable, application-consistent backup, or deterministic native restore.
+
+**Next source-binding task:** On the operator's Windows PC, use a read-only SHA-256 calculation of the exact installed DLL path reported by the R6C-R5 local receipt, and compare it with the uploaded fingerprint. Locate any original clean-room R2 source/build manifest matching that hash; do **not** replace the DLL or restart AmiBroker. Review source-backed `Release`/save/restore behavior only when exact applicable build authority is established, or keep `PLUGIN_FLUSH_AUTHORITY=NOT_PROVEN`. The uploaded DLL is **not** published to GitHub; this note contains only static metadata.
+
+**Acceptance unchanged:** `LIVE_500_SYMBOL_FRESHNESS_ACCEPTANCE=FAIL_PREVIOUS_R6`; `NATIVE_500_SYMBOL_STORAGE_ACCEPTANCE=NOT_PROVEN`.
+
 ## Immediate next action and decision gates
 
 1. **Source authority:** Investigate the exact installed DLL's provenance and applicable lifecycle/flush documentation. The PR #3 Python repo does not contain its native implementation. If exact source or release evidence does not exist, record `NOT_PROVEN` and request author/vendor clarification rather than inventing a guarantee.
