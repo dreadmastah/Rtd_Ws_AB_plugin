@@ -47,13 +47,16 @@ class SupervisorTests(unittest.TestCase):
             'print(json.dumps(dict(parent=os.getpid(),child=child.pid)),flush=True); time.sleep(60)'
         )
         helper = subprocess.Popen([sys.executable, '-B', '-c', code],
+                                  creationflags=subprocess.CREATE_NO_WINDOW,
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         child = None
         parent = None
         try:
             # Native test runner is bounded externally; the helper prints only after job setup.
             line = helper.stdout.readline()
-            self.assertTrue(line, helper.stderr.read() if helper.poll() is not None else 'No job receipt')
+            if not line:
+                _,error=helper.communicate(timeout=5)
+                self.fail('No job receipt: '+error)
             receipt = json.loads(line)
             child = psutil.Process(receipt['child'])
             parent = psutil.Process(receipt['parent'])

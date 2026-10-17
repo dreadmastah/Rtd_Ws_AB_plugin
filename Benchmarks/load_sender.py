@@ -34,7 +34,9 @@ async def run(args):
         try:
             while time.perf_counter() - started < args.seconds:
                 target = started + cycle * args.interval
-                await asyncio.sleep(max(0, min(target, started+args.seconds)-time.perf_counter()))
+                eligible = min(target, started + args.seconds)
+                while (remaining := eligible - time.perf_counter()) > 0:
+                    await asyncio.sleep(remaining)
                 if time.perf_counter() - started >= args.seconds:
                     break
                 now_ms = time.time_ns() // 1000000

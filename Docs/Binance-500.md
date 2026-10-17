@@ -123,7 +123,13 @@ same-minute records rather than accumulating volume or appending duplicates.
 
 ## Validation and sources
 
-Run `py -m unittest discover -s Tests -v`.
+Use the verified CPython 3.12 Windows x64 environment and dependency setup in
+[the isolated test guide](RC2/DEPENDENCY_LOCK_OR_RESOLUTION.md). Set
+`RC2_WORKSPACE` to the isolated workspace, `RC2_OUTPUT` to a fresh directory
+under it, and `PYTHONPATH` to the candidate's `Tests/guard` and candidate root.
+From the candidate directory run the isolated environment's Python with
+`-B -m Benchmarks.run_offline_tests`. This prepares the fairness fixtures before
+running discovery; bare unittest discovery does not reproduce the full suite.
 Tests cover 500-symbol coalescing, chronological minute preservation, finalized
 candle protection, invalid OHLCV, explicit backlog failure, slow-peer isolation,
 and the bidirectional legacy protocol through real local WebSockets.
