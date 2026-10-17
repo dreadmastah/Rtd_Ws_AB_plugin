@@ -1,0 +1,168 @@
+{
+  "start_utc": "2026-10-11T02:35:18.168531+00:00",
+  "end_utc": "2026-10-11T02:35:48.189640+00:00",
+  "pid": 85728,
+  "duration_seconds": 30.007803299929947,
+  "cpu_seconds": 0.53125,
+  "cpu_percent_one_core": 1.7703728416576239,
+  "logical_cpus": 12,
+  "cpu_percent_machine": 0.14753107013813532,
+  "rss_min_bytes": 224501760,
+  "rss_max_bytes": 224501760,
+  "rss_first_bytes": 224501760,
+  "rss_last_bytes": 224501760,
+  "samples": [
+    {
+      "elapsed_seconds": 1.0010112000163645,
+      "cpu_seconds": 27040.125,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 2.0014885999262333,
+      "cpu_seconds": 27040.125,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 3.001632099971175,
+      "cpu_seconds": 27040.140625,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 4.001830899971537,
+      "cpu_seconds": 27040.140625,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 5.002092899987474,
+      "cpu_seconds": 27040.140625,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 6.002207199926488,
+      "cpu_seconds": 27040.140625,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 7.002741999924183,
+      "cpu_seconds": 27040.140625,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 8.003257100004703,
+      "cpu_seconds": 27040.15625,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 9.00427509995643,
+      "cpu_seconds": 27040.171875,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 10.00442919996567,
+      "cpu_seconds": 27040.171875,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 11.004567599971779,
+      "cpu_seconds": 27040.171875,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 12.004642899963073,
+      "cpu_seconds": 27040.1875,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 13.004722999990918,
+      "cpu_seconds": 27040.203125,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 14.004804500029422,
+      "cpu_seconds": 27040.203125,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 15.004892199998721,
+      "cpu_seconds": 27040.234375,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 16.004990099929273,
+      "cpu_seconds": 27040.25,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 17.005067799938843,
+      "cpu_seconds": 27040.28125,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 18.005165599985048,
+      "cpu_seconds": 27040.28125,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 19.0052475000266,
+      "cpu_seconds": 27040.3125,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 20.005328999948688,
+      "cpu_seconds": 27040.34375,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 21.005410199984908,
+      "cpu_seconds": 27040.359375,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 22.005488199996762,
+      "cpu_seconds": 27040.390625,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 23.006143599981442,
+      "cpu_seconds": 27040.40625,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 24.006220799987204,
+      "cpu_seconds": 27040.4375,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 25.006318100029603,
+      "cpu_seconds": 27040.46875,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 26.00640429998748,
+      "cpu_seconds": 27040.53125,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 27.006726099993102,
+      "cpu_seconds": 27040.5625,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 28.006809199927375,
+      "cpu_seconds": 27040.578125,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 29.006888899952173,
+      "cpu_seconds": 27040.625,
+      "rss_bytes": 224501760
+    },
+    {
+      "elapsed_seconds": 30.006989100016654,
+      "cpu_seconds": 27040.640625,
+      "rss_bytes": 224501760
+    }
+  ],
+  "screenshot_observed_rows": 500,
+  "scope": "Whole AmiBroker process with screenshot-observed 500-row RADAR and 500-symbol live feed; includes charts and DLL ingestion. Not isolated RADAR CPU, update latency, synthetic throughput, or leak certification."
+}
