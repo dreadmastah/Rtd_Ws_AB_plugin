@@ -32,3 +32,9 @@
 AmiBroker and the AmiBroker logo are trademarks of AmiBroker Company, used with permission.
 
 <meta name="google-site-verification" content="P6lUDnSiQzdLc0o2hKTCqnrVbauXzN0wUsVwOr0pDRs" />
+
+## Binance USDT-M futures: up to 500 symbols
+
+See [setup, recovery limits and RADAR benchmarks](Docs/Binance-500.md).
+The extension keeps the existing relay and WSRTD JSON protocol, adds a 1-minute
+Binance sender, and isolates slow relay receivers with bounded queues.

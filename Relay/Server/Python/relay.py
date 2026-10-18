@@ -16,231 +16,135 @@
 // https://github.com/ideepcoder/Rtd_Ws_AB_plugin/
 // https://forum.amibroker.com/u/nsm51/summary
 //
-// Users and possessors of this source code are hereby granted a nonexclusive, 
+// Users and possessors of this source code are hereby granted a nonexclusive,
 // royalty-free copyright license to use this code in individual and commercial software.
 //
-// AUTHOR ( NSM51 ) MAKES NO REPRESENTATION ABOUT THE SUITABILITY OF THIS SOURCE CODE FOR ANY PURPOSE. 
-// IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND. 
-// AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOURCE CODE, 
-// INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. 
-// IN NO EVENT SHALL AUTHOR BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL, OR 
-// CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, 
-// WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, 
+// AUTHOR ( NSM51 ) MAKES NO REPRESENTATION ABOUT THE SUITABILITY OF THIS SOURCE CODE FOR ANY PURPOSE.
+// IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
+// AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOURCE CODE,
+// INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+// IN NO EVENT SHALL AUTHOR BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL, OR
+// CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+// WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 // ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOURCE CODE.
-// 
-// Any use of this source code must include the above notice, 
+//
+// Any use of this source code must include the above notice,
 // in the user documentation and internal comments to the code.
 '''
 
 
-## stable with ws-close(), handles with BaseException catch. Just prints the exception though.
-## use as middle server to recv from one client and send to another.
-## this is working code with ctrl+c issue fixed
-wsport = 10101
-
+# Each peer has one writer: slow receivers cannot block the upstream reader.
+import argparse
 import asyncio
-import websockets
-import threading
-import datetime
-import sys
+import logging
+from websockets.asyncio.server import serve
+from websockets.exceptions import ConnectionClosed
 
-stop_event   = 0
-stop_threads = False
-CLIENTS      = set()
-SENDERS      = set()
-ctr          = [0, 0, 0]    # counters: clients, senders, reserved
-retCode      = 0
+LOG = logging.getLogger("relay")
 
+class Relay:
+    def __init__(self, queue_size=256, protocol="role"):
+        if protocol not in ("role", "path"):
+            raise ValueError("Unknown relay protocol")
+        self.protocol = protocol
+        self.clients = {}
+        self.senders = {}
+        self.queue_size = queue_size
+        self.forwarded = 0
+        self.overflows = 0
 
-'''
-Function to iterate over all CLIENTS and broadcast message received from SENDER
-'''
-async def broadcast_c( message):
+    async def writer(self, ws, queue):
+        while True:
+            await asyncio.wait_for(ws.send(await queue.get()), timeout=10)
 
-    Bad_WS = set()
+    async def broadcast(self, peers, message):
+        for ws, queue in tuple(peers.items()):
+            try:
+                queue.put_nowait(message)
+                self.forwarded += 1
+            except asyncio.QueueFull:
+                # Never silently drop history or final candles. Force reconnect/backfill.
+                self.overflows += 1
+                peers.pop(ws, None)
+                asyncio.create_task(ws.close(1013, "Slow peer; reconnect and backfill"))
+                LOG.warning("peer queue overflow count=%s", self.overflows)
 
-    for websocket in CLIENTS:
+    async def handler(self, ws):
+        peers = None
+        writer = None
         try:
-            await websocket.send( message )
-        except websockets.ConnectionClosed:                        Bad_WS.add( websocket ); continue
-        except ConnectionResetError:                               Bad_WS.add( websocket ); continue
-        except Exception as e: print(f"broadcast_C() {e}");        break
-    
-    if len( Bad_WS ) > 0:
-        for ws in Bad_WS:
-            CLIENTS.remove( ws )
+            if self.protocol == "path":
+                # Explicit opt-in for CleanRoomR2: the native receiver sends no
+                # role handshake. Never guess this mode after a timeout.
+                path = ws.request.path
+                if path in ("/", "/receiver"):
+                    role = "rolerecv"
+                elif path == "/sender":
+                    role = "rolesend"
+                else:
+                    await ws.close(1008, "Unknown role path")
+                    return
+            else:
+                role = await asyncio.wait_for(ws.recv(), 10)
+            if role in ("rolesend", "--rolesend"):
+                peers, targets = self.senders, self.clients
+            elif role in ("rolerecv", "--rolerecv"):
+                peers, targets = self.clients, self.senders
+            else:
+                await ws.close(1008, "Expected rolesend or rolerecv")
+                return
+            queue = asyncio.Queue(self.queue_size)
+            peers[ws] = queue
+            writer = asyncio.create_task(self.writer(ws, queue))
+            async def reader():
+                async for message in ws:
+                    if self.protocol == "path" and message in (
+                            "rolesend", "--rolesend", "rolerecv", "--rolerecv"):
+                        if message.lstrip("-") != role:
+                            await ws.close(1008, "Role conflicts with path")
+                            return
+                        continue
+                    if message in ("zzz", "close"):
+                        LOG.info("Ignored legacy shutdown command")
+                        continue
+                    await self.broadcast(targets, message)
+            reader_task = asyncio.create_task(reader())
+            try:
+                done, _ = await asyncio.wait((reader_task, writer), return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    task.result()
+            finally:
+                reader_task.cancel()
+                await asyncio.gather(reader_task, return_exceptions=True)
+        except (ConnectionClosed, TimeoutError):
+            pass
+        finally:
+            if peers is not None:
+                peers.pop(ws, None)
+            if writer is not None:
+                writer.cancel()
+                await asyncio.gather(writer, return_exceptions=True)
+            await ws.close()
 
-
-
-'''
-Function to iterate over all SENDER(S) and broadcast message received from CLIENTS
-'''
-async def broadcast_s( message):
-
-    Bad_WS = set()
-
-    for websocket in SENDERS:
-        try:
-            await websocket.send( message )
-        except websockets.ConnectionClosed:                        Bad_WS.add( websocket ); continue
-        except ConnectionResetError:                               Bad_WS.add( websocket ); continue
-        except Exception as e: print(f"broadcast_S() {e}");        break
-
-    
-    if len( Bad_WS ) > 0:
-        for ws in Bad_WS:
-            SENDERS.remove( ws )
-
-
-
-'''
-Main function that creates Handler for Each websocket connection (ie. Send() / Receive() functionality)
-'''
-async def handler(websocket):
-    global stop_event, stop_threads, SENDERS, CLIENTS, ctr
-    role = l_role = 0      ## local role
-
-    try:
-        role = await websocket.recv()
-
-        if str(role).startswith('role'):
-            if str(role).endswith('send'):  SENDERS.add( websocket); l_role = 1
-            else:                           CLIENTS.add( websocket); l_role = 2
-    except: pass
-
-    ## create periodic task:    ## disabled task to work as echo server. Client (fws) -> WS_server->Client C++
-    #asyncio.create_task(send(websocket))
-    try:
-        if   l_role==1:
-            print(f"sender conn"); ctr[1]+=1; await stats(); await asyncio.create_task( senders_t( websocket))
-            print(f"sender disc"); ctr[1]-=1
-        elif l_role==2:
-            print(f"client conn"); ctr[0]+=1; await stats(); await asyncio.create_task( clients_t( websocket))
-            print(f"client disc"); ctr[0]-=1
-        else:   print(f"Bad Auth: {role}"); await websocket.send('Server: Bad or No Auth')
-
-    except TimeoutError:                                pass
-    except websockets.ConnectionClosed:                 return
-    except ConnectionResetError:                        return
-    except Exception as e:print(f"handle() Ex {e}");    return
-    except BaseException as e:print(f"handle() BEx {e}");return
-
-
-
-'''
-Individual Role-Senders RECEIVE function as task, this message is BROADCAST to all CLIENTS
-'''
-async def senders_t( websocket):
-    global stop_threads, stop_event
-    while not stop_threads:
-        try:
-            # this code is for normal recv but now above is just echo            
-            message = await websocket.recv()
-            #print(message)
-            await broadcast_c( message)
-
-        except TimeoutError:                pass
-        except websockets.ConnectionClosed: break                 ## connection drops
-        except ConnectionResetError:                        break
-        except Exception as e:print(f"senders() Ex {e}");   break
-    return 0
-
-
-
-'''
-Individual Role-Clients RECEIVE function as task, this message is BROADCAST to all SENDERS
-'''
-async def clients_t( websocket):
-    global stop_threads, stop_event
-    while not stop_threads:
-        try:
-            # this code is for normal recv, can use async as well for timeout           
-            message = await websocket.recv()
-            print(message)                          # print client msessages in server
-            await cmdMmessage( message)
-
-        except TimeoutError:                                pass
-        except websockets.ConnectionClosed:                 break
-        except ConnectionResetError:                        break
-        except Exception as e:print(f"clients() Ex {e}");   break
-    return 0
-
-
-
-'''
-utility function to parse CLIENTS commands / testing
-'''
-async def cmdMmessage(message):
-    global stop_threads, stop_event
-    try:
-        if message == "zzz":            ## just testing
-            print(f"kill sig rec'd");   stop_threads = True
-            await asyncio.sleep(1);     stop_event.set()
-        elif message == "close":
-            print(f"recd shutdown from client")
-        else:
-            await broadcast_s( message )
-    except: pass
-    return 0
-
-
-
-'''
-utility function to print counts of Role-Senders & Role-Clients
-'''
-async def stats():
-    global ctr
-    print(f"Clients={ctr[0]}, Senders={ctr[1]}")
-
-
-
-'''
-Websocket Server init.
-'''
-async def ws_start( stop):
-    global stop_event, wsport, retCode
-    print(f"RTD Relay server started: {datetime.datetime.now()} on localhost:{wsport},\nctrl+c once to shutdown.")
-    try:        
-        async with websockets.serve(handler, "localhost", wsport):
-            await stop
-            
-    except Exception as e:    print(f"ws_start() Ex {e}");  stop_event.set(); retCode = 404;  return
-
-
-'''
-Main function to create Asyncio Event_Loop and start Websocket Server.
-'''
-def main_S( lst=[] ):
-    global stop_event, stop_threads, wsport, retCode
-
-    try:
-        if len( lst ) > 2:                          ## sys.argv[0] = dummy
-            p = int( lst[1] )                       ## try to int
-            if lst[2] == "startserver":
-                wsport = p
-            else: print(f"Bad args"); exit(404)
-
-    except: print(f"first arg is port#"); exit(404)
-
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop( loop)
-        stop_event = threading.Event()
-        stop = loop.run_in_executor(None, stop_event.wait)
-
-        loop.run_until_complete( ws_start( stop))
-        stop_threads = True; loop.stop(); loop.close()
-
-    except Exception as e: print(f"main() Ex {e}"); stop_threads = True; stop_event.set(); loop.stop()
-    except BaseException as b:print(f"main() bEx {b}"); stop_threads = True; stop_event.set(); loop.stop()
-    print(f"shutdown server. Exit {retCode}");  exit( retCode)
-
-
+async def run(port=10101, queue_size=256, protocol="role"):
+    relay = Relay(queue_size, protocol)
+    async with serve(relay.handler, "127.0.0.1", port, compression=None,
+                     max_size=4 * 1024 * 1024, max_queue=32):
+        LOG.info("Relay listening on 127.0.0.1:%s", port)
+        await asyncio.Future()
 
 if __name__ == "__main__":
-    if( len( sys.argv) > 2):    main_S( sys.argv )  ## default port 10101
-    else:                       main_S( ['main', str(wsport), 'startserver' ]  )
-
-
-## Credits:
-## NSM51, Author.
+    parser = argparse.ArgumentParser()
+    parser.add_argument("port", nargs="?", type=int, default=10101)
+    parser.add_argument("action", nargs="?", choices=["startserver"], default="startserver")
+    parser.add_argument("--queue-size", type=int, default=256)
+    parser.add_argument("--protocol", choices=["role", "path"], default="role",
+                        help="path: CleanRoomR2 root receiver and /sender; loopback only")
+    args = parser.parse_args()
+    if not 1 <= args.port <= 65535 or args.queue_size < 1:
+        parser.error("invalid port or queue size")
+    logging.basicConfig(level=logging.INFO)
+    try:
+        asyncio.run(run(args.port, args.queue_size, args.protocol))
+    except KeyboardInterrupt:
+        pass
