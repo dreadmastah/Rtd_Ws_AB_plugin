@@ -1,0 +1,18 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\SOFTWARE\TJP\WsRtD\Data]
+"Server"="127.0.0.1"
+"Port"=dword:00002775
+"RefreshInterval"=dword:000000fa
+"AuthCode"=""
+"AutoAddSymbols"=dword:00000001
+"SymbolLimit"=dword:000003e8
+"EODRetention"=dword:0000012c
+"IntradayRetention"=dword:000005dc
+"QuoteLimit"=dword:00000708
+"CPing"=dword:00000001
+"AutoSavePluginDB"=dword:00000001
+"AutoSavePendingBF"=dword:00000000
+"AutoDelLRU"=dword:00000001
+"EODMixedMode"=dword:00000001
+"MergePartialBackfill"=dword:00000001
