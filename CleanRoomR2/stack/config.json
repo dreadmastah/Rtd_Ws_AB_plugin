@@ -1,0 +1,48 @@
+{
+  "relay": {
+    "host": "127.0.0.1",
+    "port": 10101,
+    "auth_code": "",
+    "max_message_bytes": 8388608,
+    "send_timeout_seconds": 5
+  },
+  "binance": {
+    "rest_base": "https://fapi.binance.com",
+    "market_ws": "wss://fstream.binance.com/market/ws",
+    "public_ws": "wss://fstream.binance.com/public/stream",
+    "public_ws_connections": 3,
+    "kline_interval": "1m",
+    "publish_interval_ms": 250,
+    "open_interest_poll_seconds": 30,
+    "request_timeout_seconds": 15,
+    "full_backfill_days": 2,
+    "max_backfill_days": 2,
+    "rest_page_limit": 1500,
+    "fail_closed_bootstrap": true,
+    "eod_backfill_days": 301
+  },
+  "launcher": {
+    "restart_delay_seconds": 3,
+    "start_amibroker": true,
+    "amibroker_exe": "C:\\Program Files\\AmiBroker\\Broker.exe",
+    "amibroker_start_delay_seconds": 2,
+    "watchdog_minutes": 5,
+    "keep_amibroker_running": true
+  },
+  "recovery": {
+    "enabled": true,
+    "state_file": "runtime/recovery_state.json",
+    "audit_seconds": 60,
+    "state_flush_seconds": 5,
+    "receiver_full_refresh": true,
+    "intraday_target_records": 1500,
+    "eod_target_bars": 300,
+    "preflight_retry_initial_seconds": 2,
+    "preflight_retry_max_seconds": 60,
+    "market_liveness_enabled": true,
+    "market_liveness_check_seconds": 5,
+    "market_liveness_startup_grace_seconds": 30,
+    "market_event_stall_seconds": 20,
+    "market_completed_kline_stall_seconds": 90
+  }
+}
