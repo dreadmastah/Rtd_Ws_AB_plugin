@@ -1,0 +1,8 @@
+{
+  "source": "R3_END_TO_END_EVENT_REPLAY.json",
+  "raw_receipt_persisted": true,
+  "genuine_provenance": "BLOCKED",
+  "precision_regression": "R3_SQLITE_TRANSACTION_ACCEPTANCE.json test_precision",
+  "full_current_exchange_schema_qualification": "BLOCKED",
+  "synthetic_only": true
+}

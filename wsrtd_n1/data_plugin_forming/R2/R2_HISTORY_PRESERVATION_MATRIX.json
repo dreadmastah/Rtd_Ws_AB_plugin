@@ -1,0 +1,11 @@
+{
+  "protected_database_writes": 0,
+  "protected_sqlite_connections": 0,
+  "existing_R1_and_R3_changes": 0,
+  "full_prefix_complete": false,
+  "recent_finalized_available": "fixture only; originalR1 two-row observation not refreshed",
+  "forming_available": "synthetic fixture only",
+  "native_history_readback": "isolated harness only",
+  "current_source_freshness": "UNVERIFIED",
+  "history_regression_rejection": "independent/receiver_results.json"
+}

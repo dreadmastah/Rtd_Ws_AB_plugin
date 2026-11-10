@@ -1,0 +1,8 @@
+{
+  "tests": 12,
+  "pass": true,
+  "failures": [],
+  "source_kind": "synthetic",
+  "power_loss_tested": false,
+  "production_writes": 0
+}

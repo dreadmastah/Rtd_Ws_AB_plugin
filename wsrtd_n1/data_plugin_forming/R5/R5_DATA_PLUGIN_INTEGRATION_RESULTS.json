@@ -1,0 +1,36 @@
+{
+  "status": "PASS_ISOLATED",
+  "native": {
+    "rows": [
+      {
+        "symbol": "BTCUSDT",
+        "bars": 2,
+        "close": 102,
+        "volume": 3
+      },
+      {
+        "symbol": "ETHUSDT",
+        "bars": 2,
+        "close": 102,
+        "volume": 3
+      }
+    ],
+    "symbols_returned": 2,
+    "notifications": 3,
+    "callback_mean_us": 3.5,
+    "callback_max_us": 6.1,
+    "native_peak_working_set_bytes": 5419008
+  },
+  "dll": {
+    "sha256": "98fdf9d713e9200294ad5c111ed459de96d5b416e30a49726347b7f506b2f84b",
+    "file": "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R5\\artifacts\\WSRTD_Data_Forming_R5.dll",
+    "change": "isolated output-path/ID/version namespace only; R3native logic unchanged",
+    "installed": false
+  },
+  "source_change": "R3 native namespace, path and version only",
+  "weekly": "BLOCKED_ACTUAL_HOST_REQUIRED",
+  "mixed_interval": "BLOCKED_ACTUAL_HOST_REQUIRED",
+  "daily": "R3 unchanged implementation; no new actual-host evidence",
+  "full_prefix": false,
+  "genuine_source": false
+}

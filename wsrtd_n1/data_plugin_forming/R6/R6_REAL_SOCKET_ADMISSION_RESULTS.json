@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "tests": 22,
+  "failures": [],
+  "external_requests": 0,
+  "actual_loopback_sockets": true
+}

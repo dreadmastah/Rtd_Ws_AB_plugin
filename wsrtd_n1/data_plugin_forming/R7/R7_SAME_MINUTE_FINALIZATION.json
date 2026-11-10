@@ -1,0 +1,213 @@
+{
+  "passed": true,
+  "minute": 1794271920000,
+  "observations": [
+    {
+      "stage": "first",
+      "row": {
+        "symbol": "BTCUSDT",
+        "bars": 1,
+        "close": 101,
+        "volume": 1,
+        "open": 100,
+        "high": 102,
+        "low": 99,
+        "minute": 52
+      },
+      "utc_ms": 1794271973357
+    },
+    {
+      "stage": "update",
+      "row": {
+        "symbol": "BTCUSDT",
+        "bars": 1,
+        "close": 103,
+        "volume": 2,
+        "open": 100,
+        "high": 103,
+        "low": 99,
+        "minute": 52
+      },
+      "utc_ms": 1794271974367
+    },
+    {
+      "stage": "finalized",
+      "row": {
+        "symbol": "BTCUSDT",
+        "bars": 1,
+        "close": 103,
+        "volume": 2,
+        "open": 100,
+        "high": 103,
+        "low": 99,
+        "minute": 52
+      },
+      "utc_ms": 1794271981215
+    },
+    {
+      "stage": "duplicate",
+      "row": {
+        "symbol": "BTCUSDT",
+        "bars": 1,
+        "close": 103,
+        "volume": 2,
+        "open": 100,
+        "high": 103,
+        "low": 99,
+        "minute": 52
+      },
+      "utc_ms": 1794271982213
+    },
+    {
+      "stage": "next_minute",
+      "row": {
+        "symbol": "BTCUSDT",
+        "bars": 2,
+        "close": 104,
+        "volume": 1,
+        "open": 100,
+        "high": 104,
+        "low": 99,
+        "minute": 53
+      },
+      "utc_ms": 1794271983200
+    },
+    {
+      "stage": "disconnected",
+      "row": {
+        "symbol": "BTCUSDT",
+        "bars": 1,
+        "close": 103,
+        "volume": 2,
+        "open": 100,
+        "high": 103,
+        "low": 99,
+        "minute": 52
+      },
+      "utc_ms": 1794271984059
+    }
+  ],
+  "relay": {
+    "pid": 145644,
+    "creation": 134387455720030725,
+    "path": "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0"
+  },
+  "receipts": [
+    {
+      "sequence": 1,
+      "receipt": "1a9a4b886ffdc8f5c4f3c01e5a9be51c",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 2,
+      "receipt": "bbaea161cfbfc747f46856ca49a56beb",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 3,
+      "receipt": "37a0b55075890530f5fe23a2184470a3",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 4,
+      "receipt": "707ae23228e97beb7ef5ef5dc4aa82b6",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 5,
+      "receipt": "bed6dc3b1e63d0a00238e7aa57e10b46",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 6,
+      "receipt": "1f8acda6a8e6212f1200acb7491f8693",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 7,
+      "receipt": "5fbddd7d8b63dd6ec630ad5b366f2974",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 8,
+      "receipt": "c31ff4d44470c54b1cf801524fc23a92",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 9,
+      "receipt": "25d3236343db422dc4346a63137009b9",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 10,
+      "receipt": "80817f671d223bcb647d2d558a90c79e",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 11,
+      "receipt": "356b22ad637ef83990e6612f456e5e59",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 12,
+      "receipt": "16bc114c5412c7958dce6214704725f6",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 13,
+      "receipt": "ba027ab94a73ca500c4cb4e762356386",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 14,
+      "receipt": "9e14c28d2af4fa61b47cf6a90eda1fd1",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 15,
+      "receipt": "1468075c14ae43c090910690cfac9136",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 16,
+      "receipt": "8e36814b96e6b2201b77004b9e053605",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 17,
+      "receipt": "2c543cac7ff9d6304d9533f81f6bbee1",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 18,
+      "receipt": "f366b0e968fdd016b79126d4b35035c8",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 19,
+      "receipt": "8e3d7cb72930820afe62af6a962cffe5",
+      "result": "LIVE_FINALIZED_NOT_YET_DURABLE:injected storage failure before transaction"
+    },
+    {
+      "sequence": 20,
+      "receipt": "f768aa932b9008b3643dea05c4fb4c28",
+      "result": "DURABLE_FINALIZED:COMMITTED"
+    },
+    {
+      "sequence": 21,
+      "receipt": "bee8cc83979a93c63f938f2f86449c2f",
+      "result": "DURABLE_FINALIZED:IDEMPOTENT"
+    },
+    {
+      "sequence": 22,
+      "receipt": "48caec4e2a7e6cc0ad9bafe58d1291dd",
+      "result": "ACCEPTED"
+    }
+  ],
+  "durable_count": 1,
+  "storage_failure_rejected": true,
+  "source": "SYNTHETIC_FIXTURE",
+  "real_wall_clock_boundary": true,
+  "actual_amibroker": false
+}

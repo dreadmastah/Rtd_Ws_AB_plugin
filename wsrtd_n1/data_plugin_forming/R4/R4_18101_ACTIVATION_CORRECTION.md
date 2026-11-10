@@ -1,0 +1,9 @@
+# Bounded candidate activation
+
+src/admission.py provisions a new exclusive disposable SQLite budget ledger. Startup requires an existing exact contract/session ledger; it never recreates lost state or generates replacement authority. Every dispatch consumes aggregate counters inside BEGIN IMMEDIATE before backend invocation; exceptions do not refund attempts. Exceeded caps, time regression/expiry and custody mismatch latch STOP durably. Restart reads consumed counters and cannot enlarge the contract. Explicit shutdown also latches STOP. No fallback to legacy startup.
+
+Allowlist limited to at most BTCUSDT/ETHUSDT; initial proposed livepilot BTCUSDT only. Controller binds producer session, receiver session, receiver PID/creation declaration and universeversion. These are compared as exact inputs, not independently authenticated OS custody or operator approval. Ledger filesystem custody/trusted clock across process downtime are not qualified production controls. Contract is not a signed execution authorization.
+
+Existing18101 supervisor requires exact installedBroker with an established18101 connection, then launches fixed500symbol sender with nativehistory/quotes. Helperreceiver cannot satisfy that predicate; Brokerreceiver can trigger unbounded REST/reconnect acquisition. This isolatedcontroller does not modify or control that supervisor. A separately reviewed controller replacement or routedadapter remains necessary. No safe live swap is authorized.
+
+src/sender.py centralizes metadata/history/connection/subscription/frame callsites and has no automatic retries. Backend is exact FixtureBackend only: it performs no HTTP, DNS, TLS or WebSocket traffic. Therefore actual production network enforcement and one-shot genuine activation remain BLOCKED. This package supplies working offline policy/metadata code, not a claimed deployable network engine.

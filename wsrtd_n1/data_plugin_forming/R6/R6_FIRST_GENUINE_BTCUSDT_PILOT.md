@@ -1,0 +1,7 @@
+# First BTCUSDT pilot: BLOCKED, not executable
+
+R6 qualifies an isolated relay/native path, not genuine-source or host activation. Before a live approval request: qualify official endpoint identities and protocol-document custody; implement bounded DNS and external endpoint enforcement; bind actual producer/controller/relay/receiver authority and transport peers; close idle-disconnect and same-minute-finalization coverage; establish full-prefix admission; qualify an isolated AmiBroker lifecycle without changing 10101/18101.
+
+The minimum proposed future scope is BTCUSDT only, no REST unless explicitly authorized, one WS connection and one subscription, zero reconnects, operator-set UTC window and duration. These are proposals, not granted budgets. Bind exact executable/script/DLL hashes, process creation identities, source/universe generation, permitted endpoint, disposable database physical identity and writer authority. Capture original source payload, receipt, durable commit and native callback/chart timestamp/OHLCV linkage.
+
+Abort on identity loss, unexpected address, request/reconnect, budget/deadline failure, source/finality mismatch, historical conflict or stale native data. Cleanup only the qualified test-owned cohort. Do not reconnect production services. DLL installation, host lifecycle and data-source selection each remain separately authorized actions. Current R6 DLL is OFFLINE ONLY and is not a deployable genuine-source plugin.

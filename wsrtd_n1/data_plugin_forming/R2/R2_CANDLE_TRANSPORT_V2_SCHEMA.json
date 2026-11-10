@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "R2 complete candle envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "base_volume",
+    "candle_close_time_utc",
+    "candle_open_time_utc",
+    "close",
+    "exchange",
+    "exchange_event_time_utc",
+    "high",
+    "interval",
+    "is_final",
+    "local_receipt_time_utc",
+    "logical_symbol",
+    "low",
+    "market_type",
+    "open",
+    "producer_session",
+    "provenance",
+    "quality_status",
+    "quote_volume_if_available",
+    "raw_symbol",
+    "schema_version",
+    "source_event_id_if_available",
+    "source_type",
+    "trade_count_if_available"
+  ],
+  "properties": {
+    "interval": {
+      "type": "string"
+    },
+    "raw_symbol": {
+      "type": "string"
+    },
+    "local_receipt_time_utc": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4102444799999
+    },
+    "logical_symbol": {
+      "type": "string"
+    },
+    "provenance": {
+      "type": "string"
+    },
+    "base_volume": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$"
+    },
+    "quality_status": {
+      "type": "string"
+    },
+    "is_final": {
+      "type": "boolean"
+    },
+    "candle_close_time_utc": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4102444799999
+    },
+    "quote_volume_if_available": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "low": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$"
+    },
+    "producer_session": {
+      "type": "string"
+    },
+    "market_type": {
+      "type": "string"
+    },
+    "source_event_id_if_available": {
+      "type": "null"
+    },
+    "source_type": {
+      "type": "string"
+    },
+    "candle_open_time_utc": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4102444799999
+    },
+    "schema_version": {
+      "const": 2
+    },
+    "exchange_event_time_utc": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4102444799999
+    },
+    "exchange": {
+      "type": "string"
+    },
+    "trade_count_if_available": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "open": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$"
+    },
+    "close": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$"
+    },
+    "high": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,19})(\\.[0-9]{1,18})?$"
+    }
+  },
+  "$comment": "Cross-field validation enforced by transport.py; producer custody is NOT established by schema or MAC. Finality only from k.x. Fixture receiver admits SYNTHETIC_FIXTURE/UNQUALIFIED only."
+}

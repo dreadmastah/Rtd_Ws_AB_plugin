@@ -1,0 +1,7 @@
+{
+  "author_evidence": "evidence/AUTHOR_TESTS.json",
+  "independent_evidence": "independent/receiver_results.json",
+  "author_checks": 2310,
+  "independent_receiver_checks": 16,
+  "scope": "synthetic semantic validation, not current genuine source schema qualification"
+}

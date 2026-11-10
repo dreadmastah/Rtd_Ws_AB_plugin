@@ -1,0 +1,697 @@
+{
+  "status": "PASS",
+  "entries": 57,
+  "dll_sha256": "b47b74935d90b383573234f595b27c94cb909812780eef45f15c4a884b5ae0e9",
+  "R5_failure_seconds": 1.609,
+  "R6_timeout": {
+    "predecessor_failure_seconds": 1.609,
+    "threshold_seconds": 1.5,
+    "historical_root_cause": "UNPROVEN: original trace unavailable",
+    "demonstrated_defect": "R5 starts deadline after durable REST and connection debits; R6 propagates HTTP ingress deadline through admission and reads",
+    "results": [
+      {
+        "contention": false,
+        "index": 0,
+        "elapsed_seconds": 0.9985626,
+        "error": "TimeoutError:timed out",
+        "sockets_empty": true,
+        "connections": 1,
+        "trace": [
+          [
+            2629297108004400,
+            "http_enter",
+            ""
+          ],
+          [
+            2629297108007600,
+            "reserve_enter",
+            "REST_METADATA"
+          ],
+          [
+            2629297331299300,
+            "reserve_exit",
+            "REST_METADATA"
+          ],
+          [
+            2629297331307200,
+            "reserve_enter",
+            "NET_CONNECT"
+          ],
+          [
+            2629297513655400,
+            "reserve_exit",
+            "NET_CONNECT"
+          ],
+          [
+            2629297514126900,
+            "reserve_enter",
+            "HEALTH"
+          ],
+          [
+            2629297722355900,
+            "reserve_exit",
+            "HEALTH"
+          ],
+          [
+            2629297722516600,
+            "recv_enter",
+            1
+          ],
+          [
+            2629298106353900,
+            "recv_exit",
+            ""
+          ],
+          [
+            2629298106365700,
+            "drop_enter",
+            ""
+          ],
+          [
+            2629298106436900,
+            "drop_exit",
+            ""
+          ],
+          [
+            2629298106437400,
+            "http_exit",
+            ""
+          ]
+        ],
+        "pass_bound": true
+      },
+      {
+        "contention": false,
+        "index": 1,
+        "elapsed_seconds": 1.0057008,
+        "error": "TimeoutError:timed out",
+        "sockets_empty": true,
+        "connections": 1,
+        "trace": [
+          [
+            2629299324294900,
+            "http_enter",
+            ""
+          ],
+          [
+            2629299324296600,
+            "reserve_enter",
+            "REST_METADATA"
+          ],
+          [
+            2629299688919100,
+            "reserve_exit",
+            "REST_METADATA"
+          ],
+          [
+            2629299688931000,
+            "reserve_enter",
+            "NET_CONNECT"
+          ],
+          [
+            2629299880023500,
+            "reserve_exit",
+            "NET_CONNECT"
+          ],
+          [
+            2629299880400200,
+            "reserve_enter",
+            "HEALTH"
+          ],
+          [
+            2629300085868100,
+            "reserve_exit",
+            "HEALTH"
+          ],
+          [
+            2629300086004900,
+            "recv_enter",
+            1
+          ],
+          [
+            2629300329897800,
+            "recv_exit",
+            ""
+          ],
+          [
+            2629300329907400,
+            "drop_enter",
+            ""
+          ],
+          [
+            2629300329972900,
+            "drop_exit",
+            ""
+          ],
+          [
+            2629300329973800,
+            "http_exit",
+            ""
+          ]
+        ],
+        "pass_bound": true
+      },
+      {
+        "contention": false,
+        "index": 2,
+        "elapsed_seconds": 1.01037,
+        "error": "TimeoutError:timed out",
+        "sockets_empty": true,
+        "connections": 1,
+        "trace": [
+          [
+            2629301524133800,
+            "http_enter",
+            ""
+          ],
+          [
+            2629301524135200,
+            "reserve_enter",
+            "REST_METADATA"
+          ],
+          [
+            2629301946575100,
+            "reserve_exit",
+            "REST_METADATA"
+          ],
+          [
+            2629301946581400,
+            "reserve_enter",
+            "NET_CONNECT"
+          ],
+          [
+            2629302088585000,
+            "reserve_exit",
+            "NET_CONNECT"
+          ],
+          [
+            2629302088943600,
+            "reserve_enter",
+            "HEALTH"
+          ],
+          [
+            2629302313546700,
+            "reserve_exit",
+            "HEALTH"
+          ],
+          [
+            2629302313698700,
+            "recv_enter",
+            1
+          ],
+          [
+            2629302534412700,
+            "recv_exit",
+            ""
+          ],
+          [
+            2629302534421300,
+            "drop_enter",
+            ""
+          ],
+          [
+            2629302534481200,
+            "drop_exit",
+            ""
+          ],
+          [
+            2629302534481700,
+            "http_exit",
+            ""
+          ]
+        ],
+        "pass_bound": true
+      },
+      {
+        "contention": false,
+        "index": 3,
+        "elapsed_seconds": 1.0051285,
+        "error": "TimeoutError:timed out",
+        "sockets_empty": true,
+        "connections": 1,
+        "trace": [
+          [
+            2629303624107100,
+            "http_enter",
+            ""
+          ],
+          [
+            2629303624108400,
+            "reserve_enter",
+            "REST_METADATA"
+          ],
+          [
+            2629303829846800,
+            "reserve_exit",
+            "REST_METADATA"
+          ],
+          [
+            2629303829853300,
+            "reserve_enter",
+            "NET_CONNECT"
+          ],
+          [
+            2629304010470700,
+            "reserve_exit",
+            "NET_CONNECT"
+          ],
+          [
+            2629304010878500,
+            "reserve_enter",
+            "HEALTH"
+          ],
+          [
+            2629304234328500,
+            "reserve_exit",
+            "HEALTH"
+          ],
+          [
+            2629304234485300,
+            "recv_enter",
+            1
+          ],
+          [
+            2629304629109400,
+            "recv_exit",
+            ""
+          ],
+          [
+            2629304629120300,
+            "drop_enter",
+            ""
+          ],
+          [
+            2629304629208500,
+            "drop_exit",
+            ""
+          ],
+          [
+            2629304629209000,
+            "http_exit",
+            ""
+          ]
+        ],
+        "pass_bound": true
+      },
+      {
+        "contention": false,
+        "index": 4,
+        "elapsed_seconds": 1.0028942,
+        "error": "TimeoutError:timed out",
+        "sockets_empty": true,
+        "connections": 1,
+        "trace": [
+          [
+            2629305325533700,
+            "http_enter",
+            ""
+          ],
+          [
+            2629305325535000,
+            "reserve_enter",
+            "REST_METADATA"
+          ],
+          [
+            2629305503173100,
+            "reserve_exit",
+            "REST_METADATA"
+          ],
+          [
+            2629305503195800,
+            "reserve_enter",
+            "NET_CONNECT"
+          ],
+          [
+            2629305596735900,
+            "reserve_exit",
+            "NET_CONNECT"
+          ],
+          [
+            2629305621845100,
+            "reserve_enter",
+            "HEALTH"
+          ],
+          [
+            2629305774894600,
+            "reserve_exit",
+            "HEALTH"
+          ],
+          [
+            2629305775034800,
+            "recv_enter",
+            1
+          ],
+          [
+            2629306328282900,
+            "recv_exit",
+            ""
+          ],
+          [
+            2629306328295400,
+            "drop_enter",
+            ""
+          ],
+          [
+            2629306328400300,
+            "drop_exit",
+            ""
+          ],
+          [
+            2629306328400800,
+            "http_exit",
+            ""
+          ]
+        ],
+        "pass_bound": true
+      },
+      {
+        "contention": true,
+        "index": 0,
+        "elapsed_seconds": 1.0146594,
+        "error": "TimeoutError:timed out",
+        "sockets_empty": true,
+        "connections": 1,
+        "trace": [
+          [
+            2629307324159000,
+            "http_enter",
+            ""
+          ],
+          [
+            2629307324160200,
+            "reserve_enter",
+            "REST_METADATA"
+          ],
+          [
+            2629307546990300,
+            "reserve_exit",
+            "REST_METADATA"
+          ],
+          [
+            2629307546996600,
+            "reserve_enter",
+            "NET_CONNECT"
+          ],
+          [
+            2629307854907200,
+            "reserve_exit",
+            "NET_CONNECT"
+          ],
+          [
+            2629307855241000,
+            "reserve_enter",
+            "HEALTH"
+          ],
+          [
+            2629308139711600,
+            "reserve_exit",
+            "HEALTH"
+          ],
+          [
+            2629308139886100,
+            "recv_enter",
+            1
+          ],
+          [
+            2629308338718000,
+            "recv_exit",
+            ""
+          ],
+          [
+            2629308338725400,
+            "drop_enter",
+            ""
+          ],
+          [
+            2629308338794400,
+            "drop_exit",
+            ""
+          ],
+          [
+            2629308338795100,
+            "http_exit",
+            ""
+          ]
+        ],
+        "pass_bound": true
+      },
+      {
+        "contention": true,
+        "index": 1,
+        "elapsed_seconds": 1.4134479,
+        "error": "TimeoutError:operation admission deadline",
+        "sockets_empty": true,
+        "connections": 1,
+        "trace": [
+          [
+            2629309846891600,
+            "http_enter",
+            ""
+          ],
+          [
+            2629309846893100,
+            "reserve_enter",
+            "REST_METADATA"
+          ],
+          [
+            2629310179846300,
+            "reserve_exit",
+            "REST_METADATA"
+          ],
+          [
+            2629310179852600,
+            "reserve_enter",
+            "NET_CONNECT"
+          ],
+          [
+            2629310552138200,
+            "reserve_exit",
+            "NET_CONNECT"
+          ],
+          [
+            2629310552502700,
+            "reserve_enter",
+            "HEALTH"
+          ],
+          [
+            2629310954686900,
+            "reserve_exit",
+            "HEALTH"
+          ],
+          [
+            2629311260272000,
+            "drop_enter",
+            ""
+          ],
+          [
+            2629311260309800,
+            "drop_exit",
+            ""
+          ],
+          [
+            2629311260313800,
+            "http_exit",
+            ""
+          ]
+        ],
+        "pass_bound": true
+      },
+      {
+        "contention": true,
+        "index": 2,
+        "elapsed_seconds": 1.4512456,
+        "error": "TimeoutError:operation admission deadline",
+        "sockets_empty": true,
+        "connections": 1,
+        "trace": [
+          [
+            2629313438931500,
+            "http_enter",
+            ""
+          ],
+          [
+            2629313438932800,
+            "reserve_enter",
+            "REST_METADATA"
+          ],
+          [
+            2629313848895400,
+            "reserve_exit",
+            "REST_METADATA"
+          ],
+          [
+            2629313848902500,
+            "reserve_enter",
+            "NET_CONNECT"
+          ],
+          [
+            2629314233503400,
+            "reserve_exit",
+            "NET_CONNECT"
+          ],
+          [
+            2629314233894100,
+            "reserve_enter",
+            "HEALTH"
+          ],
+          [
+            2629314621358900,
+            "reserve_exit",
+            "HEALTH"
+          ],
+          [
+            2629314890096400,
+            "drop_enter",
+            ""
+          ],
+          [
+            2629314890143800,
+            "drop_exit",
+            ""
+          ],
+          [
+            2629314890149400,
+            "http_exit",
+            ""
+          ]
+        ],
+        "pass_bound": true
+      },
+      {
+        "contention": true,
+        "index": 3,
+        "elapsed_seconds": 1.0016394,
+        "error": "TimeoutError:aggregate operation deadline",
+        "sockets_empty": true,
+        "connections": 1,
+        "trace": [
+          [
+            2629316461551500,
+            "http_enter",
+            ""
+          ],
+          [
+            2629316461553100,
+            "reserve_enter",
+            "REST_METADATA"
+          ],
+          [
+            2629316792462100,
+            "reserve_exit",
+            "REST_METADATA"
+          ],
+          [
+            2629316792469200,
+            "reserve_enter",
+            "NET_CONNECT"
+          ],
+          [
+            2629317163085600,
+            "reserve_exit",
+            "NET_CONNECT"
+          ],
+          [
+            2629317163451100,
+            "reserve_enter",
+            "HEALTH"
+          ],
+          [
+            2629317463028900,
+            "reserve_exit",
+            "HEALTH"
+          ],
+          [
+            2629317463041100,
+            "drop_enter",
+            ""
+          ],
+          [
+            2629317463170600,
+            "drop_exit",
+            ""
+          ],
+          [
+            2629317463171300,
+            "http_exit",
+            ""
+          ]
+        ],
+        "pass_bound": true
+      },
+      {
+        "contention": true,
+        "index": 4,
+        "elapsed_seconds": 1.0173191,
+        "error": "TimeoutError:timed out",
+        "sockets_empty": true,
+        "connections": 1,
+        "trace": [
+          [
+            2629318456995700,
+            "http_enter",
+            ""
+          ],
+          [
+            2629318456996700,
+            "reserve_enter",
+            "REST_METADATA"
+          ],
+          [
+            2629318679506900,
+            "reserve_exit",
+            "REST_METADATA"
+          ],
+          [
+            2629318679514300,
+            "reserve_enter",
+            "NET_CONNECT"
+          ],
+          [
+            2629318862829400,
+            "reserve_exit",
+            "NET_CONNECT"
+          ],
+          [
+            2629318880627200,
+            "reserve_enter",
+            "HEALTH"
+          ],
+          [
+            2629319087866200,
+            "reserve_exit",
+            "HEALTH"
+          ],
+          [
+            2629319087924100,
+            "recv_enter",
+            1
+          ],
+          [
+            2629319474211700,
+            "recv_exit",
+            ""
+          ],
+          [
+            2629319474223700,
+            "drop_enter",
+            ""
+          ],
+          [
+            2629319474292900,
+            "drop_exit",
+            ""
+          ],
+          [
+            2629319474293200,
+            "http_exit",
+            ""
+          ]
+        ],
+        "pass_bound": true
+      }
+    ],
+    "passed": true,
+    "guarantee": "Measured Windows runs only; OS scheduling and fsync are not hard real-time guarantees"
+  },
+  "preserved": true
+}

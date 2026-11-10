@@ -1,0 +1,28 @@
+{
+  "implementation": "src/admission.py",
+  "maturity": "OFFLINE_CONTROLLER_ONLY",
+  "persistent_consumption": true,
+  "failed_attempt_refund": false,
+  "caps": [
+    "RESTrequests",
+    "RESTweight",
+    "connectionattempts",
+    "subscriptioncount",
+    "reconnectattempts",
+    "frames",
+    "bytes",
+    "UTCendtime",
+    "processmonotonicelapsed"
+  ],
+  "no_rest": "zero request/weight denies metadata andkline paths",
+  "endpoints": [
+    "/fapi/v1/exchangeInfo",
+    "/fapi/v1/klines",
+    "wss://fstream.binance.com/market/ws"
+  ],
+  "weight_model": "offline fixture assumption metadata1;kline<100=>1,100..499=>2; current official/live weight authority unqualified",
+  "backend": "FixtureBackend only",
+  "production_network_enforcement": "BLOCKED_NO_QUALIFIED_REAL_BACKEND",
+  "clock_limit": "wallrollbackbelowlastseen rejected; downtime rollback cannot be proven without trusted clock authority",
+  "watchdog": "optional fixtureownthread; actual socket lifetime cancellation not qualified"
+}

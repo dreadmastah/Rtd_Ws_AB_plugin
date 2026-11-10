@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "tests": 3,
+  "failures": [],
+  "hashes": {
+    "src\\admission.py": "dcddf337bc7e19e575ba1ba7d546dacb1c8705edd5768ed8971e3d5ec79125db",
+    "src\\controller.py": "b5c009e190ba1f2e9f32b1842a1ac98d3ef104139142fcc03a5fee49b11ca2b9",
+    "src\\custody.py": "90322040eeb32d4f0e28dadb9017f112abf5f58caa95637006848eaa1afa8588",
+    "src\\endpoint_policy.py": "db4272d8d4711e584d5aef23a5b8bc397739d48ea21a87b1cedfa9f6f85169ea",
+    "src\\fixture_pipe.py": "104eef2a72568b6b7f8624450624e9c58062bad67dd23496e331e405190b630d",
+    "src\\handoff.py": "ed40e8ee6cea8c2aee20cd5301a1738dd86230226f5339d4874eb2fdbb1f15bb",
+    "src\\network.py": "41672b4f01b97c6f9a19bbd3ec98377b8a1b42ff016c56e4c3bc6d5d17f5062c",
+    "src\\relay.py": "e69ef190627ecd4943ab34228f7057006b9feabe87de698a707447c9cbcbf754",
+    "src\\relay_client.py": "ff9ac192828e697263be279db96ae3820ed85e1794b674e017fa1afb07193b30"
+  },
+  "external_requests": 0,
+  "production_changes": 0
+}

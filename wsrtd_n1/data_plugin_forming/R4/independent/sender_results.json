@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "tests": 10,
+  "failures": [],
+  "source_sha256": "73f8b9cd9e4cb44065ae7f4a61835e896d73445340282f2a5ec516d534283f3e",
+  "network_calls": 0,
+  "production_changes": 0
+}

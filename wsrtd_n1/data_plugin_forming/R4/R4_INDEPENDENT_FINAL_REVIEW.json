@@ -1,0 +1,90 @@
+{
+  "reviewer": "Independent agent /root/forming_r2_review; implementation author /root",
+  "completed_utc": "2026-11-04T05:49:15.515860+00:00",
+  "status": "PASS_SCOPED_OFFLINE_ADMISSION_AND_V3_FIXTURE_REVIEW",
+  "overall_live_pilot_ready": false,
+  "independent_checks": {
+    "admission": 19,
+    "sender_handoff": 10,
+    "all_passed": true
+  },
+  "reviewed_hashes": {
+    "src/admission.py": "f864191e6dabf418617fbcb3ca04c950ae2a3bdad16918c6d829c0188806edc0",
+    "src/sender.py": "73f8b9cd9e4cb44065ae7f4a61835e896d73445340282f2a5ec516d534283f3e",
+    "independent/test_admission.py": "c4b11393b37316ae770d4b2b39da0f5ffc245473a889cdd73302568fdfa39411",
+    "independent/test_sender.py": "912661d9cd5d89e99c7f1187b970f5ce1b43296077c221337db0d6dd3d1b3328",
+    "independent/admission_results.json": "631722091c0cc706cdd6ceef7b26694ff3127a20f1d63e86ec1c0a57ce6e742e",
+    "independent/sender_results.json": "c46f4ee597ce98d08f5f39a83cf76b1a9bbe54cd563045b002f585a5247b13e9",
+    "R4_BOUNDED_NETWORK_ADMISSION.json": "f517b3fbf0f3d2f3c58722de298203ebd0a48b61731eb145d3d236fc689d48f7",
+    "R4_FIRST_GENUINE_BTCUSDT_PILOT.md": "373b691633973ab121c235386a4fa007e7fc8cbba0f4498f54dd2bb6ebee78e2",
+    "R4_DURABLE_HANDOFF_NONREGRESSION.json": "d0b503e548e172cba3555bee56e0769562fb1562896e7032bb6377307c08fd55"
+  },
+  "dependency_hashes": {
+    "dependencies\\r3\\durable.py": "cc2fcb1750ebf310789ebb2149f444fd49bb8391b3d98d115c8446e7ba6faefa",
+    "dependencies\\r3\\pipeline.py": "53dd2237e0e7d4a09af8fd7817cd313be312ba507ca3d8af1a2bce44b2f7a3ae",
+    "dependencies\\r3\\transport.py": "786f052b7b330ce7d68d90991952e27ce56c7c876cc8dde6aa3d8824b86b02d3"
+  },
+  "preserved_R3_DLL": {
+    "path": "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R3\\artifacts\\WSRTD_Data_Forming_R3.dll",
+    "sha256": "f0b09413fa555ea85781b8745fc6c1108e6edf7f6189fa00bfdc35e098d77647",
+    "rebuilt": false
+  },
+  "network_callsite_review": [
+    {
+      "callsite": "Sender.metadata",
+      "admission": "REST_METADATA reserve before fixture request; HEALTH after; fixed exchangeInfo path; zeroREST refuses dispatch"
+    },
+    {
+      "callsite": "Sender.history",
+      "admission": "exact symbol, minute range and499page cap; REST_KLINE reserve before fixture request; HEALTH after"
+    },
+    {
+      "callsite": "Sender.connect",
+      "admission": "persistent WS_CONNECT aggregate and reconnect semantics before fixture connect; HEALTH after; no automatic retry"
+    },
+    {
+      "callsite": "Sender.subscribe",
+      "admission": "connectionrequired and SUBSCRIBE reserve before fixed kline_1m stream; HEALTH after"
+    },
+    {
+      "callsite": "Sender.source_event",
+      "admission": "FRAME bytes/count reserve, duplicateJSONkey rejection, subscribed symbol and exact pipeline session/universe/symbolset checks"
+    },
+    {
+      "callsite": "IsolatedRelay.forward",
+      "admission": "FRAME reserve plus receiver session/universe/symbolset; frame budget deliberately counts both source and relay stages"
+    },
+    {
+      "callsite": "production sockets/HTTP/DNS",
+      "admission": "ABSENT; FixtureBackend exacttype only. Actualnetwork hard-stop not qualified"
+    }
+  ],
+  "verified_offline_properties": [
+    "Request/weight/connection/subscription/frame counters persist before dispatch and are not refunded after failure.",
+    "Restart reopens existing exactcontract ledger; missingledger cannot silently reset; existingfile cannot reprovision.",
+    "STOP persists, wrongsession/receiver/deadline/clockrollback failclosed, concurrent calls cannot exceed testedcaps.",
+    "Malformed negative/fractionalcounters rejected; modifiedcontract rejected eachreservation.",
+    "RawV3x/E/t/T/f/L/volume anduniverse roundtrip to unchangedR3 disposablefinalledger; local receipts remain synthetic.",
+    "No genuineconnection/backend, productionpath modification, Brokercontrol or R3rebuild occurred."
+  ],
+  "closed_findings": [
+    "Duplicate sourceJSON keys formerlycollapsed silently; now rejected.",
+    "Unrelated pipeline session/universe/symbolset formerlyencodable; now fenced.",
+    "Direct relayforward formerlyomitted aggregateframe accounting; now reserves beforedispatch.",
+    "Corrupt persisted counters formerlyallowed negative/fractionalbudgetstate; now rejected."
+  ],
+  "remaining_blockers": [
+    "No qualified real HTTP/WebSocket backend exists; sockettimeouts/cancellation/redirects/reconnect teardown/quietexpiry cannot be inferred from fixture doubles.",
+    "Producer/receiver PIDcreation declarations are not OS-attested custody; genuine sourceauthority andactual endpoint identity remain unqualified.",
+    "Trustedclock authority across processdowntime/rollback not established; lastseenwallclock plus processmonotonic checks have statedlimits.",
+    "Existing18101supervisor andsender unchanged; Brokerattachment can trigger500symbol legacyREST/WSstartup. Limitedgenuinepilot needs separatelyreviewed productioncontroller/output handoff.",
+    "R3DLL remains FIXTURE_ONLY; actualAmiBrokerload, genuineformingbars, weeklycompression andmixedinterval settings NOT_EXECUTED.",
+    "Historicalfullprefix admission remains denied; no syntheticreceipt or shortformingwindow grants completehistoricalcoverage.",
+    "LiveUTCwindow, source/receiverexecutableidentity, networkweightauthority, writerphysicalidentity andhostlifecycleapproval remain UNBOUND.",
+    "Review grants no deployment, producerstart, protectedrelayattachment, RESTrehydration orproductionwrite authority."
+  ],
+  "production_changes": 0,
+  "protected_relay_connections": 0,
+  "binance_requests": 0,
+  "overall": "BLOCKED_REAL_NETWORK_BACKEND_GENUINE_CUSTODY_AND_NATIVE_HOST_ACCEPTANCE"
+}

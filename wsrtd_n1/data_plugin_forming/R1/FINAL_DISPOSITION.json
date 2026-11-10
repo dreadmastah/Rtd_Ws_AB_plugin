@@ -1,0 +1,16 @@
+{
+  "DATA_PLUGIN_SOURCE": "IDENTIFIED",
+  "DATA_PLUGIN_NATIVE_API": "BLOCKED: static ADK implementation identified; live callback acceptance absent",
+  "CURRENT_FEED_BINDING": "UNBOUND: environment-scoped SQLite reader; current Init/binding unverified",
+  "BTCUSDT_1M_HISTORY": "BLOCKED",
+  "BTCUSDT_FORMING_1M": "BLOCKED",
+  "ETHUSDT_FORMING_1M": "BLOCKED",
+  "NATIVE_REFRESH": "BLOCKED",
+  "FOUNDATIONAL_13": "BLOCKED",
+  "500_SYMBOL_COVERAGE": "BLOCKED",
+  "HISTORICAL_INTEGRITY": "PRESERVED: no writes; sidecar bytes unchanged; not full audit",
+  "CORRECTED_DATA_DLL": "BLOCKED: upstream source/finality contract unqualified",
+  "AMIBROKER_RESTART_PERFORMED": false,
+  "10101_MODIFICATIONS": 0,
+  "18101_MODIFICATIONS": 0
+}

@@ -1,0 +1,113 @@
+{
+  "pass": true,
+  "measurements": [
+    {
+      "symbols": 2,
+      "synthetic": true,
+      "elapsed_seconds": 0.001531799789518118,
+      "cpu_seconds": 0.0,
+      "python_peak_alloc_bytes": 18681,
+      "event_ms_p50": 0.7421998307108879,
+      "event_ms_max": 0.7795998826622963,
+      "commit_latency_ms": [
+        33.637499902397394,
+        33.07619970291853
+      ],
+      "queue_depth": 0,
+      "forming_cache": 2,
+      "symbols_returned": 2,
+      "notifications": 3,
+      "callback_mean_us": 3.3,
+      "callback_max_us": 5.9,
+      "native_peak_working_set_bytes": 5419008
+    },
+    {
+      "symbols": 13,
+      "synthetic": true,
+      "elapsed_seconds": 0.009525700006633997,
+      "cpu_seconds": 0.015625,
+      "python_peak_alloc_bytes": 58344,
+      "event_ms_p50": 0.7175998762249947,
+      "event_ms_max": 0.8607003837823868,
+      "commit_latency_ms": [
+        31.355000101029873,
+        35.3065999224782
+      ],
+      "queue_depth": 0,
+      "forming_cache": 13,
+      "symbols_returned": 13,
+      "notifications": 3,
+      "callback_mean_us": 0.938,
+      "callback_max_us": 6.1,
+      "native_peak_working_set_bytes": 5423104
+    },
+    {
+      "symbols": 100,
+      "synthetic": true,
+      "elapsed_seconds": 0.07475060038268566,
+      "cpu_seconds": 0.046875,
+      "python_peak_alloc_bytes": 332609,
+      "event_ms_p50": 0.7192001212388277,
+      "event_ms_max": 1.1586002074182034,
+      "commit_latency_ms": [
+        30.92420008033514,
+        35.748000256717205
+      ],
+      "queue_depth": 0,
+      "forming_cache": 100,
+      "symbols_returned": 100,
+      "notifications": 3,
+      "callback_mean_us": 0.46,
+      "callback_max_us": 6.3,
+      "native_peak_working_set_bytes": 5464064
+    },
+    {
+      "symbols": 500,
+      "synthetic": true,
+      "elapsed_seconds": 0.418176899664104,
+      "cpu_seconds": 0.390625,
+      "python_peak_alloc_bytes": 1569558,
+      "event_ms_p50": 0.8130003698170185,
+      "event_ms_max": 1.517800148576498,
+      "commit_latency_ms": [
+        35.74980003759265,
+        36.714400164783
+      ],
+      "queue_depth": 0,
+      "forming_cache": 500,
+      "symbols_returned": 500,
+      "notifications": 3,
+      "callback_mean_us": 0.438,
+      "callback_max_us": 16.8,
+      "native_peak_working_set_bytes": 5660672
+    },
+    {
+      "symbols": 1024,
+      "synthetic": true,
+      "elapsed_seconds": 0.9590007998049259,
+      "cpu_seconds": 0.953125,
+      "python_peak_alloc_bytes": 3155519,
+      "event_ms_p50": 0.8928000461310148,
+      "event_ms_max": 2.1195998415350914,
+      "commit_latency_ms": [
+        86.35810017585754,
+        96.98279993608594
+      ],
+      "queue_depth": 0,
+      "forming_cache": 1024,
+      "symbols_returned": 1024,
+      "notifications": 3,
+      "callback_mean_us": 0.454,
+      "callback_max_us": 8.6,
+      "native_peak_working_set_bytes": 5963776
+    }
+  ],
+  "live_network": false,
+  "actual_amibroker": false,
+  "limitations": [
+    "short snapshots",
+    "two SQLite commits per stage",
+    "13identitysynthetic",
+    "fullprefixunqualified"
+  ]
+}

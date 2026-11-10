@@ -1,0 +1,6 @@
+{
+  "review": "R3_INDEPENDENT_FINAL_REVIEW.json",
+  "native_receipt": "independent/native_results.json",
+  "receiver_storage_receipt": "independent/receiver_durable_results.json",
+  "actual_host": false
+}

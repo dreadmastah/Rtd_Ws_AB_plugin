@@ -1,0 +1,66 @@
+{
+  "author": {
+    "passed": true,
+    "tests": 22,
+    "failures": [],
+    "external_requests": 0,
+    "actual_loopback_sockets": true
+  },
+  "controller": [
+    {
+      "case": "ws",
+      "pass": true
+    },
+    {
+      "case": "ws_bad",
+      "pass": true
+    },
+    {
+      "case": "wrong_producer",
+      "pass": true
+    },
+    {
+      "case": "wrong_receiver",
+      "pass": true
+    },
+    {
+      "case": "wrong_authority",
+      "pass": true
+    }
+  ],
+  "tls": {
+    "tls_cases": [
+      {
+        "hostname": "localhost",
+        "trusted_fixture_ca": true,
+        "expected_success": true,
+        "passed": true
+      },
+      {
+        "hostname": "wrong.local",
+        "trusted_fixture_ca": false,
+        "expected_success": false,
+        "passed": true
+      },
+      {
+        "hostname": "localhost",
+        "trusted_fixture_ca": false,
+        "expected_success": false,
+        "passed": true
+      }
+    ],
+    "process_identity": {
+      "pid": 82008,
+      "creation": 134382710901994436,
+      "path": "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0"
+    },
+    "wrong_creation_rejected": true,
+    "observed_identity_is_not_authorization": true,
+    "external_connections": 0
+  },
+  "independent_review": "R5_INDEPENDENT_FINAL_REVIEW.json",
+  "strict_whole_call_1500ms": "BLOCKED_OBSERVED_1609ms",
+  "persisted_debit_before_dispatch": true,
+  "external_endpoint_admission": "BLOCKED_LOOPBACK_ONLY"
+}

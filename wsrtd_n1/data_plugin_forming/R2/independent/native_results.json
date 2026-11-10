@@ -1,0 +1,162 @@
+{
+  "tests": [
+    {
+      "name": "Init",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Notify_disposable",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "no_data",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "history_plus_forming",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "same_minute_replace",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "capacity_fail_no_buffer_mutation",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "unknown_symbol",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "final_pending_no_duplicate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "storage_promotion_no_duplicate",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "older_serial_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "wrong_database_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "forming_reacquired",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "disconnect_preserves_history_removes_forming",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "concurrent_callbacks_no_cross_symbol_corruption",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Notify_unload",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "after_unload_no_data",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "wrong_owner_creation_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "wrong_owner_pid_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "different_session_notify_bound",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "old_session_payload_rejected",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "protected_database_bind_refused",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "UI_notify_bound",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "UI_refresh_invokes_quote_readback",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "UI_disconnect_invalidates_forming",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "UI_unload",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "concurrent_lifecycle_returns_safely",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "post_concurrency_cleanup",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "post_concurrency_reinitialize",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "post_concurrency_unload",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Release",
+      "passed": true,
+      "detail": ""
+    }
+  ],
+  "passed": true,
+  "dll_sha256": "8ac9987e6588b3c8f5c1ce7b35481e931a58b6145672b8fa09ed570ad547ec01",
+  "source_sha256": "4723cc6f328f2e416f72fb6c221c077a877eaefdc2affd8ccfc1ffbc1380b640",
+  "actual_amibroker": false,
+  "production_mutations": 0,
+  "binance_connections": 0,
+  "protected_relay_connections": 0,
+  "limitation": "headless callback ABI plus private same-thread window; not actual AmiBroker"
+}

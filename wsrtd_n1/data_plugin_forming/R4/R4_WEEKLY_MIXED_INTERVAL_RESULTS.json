@@ -1,0 +1,8 @@
+{
+  "weekly": "BLOCKED_ACTUAL_HOST_COMPRESSION_REQUIRED",
+  "mixed": "BLOCKED_ACTUAL_DATABASE_SETTINGS_AND_CALLBACK_ORDER_REQUIRED",
+  "UTCdaily": "R3unchanged36independentnativechecks; complete1440durableminuteaggregation; partialdayrejected in R4handoff",
+  "R3_evidence_sha256": "1cd471742f6146def76ff20136b1944ade16b116b47158a86ea9dc23aa96f005",
+  "R4_native_tests_repeated": false,
+  "actual_host_operation": false
+}

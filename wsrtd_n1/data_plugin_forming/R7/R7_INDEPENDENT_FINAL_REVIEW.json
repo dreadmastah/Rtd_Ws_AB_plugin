@@ -1,0 +1,304 @@
+{
+  "status": "PASS_SCOPED_R7_ISOLATED_IMPLEMENTATION_REVIEW",
+  "overall": "BLOCKED_GENUINE_SOURCE_AND_ACTUAL_AMIBROKER",
+  "reviewer": "/root/forming_r2_review",
+  "utc": "2026-11-10T00:53:51.528919+00:00",
+  "exact_hashes": {
+    "src\\admission.py": "dcddf337bc7e19e575ba1ba7d546dacb1c8705edd5768ed8971e3d5ec79125db",
+    "src\\controller.py": "b5c009e190ba1f2e9f32b1842a1ac98d3ef104139142fcc03a5fee49b11ca2b9",
+    "src\\custody.py": "90322040eeb32d4f0e28dadb9017f112abf5f58caa95637006848eaa1afa8588",
+    "src\\endpoint_policy.py": "f2a8d3d73d221c871b40d08de08a13c42af9c65045f949d8a65ef3366a67bd37",
+    "src\\fixture_pipe.py": "355e9fd476f313507ace734116c4b8cd73e2be6767392936714c7dec6dc3d464",
+    "src\\handoff.py": "ed40e8ee6cea8c2aee20cd5301a1738dd86230226f5339d4874eb2fdbb1f15bb",
+    "src\\network.py": "e96833357215daa769b16993c203448351d1f91d8defe19ec641b8dbdd6fa0e4",
+    "src\\peer.py": "568480d8bd2b3b58974b10a5f63a69af143264965cdeeb12bb8a0bdfc4b7425a",
+    "src\\pilot_endpoint.py": "940a800313cf6b94cb7d6189f134da7646430fe8838c3d14a8dc9c626e9ce770",
+    "src\\relay.py": "36653651ba3f7d4a8f3e7dab4ac4094bf31fd5e0d0b5a50bb0f078292ec95c38",
+    "src\\relay_client.py": "849abe8d1dbe3bae00eebac6ebdcc579f57a6bfb68cc63af888ad9d0a9c79b4d",
+    "src\\resolver.py": "81a88d85478d1e7811895546ee418cbb7b9bd2a4b25266803eca61d578149a45",
+    "dependencies\\r3\\durable.py": "cc2fcb1750ebf310789ebb2149f444fd49bb8391b3d98d115c8446e7ba6faefa",
+    "dependencies\\r3\\pipeline.py": "53dd2237e0e7d4a09af8fd7817cd313be312ba507ca3d8af1a2bce44b2f7a3ae",
+    "dependencies\\r3\\transport.py": "0b366be25c403bc5b71f7e452fc3cff852d46d133d4cfa42d36d033b92fe3190",
+    "native\\CMakeLists.txt": "4095358507c19a109c65a5b4f81fa6696e8df3afd5158edbb58a7895d06ff2d1",
+    "native\\plugin.cpp": "1b81b9fd2abb8382e6b630381acbd0f7b689a59d3e4b1ee2b06b639b70d5e92d",
+    "artifacts\\WSRTD_Data_Forming_R7.dll": "ad0f27ece55ddaaea8bbfc42a85554d99b872cf11382a61e79775d67647f36d6",
+    "tests\\find_tls.py": "aa4f80d357734e1469b95d884c05194550cf1b2c59904676d3fb2efb489a28c0",
+    "tests\\servers.py": "f650de3c3fff4fc2e5798c738abe71585435df9dc8d3e9a6cadb4f2ff8ddaf54",
+    "tests\\test_controller.py": "fb2ed2a4844a6d85877b8f3a9dff8d0af4c8bcde209e743263273017673d8747",
+    "tests\\test_endpoint.py": "2f49a09813d9eca93d59812e5027dba571624694891d819822c386334a88a96f",
+    "tests\\test_lifecycle.py": "9df54f2f4ee6c101b95c6f3010dfe519f6a9f5319628039704b40bab6b8a4af1",
+    "tests\\test_native_e2e.py": "1ae10019fc01e15e4c4e56b36060567604f3e5aa1df1639ad76d12e7244f0ffd",
+    "tests\\test_network.py": "91930770266ad5e42e540c3b3bbcdf5999c8d4d59465ce9f3f9053d83b02a1e3",
+    "tests\\test_peer.py": "2e4f9dc9d595fd233ad1def0e4e09535c93e1cc5b4a1ab8a12077c7ac9278177",
+    "tests\\test_pilot.py": "f64254a7f14a876c9133cf0711ff509b194be29aaac4b9d375092de2c7dcca04",
+    "tests\\test_relay.py": "41540a71757abe04368cccd989cd68be3abf7f7c92216043e5c3dba3842c75fc",
+    "tests\\test_timeout.py": "1eec76ba5b76d61e53aa3ed1ba1057fb938e61c80b54fd75ea57f785ed18519b",
+    "tests\\test_tls_custody.py": "864f6c9dbefbe30e437def8c2f66b9cff5476bfb385d2668ac18ce94281d4891"
+  },
+  "independent_tests": {
+    "passed": true,
+    "tests": 2,
+    "failures": [],
+    "hashes": {
+      "src\\admission.py": "dcddf337bc7e19e575ba1ba7d546dacb1c8705edd5768ed8971e3d5ec79125db",
+      "src\\controller.py": "b5c009e190ba1f2e9f32b1842a1ac98d3ef104139142fcc03a5fee49b11ca2b9",
+      "src\\custody.py": "90322040eeb32d4f0e28dadb9017f112abf5f58caa95637006848eaa1afa8588",
+      "src\\endpoint_policy.py": "f2a8d3d73d221c871b40d08de08a13c42af9c65045f949d8a65ef3366a67bd37",
+      "src\\fixture_pipe.py": "355e9fd476f313507ace734116c4b8cd73e2be6767392936714c7dec6dc3d464",
+      "src\\handoff.py": "ed40e8ee6cea8c2aee20cd5301a1738dd86230226f5339d4874eb2fdbb1f15bb",
+      "src\\network.py": "e96833357215daa769b16993c203448351d1f91d8defe19ec641b8dbdd6fa0e4",
+      "src\\peer.py": "568480d8bd2b3b58974b10a5f63a69af143264965cdeeb12bb8a0bdfc4b7425a",
+      "src\\pilot_endpoint.py": "940a800313cf6b94cb7d6189f134da7646430fe8838c3d14a8dc9c626e9ce770",
+      "src\\relay.py": "36653651ba3f7d4a8f3e7dab4ac4094bf31fd5e0d0b5a50bb0f078292ec95c38",
+      "src\\relay_client.py": "849abe8d1dbe3bae00eebac6ebdcc579f57a6bfb68cc63af888ad9d0a9c79b4d",
+      "src\\resolver.py": "81a88d85478d1e7811895546ee418cbb7b9bd2a4b25266803eca61d578149a45",
+      "dependencies\\r3\\durable.py": "cc2fcb1750ebf310789ebb2149f444fd49bb8391b3d98d115c8446e7ba6faefa",
+      "dependencies\\r3\\pipeline.py": "53dd2237e0e7d4a09af8fd7817cd313be312ba507ca3d8af1a2bce44b2f7a3ae",
+      "dependencies\\r3\\transport.py": "0b366be25c403bc5b71f7e452fc3cff852d46d133d4cfa42d36d033b92fe3190"
+    },
+    "external_requests": 0,
+    "production_changes": 0
+  },
+  "author_tests_independently_rerun": {
+    "peer_checks": 5,
+    "pilot_cases": 13,
+    "resolver_cases": 2
+  },
+  "same_minute_evidence_reviewed": {
+    "passed": true,
+    "minute": 1794271920000,
+    "observations": [
+      {
+        "stage": "first",
+        "row": {
+          "symbol": "BTCUSDT",
+          "bars": 1,
+          "close": 101,
+          "volume": 1,
+          "open": 100,
+          "high": 102,
+          "low": 99,
+          "minute": 52
+        },
+        "utc_ms": 1794271973357
+      },
+      {
+        "stage": "update",
+        "row": {
+          "symbol": "BTCUSDT",
+          "bars": 1,
+          "close": 103,
+          "volume": 2,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "minute": 52
+        },
+        "utc_ms": 1794271974367
+      },
+      {
+        "stage": "finalized",
+        "row": {
+          "symbol": "BTCUSDT",
+          "bars": 1,
+          "close": 103,
+          "volume": 2,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "minute": 52
+        },
+        "utc_ms": 1794271981215
+      },
+      {
+        "stage": "duplicate",
+        "row": {
+          "symbol": "BTCUSDT",
+          "bars": 1,
+          "close": 103,
+          "volume": 2,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "minute": 52
+        },
+        "utc_ms": 1794271982213
+      },
+      {
+        "stage": "next_minute",
+        "row": {
+          "symbol": "BTCUSDT",
+          "bars": 2,
+          "close": 104,
+          "volume": 1,
+          "open": 100,
+          "high": 104,
+          "low": 99,
+          "minute": 53
+        },
+        "utc_ms": 1794271983200
+      },
+      {
+        "stage": "disconnected",
+        "row": {
+          "symbol": "BTCUSDT",
+          "bars": 1,
+          "close": 103,
+          "volume": 2,
+          "open": 100,
+          "high": 103,
+          "low": 99,
+          "minute": 52
+        },
+        "utc_ms": 1794271984059
+      }
+    ],
+    "relay": {
+      "pid": 145644,
+      "creation": 134387455720030725,
+      "path": "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0"
+    },
+    "receipts": [
+      {
+        "sequence": 1,
+        "receipt": "1a9a4b886ffdc8f5c4f3c01e5a9be51c",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 2,
+        "receipt": "bbaea161cfbfc747f46856ca49a56beb",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 3,
+        "receipt": "37a0b55075890530f5fe23a2184470a3",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 4,
+        "receipt": "707ae23228e97beb7ef5ef5dc4aa82b6",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 5,
+        "receipt": "bed6dc3b1e63d0a00238e7aa57e10b46",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 6,
+        "receipt": "1f8acda6a8e6212f1200acb7491f8693",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 7,
+        "receipt": "5fbddd7d8b63dd6ec630ad5b366f2974",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 8,
+        "receipt": "c31ff4d44470c54b1cf801524fc23a92",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 9,
+        "receipt": "25d3236343db422dc4346a63137009b9",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 10,
+        "receipt": "80817f671d223bcb647d2d558a90c79e",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 11,
+        "receipt": "356b22ad637ef83990e6612f456e5e59",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 12,
+        "receipt": "16bc114c5412c7958dce6214704725f6",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 13,
+        "receipt": "ba027ab94a73ca500c4cb4e762356386",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 14,
+        "receipt": "9e14c28d2af4fa61b47cf6a90eda1fd1",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 15,
+        "receipt": "1468075c14ae43c090910690cfac9136",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 16,
+        "receipt": "8e36814b96e6b2201b77004b9e053605",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 17,
+        "receipt": "2c543cac7ff9d6304d9533f81f6bbee1",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 18,
+        "receipt": "f366b0e968fdd016b79126d4b35035c8",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 19,
+        "receipt": "8e3d7cb72930820afe62af6a962cffe5",
+        "result": "LIVE_FINALIZED_NOT_YET_DURABLE:injected storage failure before transaction"
+      },
+      {
+        "sequence": 20,
+        "receipt": "f768aa932b9008b3643dea05c4fb4c28",
+        "result": "DURABLE_FINALIZED:COMMITTED"
+      },
+      {
+        "sequence": 21,
+        "receipt": "bee8cc83979a93c63f938f2f86449c2f",
+        "result": "DURABLE_FINALIZED:IDEMPOTENT"
+      },
+      {
+        "sequence": 22,
+        "receipt": "48caec4e2a7e6cc0ad9bafe58d1291dd",
+        "result": "ACCEPTED"
+      }
+    ],
+    "durable_count": 1,
+    "storage_failure_rejected": true,
+    "source": "SYNTHETIC_FIXTURE",
+    "real_wall_clock_boundary": true,
+    "actual_amibroker": false
+  },
+  "same_minute_author_suite_independently_rerun": false,
+  "closed_findings": [
+    "Second peer acquisition now appended incrementally; injected failure verifies first held process handle closed",
+    "Nested operation deadline preserves outer ingress budget and resets in finally; raw stream subscription included",
+    "Final exchange event duplicate ignores only local receipt timestamp; exchange-field changes rejected and original receipt preserved"
+  ],
+  "qualified_scope": [
+    "Windows exact reverse ESTABLISHED TCP tuple with held PID/creation/path/hash identity and precommit checks",
+    "Exact documented raw BTC path policy with test-owned TLS substitution only; zero REST, one URL stream and no reconnect",
+    "Owned localhost resolver child cancellation/reaping; OS limitations retained",
+    "Synthetic same-minute forming update, storage failure/retry, idempotent final, next minute and disconnected native readback"
+  ],
+  "remaining_blockers": [
+    "External Binance dispatch not implemented or authorized; local policy tests are not genuine endpoint acceptance",
+    "Peer table observation and process handle checks are not atomic with transaction commit",
+    "Sender and receiver share controller process in fixture; no production role authorization",
+    "Resolver subprocess reaping does not prove OS DNS infrastructure cancellation or hard real-time scheduling",
+    "Full-prefix historical admission unproven",
+    "Actual AmiBroker chart/refresh and weekly/mixed intervals not executed",
+    "Future pilot UTC window/process identities/writer authority and host lifecycle remain separately gated"
+  ],
+  "external_requests": 0,
+  "protected_connections": 0,
+  "production_mutations": 0
+}

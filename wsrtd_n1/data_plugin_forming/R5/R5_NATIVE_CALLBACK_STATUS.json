@@ -1,0 +1,26 @@
+{
+  "status": "PASS_ISOLATED",
+  "measurement": {
+    "rows": [
+      {
+        "symbol": "BTCUSDT",
+        "bars": 2,
+        "close": 102,
+        "volume": 3
+      },
+      {
+        "symbol": "ETHUSDT",
+        "bars": 2,
+        "close": 102,
+        "volume": 3
+      }
+    ],
+    "symbols_returned": 2,
+    "notifications": 3,
+    "callback_mean_us": 3.5,
+    "callback_max_us": 6.1,
+    "native_peak_working_set_bytes": 5419008
+  },
+  "actual_amibroker": false,
+  "notification_scope": "Native harness window notification; not actual AmiBroker chart acknowledgment"
+}

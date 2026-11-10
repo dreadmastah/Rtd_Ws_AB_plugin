@@ -1,0 +1,13 @@
+{
+  "status": "PASS_OFFLINE_TESTED_CALLBACKS",
+  "independent": "independent/native_results.json",
+  "checks": 30,
+  "actual_amibroker": false,
+  "dll_sha256": "8ac9987e6588b3c8f5c1ce7b35481e931a58b6145672b8fa09ed570ad547ec01",
+  "limitations": [
+    "real host not executed",
+    "daily callback parity absent",
+    "per-symbol acknowledgment completion absent",
+    "fixture-only database scope"
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "reviewer": "Independent agent /root/forming_r2_review; implementation author /root",
+  "completed_utc": "2026-11-04T05:33:07.316654+00:00",
+  "status": "PASS_SCOPED_OFFLINE_R3_IMPLEMENTATION_REVIEW",
+  "overall_live_pilot_ready": false,
+  "source_and_binary_hashes": {
+    "src/durable.py": "cc2fcb1750ebf310789ebb2149f444fd49bb8391b3d98d115c8446e7ba6faefa",
+    "src/pipeline.py": "53dd2237e0e7d4a09af8fd7817cd313be312ba507ca3d8af1a2bce44b2f7a3ae",
+    "src/transport.py": "786f052b7b330ce7d68d90991952e27ce56c7c876cc8dde6aa3d8824b86b02d3",
+    "src/fixture_pipe.py": "15e8b854e0105e6296bb757176030f787251b460e08891fbc62242d546a37011",
+    "native/plugin.cpp": "6a067caf58b80b0d6162d42feb16dbaec1d4aa58b10590607b753a2a08cee5da",
+    "native/CMakeLists.txt": "d297cf5264b38cc002f33286f65b50fa1f94c04b70c88066d6411fcdd65798e2",
+    "artifacts/WSRTD_Data_Forming_R3.dll": "f0b09413fa555ea85781b8745fc6c1108e6edf7f6189fa00bfdc35e098d77647",
+    "tests/test_durable.py": "443a66beaafdf17db664b73d611b0e7a53ac3995790883e47d161c58bef148f0",
+    "tests/test_pipeline.py": "f38f3e3e6e754b33e9f338aea85db444b2db3cd07119a46d38bf8129c03773ad",
+    "tests/test_native_inherited.py": "2c83eb297bc55bd14c7e29998e77d9f9284f7fc0f9c4bd62a7967f55a60ff117",
+    "independent/test_r3.py": "75db728193625a01a22fe5464d714fd68ebf12e60a25159fb928c5b128d22135",
+    "independent/native_review_run.py": "aa81989661f54c554d2bb157b3b850701198c67a0c9345a638a85df1a1d64da7",
+    "independent/native_results.json": "1cd471742f6146def76ff20136b1944ade16b116b47158a86ea9dc23aa96f005",
+    "independent/receiver_durable_results.json": "4c2d7c9e0a3a8534b2c06ae8948162a6514048cbfd8a4dbdca71b239086de3d1"
+  },
+  "independent_execution": {
+    "receiver_storage_budget_checks": 20,
+    "native_DLL_checks": 36,
+    "all_passed": true,
+    "actual_amibroker": false
+  },
+  "reviewed_activation_contract": [
+    "native_receivers requires exact Broker executable path and established remote port18101; arbitrary local receiver attachment does not meet predicate.",
+    "Five-second supervisor loop starts or restarts sender on native receiver identity change, sender exit or relay restart; no receiver stops sender.",
+    "Configured sender uses500pinned symbols, native-history andquotes; discoveryREST precedesWS and invalid pinned symbols abort.",
+    "Nominal500-symbol startup uses5marketWS plus5publicWS,1500subscriptions and2500kline preload requests plus exchangeInfo; retries/commands/repair/reconnect prevent finite aggregateproduction budget.",
+    "No-production-REST mode is not supplied by existing supervisor; candidate Budget is offline admission only and makes no request."
+  ],
+  "closed_findings": [
+    "Decimal normalization no longer rounds at ambient context precision.",
+    "Wrong existing database scope/schema checked read-only before configuration/schema writes.",
+    "V3raw event/universe linkage persisted atomically with finalized row; missing required receipt rejects restore.",
+    "Ledger hashes and values checked on read; immutable conflicts and stale writer epochs rejected.",
+    "Per-bucket storage errors remain visible after another symbol commits successfully.",
+    "Request/weight/page/deadline types reject NaN/bool/fractional limits; reserve serialized and plan range bounded.",
+    "Native daily path requires1440unique durableUTCminutes, excludes pendingfinals, uses verified64-bitDAILY_MASK.",
+    "Native1m replacement, disconnect invalidation, capacity refusal, owner/session fencing, private-windowrefresh and concurrent lifecycle tests pass."
+  ],
+  "durability_assessment": {
+    "offline_SQLite_commit_and_duplicate_semantics": "PASS_SCOPED",
+    "author_crash_tests": "Reviewed beforeCOMMIT os._exit71 and afterCOMMIT os._exit72; process-crash scope only",
+    "author_storage_full_test": "Reviewed real SQLite max_page_count constraint on disposable DB",
+    "power_loss_durability": "NOT_TESTED",
+    "production_writer_authority": "NOT_GRANTED",
+    "genuine_provenance": "NOT_QUALIFIED; synthetic rows retain synthetic labels"
+  },
+  "mandatory_remaining_gates": [
+    "Candidate remains FIXTURE_ONLY and disposable-path constrained; genuine producer custody/admission is absent.",
+    "Current sender is unmodified and loses x/E metadata; production activation and versioned output handoff need separate exact authorization.",
+    "Archive/full-prefix bootstrap authority remains denied; structural completeness and locally hashed receipts do not establish authoritative provenance.",
+    "Current native API returns IsBackfillComplete false; no complete-since-listing production admission implemented.",
+    "OriginalN1database timezone/source/writer custody and native history preservation remain unqualified.",
+    "Actual AmiBroker load, genuine chart update, mixedEOD/intraday behavior and weekly host compression NOT_EXECUTED.",
+    "Scale evidence covers short synthetic snapshots and two commits per stage, not sustained500-symbol durable throughput or lifetimehistory capacity.",
+    "Foundational13identity remains synthetic; no600eligibleuniverse authority.",
+    "Snapshot cap65536rows andStore read cap600000rows are bounded test admission, not full-universe full-history qualification.",
+    "No Broker restart/DLLinstallation/18101attachment/senderactivation/RESTrehydration authorized by this review."
+  ],
+  "production_mutations": 0,
+  "protected_relay_connections": 0,
+  "binance_requests": 0,
+  "disposition": "BLOCKED_GENUINE_CUSTODY_FULL_PREFIX_AND_ACTUAL_NATIVE_HOST_ACCEPTANCE"
+}

@@ -1,0 +1,335 @@
+{
+  "release_approved": false,
+  "files": [
+    {
+      "path": "build_native.py",
+      "bytes": 841,
+      "sha256": "14b092303094a8d613bd8d3a34f381ce6baf120fdfd3abc8e110a12451f8543b"
+    },
+    {
+      "path": "capture_readonly.py",
+      "bytes": 2928,
+      "sha256": "18174d5623b43fba8dc170c46d07013521cbddb0b2c1374d6789faeabca3687e"
+    },
+    {
+      "path": "package.py",
+      "bytes": 866,
+      "sha256": "2bdfff50b6ea77ea5b010caea90dd7e805ec60f7c98595aa018539ef27ddfd25"
+    },
+    {
+      "path": "R7_DNS_AND_DEADLINE_REGRESSION.json",
+      "bytes": 583,
+      "sha256": "b787a8a11a11450539a7a6f0604215ee6f40c313a65af3b58c9c15b032d38085"
+    },
+    {
+      "path": "R7_END_TO_END_V3_PIPELINE.json",
+      "bytes": 1917,
+      "sha256": "43239203cce297a4809bc7b98ddf7f66237c1648aabb468331ea56e2f5263b92"
+    },
+    {
+      "path": "R7_EXACT_OPERATOR_AUTHORIZATION.md",
+      "bytes": 894,
+      "sha256": "2692ed3f484a8d7767296482398c2f93730b10c0c0bd120d07faffb24dde2da0"
+    },
+    {
+      "path": "R7_EXTERNAL_ENDPOINT_ADMISSION.json",
+      "bytes": 1528,
+      "sha256": "260bcb8a5fab2a2027431502f626c1da1b01c3eeee926133ed794a3344448b6a"
+    },
+    {
+      "path": "R7_FINAL_DISPOSITION.json",
+      "bytes": 1295,
+      "sha256": "c0289b55425cb81262bed2c2b86c2cde07f076301704bac7ed923f1e90b2c074"
+    },
+    {
+      "path": "R7_FIRST_GENUINE_BTCUSDT_PILOT.md",
+      "bytes": 2242,
+      "sha256": "30a9c881ad7f7e039edc9db5398faec3e7e7125b13f73781ad67793bd9135fc8"
+    },
+    {
+      "path": "R7_FULL_PREFIX_ADMISSION_STATUS.json",
+      "bytes": 2456,
+      "sha256": "efd931bb73d5ff95d4e3d2ed1ae8d6fc671ca18612fe973d1bac390b5c0a7a3e"
+    },
+    {
+      "path": "R7_INDEPENDENT_FINAL_REVIEW.json",
+      "bytes": 12091,
+      "sha256": "c6f89093b2bd7b7d08e299663e1fe0735213d32f61e74442f658a6ff6e2acce5"
+    },
+    {
+      "path": "R7_NATIVE_DATA_PLUGIN_INTEGRATION.json",
+      "bytes": 1003,
+      "sha256": "4108d4d19236636668186985b5b4132f85ef4507c8637e780c8cac8f0c8d479f"
+    },
+    {
+      "path": "R7_NATIVE_HOST_PREFLIGHT.md",
+      "bytes": 2952,
+      "sha256": "e852a2f9a8bac1592aa6d9eceaac1089b06e0fb206ef7b9810e801164e1077a9"
+    },
+    {
+      "path": "R7_OFFICIAL_ENDPOINT_EVIDENCE.md",
+      "bytes": 1858,
+      "sha256": "529c1e65ec8f07da259c1ac8534be88c99bc17852ffd659118fbeb4e9d4b04d1"
+    },
+    {
+      "path": "R7_PREDECESSOR_INTEGRITY.json",
+      "bytes": 15648,
+      "sha256": "1cacbc46a905ec974f1b45bcdd94ef0b9a67d4649c937d30f87277b7e6264c2e"
+    },
+    {
+      "path": "R7_REAL_RELAY_NETWORK_TESTS.json",
+      "bytes": 1439,
+      "sha256": "038d4d8d9c3deed699167d8414334273a1f438dc7786330e70b3af409ea7fbcc"
+    },
+    {
+      "path": "R7_REAL_SOCKET_ADMISSION_RESULTS.json",
+      "bytes": 120,
+      "sha256": "b084713dcf196cffaf28e4c062d2539a5917a314785f679168a4f231975e5318"
+    },
+    {
+      "path": "R7_SAME_MINUTE_FINALIZATION.json",
+      "bytes": 4935,
+      "sha256": "2744ce6eabd365b5717e0fee6edd5c462408ac96bd5bfaf7ff30d46289e52ec3"
+    },
+    {
+      "path": "R7_WINDOWS_CMD_VERIFICATION.md",
+      "bytes": 584,
+      "sha256": "ee9f67e36f4cf62c37b7ecb3d91221ef7ea5f39389302359c6cd36c79610c51a"
+    },
+    {
+      "path": "R7_WINDOWS_TRANSPORT_CUSTODY.json",
+      "bytes": 1247,
+      "sha256": "69df48b6d2be9c549ff6fa681a1db66f3f18e4701e4c8c289d85fe88b1715807"
+    },
+    {
+      "path": "verify.py",
+      "bytes": 875,
+      "sha256": "8e36524c51c14d9d7e26877215b3146a460471e77a9dc6f2f62193ff14e94a69"
+    },
+    {
+      "path": "write_reports.py",
+      "bytes": 10773,
+      "sha256": "91272604ec5cb8b35111f645364512762701b4afc96241f9e57a8543164faa5b"
+    },
+    {
+      "path": "artifacts/WSRTD_Data_Forming_R7.dll",
+      "bytes": 79872,
+      "sha256": "ad0f27ece55ddaaea8bbfc42a85554d99b872cf11382a61e79775d67647f36d6"
+    },
+    {
+      "path": "evidence/BUILD.log",
+      "bytes": 1222,
+      "sha256": "f1b47ff54d4e1e19464d83e21ae5d6ccfb28b2ac5a8a489b7daf3974011f4b7e"
+    },
+    {
+      "path": "evidence/DLL_BUILD.json",
+      "bytes": 195,
+      "sha256": "684115e6a7a578343d989001fdbe6db35abdc1a53bb3d0cd91087b0bcba7ea4c"
+    },
+    {
+      "path": "evidence/HOST_READONLY.json",
+      "bytes": 1157,
+      "sha256": "f573adadc52d1051f6ac2fa725c52007ab71f75a8bd77c0d1ec35f74a9ffc391"
+    },
+    {
+      "path": "evidence/LEGACY_SENDER_ROUTES.json",
+      "bytes": 452,
+      "sha256": "c6d5c5e7eb3d9ff38460fac3c10e0cf61c6ab5aef6ced8c8a075c20e6f963e36"
+    },
+    {
+      "path": "evidence/NATIVE_E2E.json",
+      "bytes": 244,
+      "sha256": "c08ae2de7dbda30f057504ba1feb1eaa26435574d6c69b17a15ab01b822dbdf2"
+    },
+    {
+      "path": "evidence/NATIVE_STALE.json",
+      "bytes": 244,
+      "sha256": "0ec2bd9191889dc0c0ee069678965b46bed8fb4ab09f19912dd072647151368a"
+    },
+    {
+      "path": "evidence/R7_FAILURE_HISTORY.json",
+      "bytes": 625,
+      "sha256": "338d8fa57b76937d2bb7400e30764c9c7f3104e20953eb55cad49b03a278c213"
+    },
+    {
+      "path": "evidence/TLS_CUSTODY.json",
+      "bytes": 821,
+      "sha256": "71684a79ae28bfa82a13b94fca63b9c30791f6ca87788911198c2a5b468582b4"
+    },
+    {
+      "path": "independent/finalize.py",
+      "bytes": 2822,
+      "sha256": "d31c6ce4a418d80cf68f5b691d66766b7a083b2c46db2a05c834ea3ac1f4139c"
+    },
+    {
+      "path": "independent/final_results.json",
+      "bytes": 1579,
+      "sha256": "f796d4d66097cd0c96d7e030465a84eac49ff80a399d5cba33db685e533cf82d"
+    },
+    {
+      "path": "independent/test_final.py",
+      "bytes": 2420,
+      "sha256": "2e8b4d6f47fee1cf3a6ac35ebe1071009e8dd3165d1c7972e2e1f82dbf31e19b"
+    },
+    {
+      "path": "native/CMakeLists.txt",
+      "bytes": 782,
+      "sha256": "4095358507c19a109c65a5b4f81fa6696e8df3afd5158edbb58a7895d06ff2d1"
+    },
+    {
+      "path": "native/plugin.cpp",
+      "bytes": 13681,
+      "sha256": "1b81b9fd2abb8382e6b630381acbd0f7b689a59d3e4b1ee2b06b639b70d5e92d"
+    },
+    {
+      "path": "src/admission.py",
+      "bytes": 8301,
+      "sha256": "dcddf337bc7e19e575ba1ba7d546dacb1c8705edd5768ed8971e3d5ec79125db"
+    },
+    {
+      "path": "src/controller.py",
+      "bytes": 1861,
+      "sha256": "b5c009e190ba1f2e9f32b1842a1ac98d3ef104139142fcc03a5fee49b11ca2b9"
+    },
+    {
+      "path": "src/custody.py",
+      "bytes": 1581,
+      "sha256": "90322040eeb32d4f0e28dadb9017f112abf5f58caa95637006848eaa1afa8588"
+    },
+    {
+      "path": "src/endpoint_policy.py",
+      "bytes": 2679,
+      "sha256": "f2a8d3d73d221c871b40d08de08a13c42af9c65045f949d8a65ef3366a67bd37"
+    },
+    {
+      "path": "src/fixture_pipe.py",
+      "bytes": 2454,
+      "sha256": "355e9fd476f313507ace734116c4b8cd73e2be6767392936714c7dec6dc3d464"
+    },
+    {
+      "path": "src/handoff.py",
+      "bytes": 1183,
+      "sha256": "ed40e8ee6cea8c2aee20cd5301a1738dd86230226f5339d4874eb2fdbb1f15bb"
+    },
+    {
+      "path": "src/network.py",
+      "bytes": 11261,
+      "sha256": "e96833357215daa769b16993c203448351d1f91d8defe19ec641b8dbdd6fa0e4"
+    },
+    {
+      "path": "src/peer.py",
+      "bytes": 1749,
+      "sha256": "568480d8bd2b3b58974b10a5f63a69af143264965cdeeb12bb8a0bdfc4b7425a"
+    },
+    {
+      "path": "src/pilot_endpoint.py",
+      "bytes": 1849,
+      "sha256": "940a800313cf6b94cb7d6189f134da7646430fe8838c3d14a8dc9c626e9ce770"
+    },
+    {
+      "path": "src/relay.py",
+      "bytes": 5030,
+      "sha256": "36653651ba3f7d4a8f3e7dab4ac4094bf31fd5e0d0b5a50bb0f078292ec95c38"
+    },
+    {
+      "path": "src/relay_client.py",
+      "bytes": 3656,
+      "sha256": "849abe8d1dbe3bae00eebac6ebdcc579f57a6bfb68cc63af888ad9d0a9c79b4d"
+    },
+    {
+      "path": "src/resolver.py",
+      "bytes": 1308,
+      "sha256": "81a88d85478d1e7811895546ee418cbb7b9bd2a4b25266803eca61d578149a45"
+    },
+    {
+      "path": "tests/find_tls.py",
+      "bytes": 680,
+      "sha256": "aa4f80d357734e1469b95d884c05194550cf1b2c59904676d3fb2efb489a28c0"
+    },
+    {
+      "path": "tests/native_probe.cpp",
+      "bytes": 2846,
+      "sha256": "20bde8f3f1620274b4e34380d930186317325a5d7df6f93ec153b59da2648925"
+    },
+    {
+      "path": "tests/servers.py",
+      "bytes": 3184,
+      "sha256": "f650de3c3fff4fc2e5798c738abe71585435df9dc8d3e9a6cadb4f2ff8ddaf54"
+    },
+    {
+      "path": "tests/test_controller.py",
+      "bytes": 1546,
+      "sha256": "fb2ed2a4844a6d85877b8f3a9dff8d0af4c8bcde209e743263273017673d8747"
+    },
+    {
+      "path": "tests/test_endpoint.py",
+      "bytes": 2497,
+      "sha256": "2f49a09813d9eca93d59812e5027dba571624694891d819822c386334a88a96f"
+    },
+    {
+      "path": "tests/test_lifecycle.py",
+      "bytes": 4025,
+      "sha256": "9df54f2f4ee6c101b95c6f3010dfe519f6a9f5319628039704b40bab6b8a4af1"
+    },
+    {
+      "path": "tests/test_native_e2e.py",
+      "bytes": 4629,
+      "sha256": "1ae10019fc01e15e4c4e56b36060567604f3e5aa1df1639ad76d12e7244f0ffd"
+    },
+    {
+      "path": "tests/test_network.py",
+      "bytes": 6922,
+      "sha256": "91930770266ad5e42e540c3b3bbcdf5999c8d4d59465ce9f3f9053d83b02a1e3"
+    },
+    {
+      "path": "tests/test_peer.py",
+      "bytes": 1730,
+      "sha256": "2e4f9dc9d595fd233ad1def0e4e09535c93e1cc5b4a1ab8a12077c7ac9278177"
+    },
+    {
+      "path": "tests/test_pilot.py",
+      "bytes": 2677,
+      "sha256": "f64254a7f14a876c9133cf0711ff509b194be29aaac4b9d375092de2c7dcca04"
+    },
+    {
+      "path": "tests/test_relay.py",
+      "bytes": 2606,
+      "sha256": "41540a71757abe04368cccd989cd68be3abf7f7c92216043e5c3dba3842c75fc"
+    },
+    {
+      "path": "tests/test_timeout.py",
+      "bytes": 1614,
+      "sha256": "1eec76ba5b76d61e53aa3ed1ba1057fb938e61c80b54fd75ea57f785ed18519b"
+    },
+    {
+      "path": "tests/test_tls_custody.py",
+      "bytes": 2428,
+      "sha256": "864f6c9dbefbe30e437def8c2f66b9cff5476bfb385d2668ac18ce94281d4891"
+    },
+    {
+      "path": "dependencies/adk/Plugin.h",
+      "bytes": 21501,
+      "sha256": "d86069adf9a2720153b9e09c5a9605890e9e6618382a0636565a76d8425ee6a6"
+    },
+    {
+      "path": "dependencies/adk/Plugin_Legacy.h",
+      "bytes": 9515,
+      "sha256": "1ac303d9c6d480d3a129b6dbc832986b890d833d222ee01c18a6cde6d3e80416"
+    },
+    {
+      "path": "dependencies/r3/durable.py",
+      "bytes": 8533,
+      "sha256": "cc2fcb1750ebf310789ebb2149f444fd49bb8391b3d98d115c8446e7ba6faefa"
+    },
+    {
+      "path": "dependencies/r3/pipeline.py",
+      "bytes": 5455,
+      "sha256": "53dd2237e0e7d4a09af8fd7817cd313be312ba507ca3d8af1a2bce44b2f7a3ae"
+    },
+    {
+      "path": "dependencies/r3/transport.py",
+      "bytes": 11290,
+      "sha256": "0b366be25c403bc5b71f7e452fc3cff852d46d133d4cfa42d36d033b92fe3190"
+    }
+  ]
+}

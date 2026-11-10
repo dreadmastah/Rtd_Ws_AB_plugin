@@ -1,0 +1,22 @@
+[
+  {
+    "case": "ws",
+    "pass": true
+  },
+  {
+    "case": "ws_bad",
+    "pass": true
+  },
+  {
+    "case": "wrong_producer",
+    "pass": true
+  },
+  {
+    "case": "wrong_receiver",
+    "pass": true
+  },
+  {
+    "case": "wrong_authority",
+    "pass": true
+  }
+]

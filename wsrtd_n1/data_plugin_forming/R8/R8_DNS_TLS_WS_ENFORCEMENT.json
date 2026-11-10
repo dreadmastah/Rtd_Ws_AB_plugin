@@ -1,0 +1,101 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "ws_raw_ping",
+      "passed": true,
+      "error": null,
+      "seconds": 1.0,
+      "server_connections": 1,
+      "pongs": 1,
+      "cleanup": true
+    },
+    {
+      "case": "ws_raw_flood",
+      "passed": true,
+      "error": "Refused:outbound control rate",
+      "seconds": 1.2349999998696148,
+      "server_connections": 1,
+      "pongs": 5,
+      "cleanup": true
+    },
+    {
+      "case": "ws_raw_oversize",
+      "passed": true,
+      "error": "Refused:frame bytes",
+      "seconds": 0.6410000002942979,
+      "server_connections": 1,
+      "pongs": 0,
+      "cleanup": true
+    },
+    {
+      "case": "ws_raw_fragment",
+      "passed": true,
+      "error": "Refused:unsupported WS framing",
+      "seconds": 0.5780000002123415,
+      "server_connections": 1,
+      "pongs": 0,
+      "cleanup": true
+    },
+    {
+      "case": "untrusted",
+      "passed": true,
+      "error": "SSLCertVerificationError:[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate (_ssl.c:1000)",
+      "seconds": 0.42200000025331974,
+      "server_connections": 1,
+      "pongs": 0,
+      "cleanup": true
+    },
+    {
+      "case": "wrong_hostname",
+      "passed": true,
+      "error": "ConnectionAbortedError:[WinError 10053] An established connection was aborted by the software in your host machine",
+      "seconds": 0.4059999999590218,
+      "server_connections": 1,
+      "pongs": 0,
+      "cleanup": true
+    },
+    {
+      "case": "dns_timeout",
+      "passed": true,
+      "error": "TimeoutError:resolver cancelled/reaped",
+      "seconds": 0.32899999991059303,
+      "server_connections": 0,
+      "pongs": 0,
+      "cleanup": true
+    },
+    {
+      "case": "late_dns",
+      "passed": true,
+      "error": "Refused:already stopped",
+      "seconds": 0.17200000025331974,
+      "server_connections": 0,
+      "pongs": 0,
+      "cleanup": true
+    },
+    {
+      "case": "connection_refused",
+      "passed": true,
+      "error": "ConnectionRefusedError:[WinError 10061] No connection could be made because the target machine actively refused it",
+      "seconds": 2.3909999998286366,
+      "server_connections": 0,
+      "pongs": 0,
+      "cleanup": true
+    },
+    {
+      "case": "frame_budget",
+      "passed": true,
+      "error": "Refused:aggregate budget exhausted",
+      "seconds": 0.7659999998286366,
+      "server_connections": 1,
+      "pongs": 0,
+      "cleanup": true
+    }
+  ],
+  "external_connections": 0,
+  "limitations": [
+    "OS subprocess termination and fsync not hard real-time",
+    "wrong-host test injects TLS SNI solely for negative fixture",
+    "late DNS successful result injected after real UTC expiry; zero socket dispatch"
+  ]
+}

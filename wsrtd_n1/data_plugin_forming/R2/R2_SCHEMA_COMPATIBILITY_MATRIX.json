@@ -1,0 +1,9 @@
+{
+  "legacy_n_d_t_ohlcv": "REJECTED: E/x/session/provenance absent",
+  "legacy_hist": "NOT_ADMITTED: independent historical qualification required",
+  "binance_full_kline": "offline conversion preserving t,T,E,x and decimal strings; identity roster required",
+  "candidate_v2": "PASS_OFFLINE_SYNTHETIC",
+  "genuine_v2": "BLOCKED_PENDING_PRODUCER_CUSTODY",
+  "UM_CM": "UM/PERPETUAL roster required; explicit CM rejected; absent discriminator relies on qualified roster, never endpoint alone",
+  "documentation": "Official legacy Binance documentation URL redirected to generic landing page during lookup. Search-index content supports stream semantics, not complete current schema qualification. Full current production contract still BLOCKED."
+}

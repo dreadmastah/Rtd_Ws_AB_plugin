@@ -1,0 +1,172 @@
+{
+  "status": "PASS_SCOPED_ISOLATED_R6_CORRECTIONS_RELAY_AND_NATIVE_REVIEW",
+  "overall": "BLOCKED_GENUINE_PILOT_AND_NATIVE_HOST",
+  "reviewer": "/root/forming_r2_review",
+  "utc": "2026-11-05T07:18:01.435117+00:00",
+  "hashes": {
+    "src\\admission.py": "dcddf337bc7e19e575ba1ba7d546dacb1c8705edd5768ed8971e3d5ec79125db",
+    "src\\controller.py": "b5c009e190ba1f2e9f32b1842a1ac98d3ef104139142fcc03a5fee49b11ca2b9",
+    "src\\custody.py": "90322040eeb32d4f0e28dadb9017f112abf5f58caa95637006848eaa1afa8588",
+    "src\\endpoint_policy.py": "db4272d8d4711e584d5aef23a5b8bc397739d48ea21a87b1cedfa9f6f85169ea",
+    "src\\fixture_pipe.py": "104eef2a72568b6b7f8624450624e9c58062bad67dd23496e331e405190b630d",
+    "src\\handoff.py": "ed40e8ee6cea8c2aee20cd5301a1738dd86230226f5339d4874eb2fdbb1f15bb",
+    "src\\network.py": "41672b4f01b97c6f9a19bbd3ec98377b8a1b42ff016c56e4c3bc6d5d17f5062c",
+    "src\\relay.py": "e69ef190627ecd4943ab34228f7057006b9feabe87de698a707447c9cbcbf754",
+    "src\\relay_client.py": "ff9ac192828e697263be279db96ae3820ed85e1794b674e017fa1afb07193b30",
+    "native\\CMakeLists.txt": "1a9a0dcdddf2138727fc84efff539b4f345ff050a6ca533903797e4363e2f6f6",
+    "native\\plugin.cpp": "17d64939f97cb3cec408b19e86aebc43c164b3f5a751435cac841ed594a79850",
+    "artifacts\\WSRTD_Data_Forming_R6.dll": "b47b74935d90b383573234f595b27c94cb909812780eef45f15c4a884b5ae0e9",
+    "tests\\find_tls.py": "aa4f80d357734e1469b95d884c05194550cf1b2c59904676d3fb2efb489a28c0",
+    "tests\\servers.py": "052af0ee715dd4f93fe5a5c402fc4a9adc91383fb7a63ba15dce48dc33994ce2",
+    "tests\\test_controller.py": "fb2ed2a4844a6d85877b8f3a9dff8d0af4c8bcde209e743263273017673d8747",
+    "tests\\test_endpoint.py": "f43c53265eb3891f847ba3548d42ba3fb0f01fb8dfb5185de1ed7282359f78e6",
+    "tests\\test_native_e2e.py": "d85b00c744d5380b5c17c4a01cceff3dbd8393d904293de9683ff20b1c3796d1",
+    "tests\\test_network.py": "dbf61d6ed139940ab1b1d71f61074c342c3bcf07f8cae32eed307edff9445eea",
+    "tests\\test_relay.py": "e4c65b05cb9537780137e33eddd3fc386812ebb4d17f62a134a65277b1824bff",
+    "tests\\test_timeout.py": "94872529def0575a21afc4ea1a3cb688856a764f9e4e9e351935ddb2b4f2d381",
+    "tests\\test_tls_custody.py": "864f6c9dbefbe30e437def8c2f66b9cff5476bfb385d2668ac18ce94281d4891"
+  },
+  "independent_correction_tests": {
+    "passed": true,
+    "tests": 3,
+    "failures": [],
+    "hashes": {
+      "src\\admission.py": "dcddf337bc7e19e575ba1ba7d546dacb1c8705edd5768ed8971e3d5ec79125db",
+      "src\\controller.py": "b5c009e190ba1f2e9f32b1842a1ac98d3ef104139142fcc03a5fee49b11ca2b9",
+      "src\\custody.py": "90322040eeb32d4f0e28dadb9017f112abf5f58caa95637006848eaa1afa8588",
+      "src\\endpoint_policy.py": "db4272d8d4711e584d5aef23a5b8bc397739d48ea21a87b1cedfa9f6f85169ea",
+      "src\\fixture_pipe.py": "104eef2a72568b6b7f8624450624e9c58062bad67dd23496e331e405190b630d",
+      "src\\handoff.py": "ed40e8ee6cea8c2aee20cd5301a1738dd86230226f5339d4874eb2fdbb1f15bb",
+      "src\\network.py": "41672b4f01b97c6f9a19bbd3ec98377b8a1b42ff016c56e4c3bc6d5d17f5062c",
+      "src\\relay.py": "e69ef190627ecd4943ab34228f7057006b9feabe87de698a707447c9cbcbf754",
+      "src\\relay_client.py": "ff9ac192828e697263be279db96ae3820ed85e1794b674e017fa1afb07193b30"
+    },
+    "external_requests": 0,
+    "production_changes": 0
+  },
+  "independently_rerun_author_tests": {
+    "relay_negative": 11,
+    "local_endpoint": 12,
+    "native_e2e": true
+  },
+  "native_e2e": {
+    "passed": true,
+    "path": "realWSloopback->admittedbackend->TCPsender->independentV3relay->TCPreceiver->disposablecommit->namedpipe->compiledGetQuotesEx",
+    "relay_identity": {
+      "pid": 13180,
+      "creation": 134383366110171653,
+      "path": "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0"
+    },
+    "relay_port": 61041,
+    "receipts": [
+      {
+        "sequence": 1,
+        "receipt": "c05e21d0e85cbd13cb64ea8a71c81e1a",
+        "result": "DURABLE_FINALIZED:COMMITTED"
+      },
+      {
+        "sequence": 2,
+        "receipt": "5f86d5e434d6499e6dbf7ee250db61c6",
+        "result": "DURABLE_FINALIZED:COMMITTED"
+      },
+      {
+        "sequence": 3,
+        "receipt": "fd5fa7ab91003acc96bad23511a8e4c7",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 4,
+        "receipt": "da75b87349074dd2e0c6dd8098eacfba",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 5,
+        "receipt": "2fdeb67a1e343d9793fc7e833d1beace",
+        "result": "ACCEPTED"
+      },
+      {
+        "sequence": 6,
+        "receipt": "eed0705745408955263ea444a990a625",
+        "result": "ACCEPTED"
+      }
+    ],
+    "source_events": [
+      "DURABLE_FINALIZED:COMMITTED",
+      "DURABLE_FINALIZED:COMMITTED",
+      "ACCEPTED",
+      "ACCEPTED",
+      "ACCEPTED",
+      "ACCEPTED"
+    ],
+    "native": {
+      "rows": [
+        {
+          "symbol": "BTCUSDT",
+          "bars": 2,
+          "close": 102,
+          "volume": 3
+        },
+        {
+          "symbol": "ETHUSDT",
+          "bars": 2,
+          "close": 102,
+          "volume": 3
+        }
+      ],
+      "symbols_returned": 2,
+      "notifications": 3,
+      "callback_mean_us": 3.8,
+      "callback_max_us": 6.8,
+      "native_peak_working_set_bytes": 5414912
+    },
+    "source_provenance": "SYNTHETIC_FIXTURE",
+    "genuine_receipt": false,
+    "actual_amibroker": false
+  },
+  "disconnected_native": {
+    "rows": [
+      {
+        "symbol": "BTCUSDT",
+        "bars": 1,
+        "close": 101,
+        "volume": 1
+      },
+      {
+        "symbol": "ETHUSDT",
+        "bars": 1,
+        "close": 101,
+        "volume": 1
+      }
+    ],
+    "symbols_returned": 2,
+    "notifications": 3,
+    "callback_mean_us": 3.1,
+    "callback_max_us": 5.5,
+    "native_peak_working_set_bytes": 5406720
+  },
+  "closed_findings": [
+    "R6-01 operation decorator resets per-call deadline on success and exception; HTTP then later WS tested",
+    "R6-02 bounded readiness queue and constructor partial cleanup; actual failed connect child cleanup tested",
+    "R6-03 aggregate frame deadline; actual TCP slow drip tested"
+  ],
+  "review_scope": [
+    "Real test-owned loopback sockets and separate relay subprocess",
+    "HMAC V3 metadata and sequence/session/universe validation at relay and receiver",
+    "Disposable durable finalization and compiled R6 quotation callback; stale forming removed while finalized history retained",
+    "Admission WAL with synchronous FULL; no durability relaxation observed"
+  ],
+  "remaining_blockers": [
+    "External endpoint identities and protocol evidence not qualified; policy admits localhost only",
+    "DNS getaddrinfo is blocking and cannot be interrupted by deadline check",
+    "OS scheduling, mutex wait and SQLite fsync are not hard-real-time bounded; measured 1.5-second regression results do not guarantee all contention",
+    "Relay shared-secret role authentication is not Windows TCP-peer process ownership proof",
+    "Genuine producer custody and permitted activation absent",
+    "Full-prefix historical admission remains unproven",
+    "Actual AmiBroker host/installation/source-switch/native chart acceptance not executed"
+  ],
+  "r5_timeout_failure_preserved": true,
+  "production_changes": 0,
+  "external_requests": 0,
+  "protected_connections": 0
+}

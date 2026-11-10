@@ -1,0 +1,82 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "success",
+      "passed": true,
+      "connections": 1
+    },
+    {
+      "case": "bad_digest",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "missing_authority",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "url",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "proxy",
+      "passed": true,
+      "connections": 1
+    },
+    {
+      "case": "expired",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "wrong_pid",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "wrong_hash",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "bad_ip",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "live_fixture_ca",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "redirect",
+      "passed": true,
+      "connections": 1
+    },
+    {
+      "case": "reconnect",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "zero_rest",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "extra_sub",
+      "passed": true,
+      "connections": 0
+    },
+    {
+      "case": "restart",
+      "passed": true,
+      "connections": 1
+    }
+  ],
+  "actual_local_tls": true,
+  "live_connections": 0
+}

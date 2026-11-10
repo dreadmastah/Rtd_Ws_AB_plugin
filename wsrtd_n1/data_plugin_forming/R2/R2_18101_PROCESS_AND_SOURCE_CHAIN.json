@@ -1,0 +1,532 @@
+{
+  "utc": "2026-11-03T23:51:43.460193+00:00",
+  "components": [
+    {
+      "PROCESS_ROLE": "upstream_producer",
+      "PROCESS_IDENTITIES": [],
+      "SOURCE_PATH": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Binance\\sender.py",
+      "SOURCE_SHA256": "3c284c0cfae0365b1f10cb43b61c693f6dfe96730cb0dcc8d51da1703d339e66",
+      "INPUT_PROTOCOL": "UNVERIFIED",
+      "OUTPUT_PROTOCOL": "UNVERIFIED",
+      "EVENT_SCHEMA": null,
+      "LIVE_STATUS_EVIDENCE": "Corroborated supervisor sender_running=false, sender_pid=null; known configured sender inactive at observation.",
+      "UNRESOLVED_LIMITATIONS": "No matching process is not proof of inactive upstream; no production connection authorized"
+    },
+    {
+      "PROCESS_ROLE": "acquisition",
+      "PROCESS_IDENTITIES": [],
+      "SOURCE_PATH": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Binance\\sender.py",
+      "SOURCE_SHA256": "3c284c0cfae0365b1f10cb43b61c693f6dfe96730cb0dcc8d51da1703d339e66",
+      "INPUT_PROTOCOL": "UNVERIFIED",
+      "OUTPUT_PROTOCOL": "UNVERIFIED",
+      "EVENT_SCHEMA": null,
+      "LIVE_STATUS_EVIDENCE": "Corroborated supervisor sender_running=false, sender_pid=null; known configured sender inactive at observation.",
+      "UNRESOLVED_LIMITATIONS": "No matching process is not proof of inactive upstream; no production connection authorized"
+    },
+    {
+      "PROCESS_ROLE": "sender",
+      "PROCESS_IDENTITIES": [],
+      "SOURCE_PATH": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Binance\\sender.py",
+      "SOURCE_SHA256": "3c284c0cfae0365b1f10cb43b61c693f6dfe96730cb0dcc8d51da1703d339e66",
+      "INPUT_PROTOCOL": "Binance kline WebSocket JSON",
+      "OUTPUT_PROTOCOL": "legacy OHLCV JSON drops E/x",
+      "EVENT_SCHEMA": "n,d,t,o,h,l,c,v",
+      "LIVE_STATUS_EVIDENCE": "Corroborated supervisor sender_running=false, sender_pid=null; known configured sender inactive at observation.",
+      "UNRESOLVED_LIMITATIONS": "No matching process is not proof of inactive upstream; no production connection authorized"
+    },
+    {
+      "PROCESS_ROLE": "relay",
+      "PROCESS_IDENTITIES": [
+        {
+          "pid": 126792,
+          "ppid": 26188,
+          "name": "pythonw.exe",
+          "exe": "c:\\users\\dadhie\\.codex\\worktrees\\pr3-binance-validation\\wsrtd\\.venv\\scripts\\pythonw.exe",
+          "cmdline": [
+            "C:\\Users\\dadhie\\.codex\\worktrees\\pr3-binance-validation\\WSRTD\\.venv\\Scripts\\pythonw.exe",
+            "-u",
+            "-B",
+            "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+            "18101",
+            "--protocol",
+            "path"
+          ],
+          "creation_filetime": 134376155988861503,
+          "create_time": 1793141998.8861504,
+          "executable_sha256": "a65d1a6d6902770b068e31d526854c4c7a09f5cfecca9c212b11c9339d25e1a2",
+          "creation_local": "2026-10-28T06:59:58.886150+08:00",
+          "source_files": [
+            {
+              "path": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+              "sha256": "e5e9583758c78ebae0d4ed50554aa03727f57086d0245ae226d553fb129833ea"
+            }
+          ]
+        },
+        {
+          "pid": 119852,
+          "ppid": 126792,
+          "name": "pythonw.exe",
+          "exe": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\pythonw.exe",
+          "cmdline": [
+            "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+            "-u",
+            "-B",
+            "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+            "18101",
+            "--protocol",
+            "path"
+          ],
+          "creation_filetime": 134376155988978509,
+          "create_time": 1793141998.897851,
+          "executable_sha256": "2198767147bdf67a45da63ad9a35900b4ca8e628fedca13873ae50cf5805c810",
+          "creation_local": "2026-10-28T06:59:58.897851+08:00",
+          "source_files": [
+            {
+              "path": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+              "sha256": "e5e9583758c78ebae0d4ed50554aa03727f57086d0245ae226d553fb129833ea"
+            }
+          ]
+        }
+      ],
+      "SOURCE_PATH": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+      "SOURCE_SHA256": "e5e9583758c78ebae0d4ed50554aa03727f57086d0245ae226d553fb129833ea",
+      "INPUT_PROTOCOL": "WebSocket path /sender",
+      "OUTPUT_PROTOCOL": "broadcast to /receiver or /; receiver commands upstream",
+      "EVENT_SCHEMA": null,
+      "LIVE_STATUS_EVIDENCE": "snapshot only; no live payload connection",
+      "UNRESOLVED_LIMITATIONS": "No matching process is not proof of inactive upstream; no production connection authorized"
+    },
+    {
+      "PROCESS_ROLE": "listener",
+      "PROCESS_IDENTITIES": [
+        {
+          "pid": 119852,
+          "ppid": 126792,
+          "name": "pythonw.exe",
+          "exe": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\pythonw.exe",
+          "cmdline": [
+            "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+            "-u",
+            "-B",
+            "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+            "18101",
+            "--protocol",
+            "path"
+          ],
+          "creation_filetime": 134376155988978509,
+          "create_time": 1793141998.897851,
+          "executable_sha256": "2198767147bdf67a45da63ad9a35900b4ca8e628fedca13873ae50cf5805c810",
+          "creation_local": "2026-10-28T06:59:58.897851+08:00",
+          "source_files": [
+            {
+              "path": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+              "sha256": "e5e9583758c78ebae0d4ed50554aa03727f57086d0245ae226d553fb129833ea"
+            }
+          ]
+        }
+      ],
+      "SOURCE_PATH": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+      "SOURCE_SHA256": "e5e9583758c78ebae0d4ed50554aa03727f57086d0245ae226d553fb129833ea",
+      "INPUT_PROTOCOL": "WebSocket path /sender",
+      "OUTPUT_PROTOCOL": "broadcast to /receiver or /; receiver commands upstream",
+      "EVENT_SCHEMA": null,
+      "LIVE_STATUS_EVIDENCE": "snapshot only; no live payload connection",
+      "UNRESOLVED_LIMITATIONS": "No matching process is not proof of inactive upstream; no production connection authorized"
+    },
+    {
+      "PROCESS_ROLE": "consumer",
+      "PROCESS_IDENTITIES": [],
+      "SOURCE_PATH": null,
+      "SOURCE_SHA256": null,
+      "INPUT_PROTOCOL": "UNVERIFIED",
+      "OUTPUT_PROTOCOL": "UNVERIFIED",
+      "EVENT_SCHEMA": null,
+      "LIVE_STATUS_EVIDENCE": "snapshot only; no live payload connection",
+      "UNRESOLVED_LIMITATIONS": "No matching process is not proof of inactive upstream; no production connection authorized"
+    },
+    {
+      "PROCESS_ROLE": "intended_receiver",
+      "PROCESS_IDENTITIES": [
+        {
+          "pid": 92688,
+          "ppid": 62440,
+          "name": "Broker.exe",
+          "exe": "c:\\program files\\amibroker\\broker.exe",
+          "cmdline": [
+            "C:\\Program Files\\AmiBroker\\Broker.exe"
+          ],
+          "creation_filetime": 134382166690052304,
+          "create_time": 1793743069.0052304,
+          "executable_sha256": "30a6b5f3f027d6c2df50612c9e6a61ee1f23db135c35cb9d0f5c02b5d68a3b81",
+          "creation_local": "2026-11-04T05:57:49.005230+08:00",
+          "source_files": []
+        }
+      ],
+      "SOURCE_PATH": null,
+      "SOURCE_SHA256": null,
+      "INPUT_PROTOCOL": "UNVERIFIED",
+      "OUTPUT_PROTOCOL": "UNVERIFIED",
+      "EVENT_SCHEMA": null,
+      "LIVE_STATUS_EVIDENCE": "snapshot only; no live payload connection",
+      "UNRESOLVED_LIMITATIONS": "No matching process is not proof of inactive upstream; no production connection authorized"
+    }
+  ],
+  "processes": [
+    {
+      "pid": 47776,
+      "ppid": 2004,
+      "name": "pythonw.exe",
+      "exe": "c:\\users\\dadhie\\.codex\\worktrees\\pr3-binance-validation\\wsrtd\\.venv\\scripts\\pythonw.exe",
+      "cmdline": [
+        "C:\\Users\\dadhie\\.codex\\worktrees\\pr3-binance-validation\\WSRTD\\.venv\\Scripts\\pythonw.exe",
+        "-u",
+        "-B",
+        "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010\\supervise_test_feed.py",
+        "--root",
+        "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca",
+        "--runtime",
+        "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010"
+      ],
+      "creation_filetime": 134376155900115096,
+      "create_time": 1793141990.0115097,
+      "executable_sha256": "a65d1a6d6902770b068e31d526854c4c7a09f5cfecca9c212b11c9339d25e1a2",
+      "creation_local": "2026-10-28T06:59:50.011510+08:00",
+      "source_files": [
+        {
+          "path": "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010\\supervise_test_feed.py",
+          "sha256": "da149ca45e28cc0e9d58b7272c5160ac32c5b13628bdff39d8ead0bb9d479952"
+        }
+      ]
+    },
+    {
+      "pid": 26188,
+      "ppid": 47776,
+      "name": "pythonw.exe",
+      "exe": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\pythonw.exe",
+      "cmdline": [
+        "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+        "-u",
+        "-B",
+        "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010\\supervise_test_feed.py",
+        "--root",
+        "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca",
+        "--runtime",
+        "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010"
+      ],
+      "creation_filetime": 134376155920710225,
+      "create_time": 1793141992.0710225,
+      "executable_sha256": "2198767147bdf67a45da63ad9a35900b4ca8e628fedca13873ae50cf5805c810",
+      "creation_local": "2026-10-28T06:59:52.071023+08:00",
+      "source_files": [
+        {
+          "path": "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010\\supervise_test_feed.py",
+          "sha256": "da149ca45e28cc0e9d58b7272c5160ac32c5b13628bdff39d8ead0bb9d479952"
+        }
+      ]
+    },
+    {
+      "pid": 126792,
+      "ppid": 26188,
+      "name": "pythonw.exe",
+      "exe": "c:\\users\\dadhie\\.codex\\worktrees\\pr3-binance-validation\\wsrtd\\.venv\\scripts\\pythonw.exe",
+      "cmdline": [
+        "C:\\Users\\dadhie\\.codex\\worktrees\\pr3-binance-validation\\WSRTD\\.venv\\Scripts\\pythonw.exe",
+        "-u",
+        "-B",
+        "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+        "18101",
+        "--protocol",
+        "path"
+      ],
+      "creation_filetime": 134376155988861503,
+      "create_time": 1793141998.8861504,
+      "executable_sha256": "a65d1a6d6902770b068e31d526854c4c7a09f5cfecca9c212b11c9339d25e1a2",
+      "creation_local": "2026-10-28T06:59:58.886150+08:00",
+      "source_files": [
+        {
+          "path": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+          "sha256": "e5e9583758c78ebae0d4ed50554aa03727f57086d0245ae226d553fb129833ea"
+        }
+      ]
+    },
+    {
+      "pid": 119852,
+      "ppid": 126792,
+      "name": "pythonw.exe",
+      "exe": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\pythonw.exe",
+      "cmdline": [
+        "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+        "-u",
+        "-B",
+        "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+        "18101",
+        "--protocol",
+        "path"
+      ],
+      "creation_filetime": 134376155988978509,
+      "create_time": 1793141998.897851,
+      "executable_sha256": "2198767147bdf67a45da63ad9a35900b4ca8e628fedca13873ae50cf5805c810",
+      "creation_local": "2026-10-28T06:59:58.897851+08:00",
+      "source_files": [
+        {
+          "path": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+          "sha256": "e5e9583758c78ebae0d4ed50554aa03727f57086d0245ae226d553fb129833ea"
+        }
+      ]
+    },
+    {
+      "pid": 114976,
+      "ppid": 25524,
+      "name": "python.exe",
+      "exe": "d:\\wsrtd_binance_usdm_stack\\autotrader\\cleanroomr2\\stack\\.venv\\scripts\\python.exe",
+      "cmdline": [
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\.venv\\Scripts\\python.exe",
+        "-u",
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\stack_launcher.py",
+        "--dbname",
+        "Data",
+        "--relay-port",
+        "10101"
+      ],
+      "creation_filetime": 134376156654945864,
+      "create_time": 1793142065.4945865,
+      "executable_sha256": "d55736b9f3d6b4ca7985b82db8ce11edfa09994cf93ce31c6b506543b74f32eb",
+      "creation_local": "2026-10-28T07:01:05.494586+08:00",
+      "source_files": [
+        {
+          "path": "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\stack_launcher.py",
+          "sha256": "45734bcd9975d4fa53cfe8f2586bedc5abd0517529684ac92f123bdb416de2ce"
+        }
+      ]
+    },
+    {
+      "pid": 62440,
+      "ppid": 114976,
+      "name": "python.exe",
+      "exe": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\python.exe",
+      "cmdline": [
+        "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        "-u",
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\stack_launcher.py",
+        "--dbname",
+        "Data",
+        "--relay-port",
+        "10101"
+      ],
+      "creation_filetime": 134376156655257993,
+      "create_time": 1793142065.5257993,
+      "executable_sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0",
+      "creation_local": "2026-10-28T07:01:05.525799+08:00",
+      "source_files": [
+        {
+          "path": "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\stack_launcher.py",
+          "sha256": "45734bcd9975d4fa53cfe8f2586bedc5abd0517529684ac92f123bdb416de2ce"
+        }
+      ]
+    },
+    {
+      "pid": 44192,
+      "ppid": 62440,
+      "name": "python.exe",
+      "exe": "d:\\wsrtd_binance_usdm_stack\\autotrader\\cleanroomr2\\stack\\.venv\\scripts\\python.exe",
+      "cmdline": [
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\.venv\\Scripts\\python.exe",
+        "-u",
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\wsrtd_relay.py"
+      ],
+      "creation_filetime": 134376156688193039,
+      "create_time": 1793142068.819304,
+      "executable_sha256": "d55736b9f3d6b4ca7985b82db8ce11edfa09994cf93ce31c6b506543b74f32eb",
+      "creation_local": "2026-10-28T07:01:08.819304+08:00",
+      "source_files": [
+        {
+          "path": "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\wsrtd_relay.py",
+          "sha256": "3b8f5d0a9ea994e809b5e80b276bc799772fbfd33d799734c2871ed9e5a223ab"
+        }
+      ]
+    },
+    {
+      "pid": 116276,
+      "ppid": 44192,
+      "name": "python.exe",
+      "exe": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\python.exe",
+      "cmdline": [
+        "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        "-u",
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\wsrtd_relay.py"
+      ],
+      "creation_filetime": 134376156688503829,
+      "create_time": 1793142068.8503828,
+      "executable_sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0",
+      "creation_local": "2026-10-28T07:01:08.850383+08:00",
+      "source_files": [
+        {
+          "path": "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\wsrtd_relay.py",
+          "sha256": "3b8f5d0a9ea994e809b5e80b276bc799772fbfd33d799734c2871ed9e5a223ab"
+        }
+      ]
+    },
+    {
+      "pid": 104104,
+      "ppid": 62440,
+      "name": "python.exe",
+      "exe": "d:\\wsrtd_binance_usdm_stack\\autotrader\\cleanroomr2\\stack\\.venv\\scripts\\python.exe",
+      "cmdline": [
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\.venv\\Scripts\\python.exe",
+        "-u",
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\binance_usdm_server.py"
+      ],
+      "creation_filetime": 134376156694339428,
+      "create_time": 1793142069.4339428,
+      "executable_sha256": "d55736b9f3d6b4ca7985b82db8ce11edfa09994cf93ce31c6b506543b74f32eb",
+      "creation_local": "2026-10-28T07:01:09.433943+08:00",
+      "source_files": [
+        {
+          "path": "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\binance_usdm_server.py",
+          "sha256": "0a77f8fa95e5cf3f22bcca8f4fe8e3cae8d92c0bd179c026db4d42fae7d22700"
+        }
+      ]
+    },
+    {
+      "pid": 44804,
+      "ppid": 62440,
+      "name": "python.exe",
+      "exe": "d:\\wsrtd_binance_usdm_stack\\autotrader\\cleanroomr2\\stack\\.venv\\scripts\\python.exe",
+      "cmdline": [
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\.venv\\Scripts\\python.exe",
+        "-u",
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\identity_bridge.py"
+      ],
+      "creation_filetime": 134376156694408223,
+      "create_time": 1793142069.4408224,
+      "executable_sha256": "d55736b9f3d6b4ca7985b82db8ce11edfa09994cf93ce31c6b506543b74f32eb",
+      "creation_local": "2026-10-28T07:01:09.440822+08:00",
+      "source_files": [
+        {
+          "path": "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\identity_bridge.py",
+          "sha256": "002fb362631ea22db21b990f3f3eaa9f97e922105d27b4d77aca39a86323a006"
+        }
+      ]
+    },
+    {
+      "pid": 113576,
+      "ppid": 104104,
+      "name": "python.exe",
+      "exe": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\python.exe",
+      "cmdline": [
+        "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        "-u",
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\binance_usdm_server.py"
+      ],
+      "creation_filetime": 134376156694612244,
+      "create_time": 1793142069.4612243,
+      "executable_sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0",
+      "creation_local": "2026-10-28T07:01:09.461224+08:00",
+      "source_files": [
+        {
+          "path": "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\binance_usdm_server.py",
+          "sha256": "0a77f8fa95e5cf3f22bcca8f4fe8e3cae8d92c0bd179c026db4d42fae7d22700"
+        }
+      ]
+    },
+    {
+      "pid": 4104,
+      "ppid": 44804,
+      "name": "python.exe",
+      "exe": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\python.exe",
+      "cmdline": [
+        "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        "-u",
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\identity_bridge.py"
+      ],
+      "creation_filetime": 134376156694674020,
+      "create_time": 1793142069.467402,
+      "executable_sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0",
+      "creation_local": "2026-10-28T07:01:09.467402+08:00",
+      "source_files": [
+        {
+          "path": "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\identity_bridge.py",
+          "sha256": "002fb362631ea22db21b990f3f3eaa9f97e922105d27b4d77aca39a86323a006"
+        }
+      ]
+    },
+    {
+      "pid": 119896,
+      "ppid": 124616,
+      "name": "node.exe",
+      "exe": "c:\\program files\\nodejs\\node.exe",
+      "cmdline": [
+        "C:\\Program Files\\nodejs\\node.EXE",
+        "D:\\WSRTD_N1_ACTIVE_CHART_RADAR_R1\\live_chart_preview_r1\\server.js"
+      ],
+      "creation_filetime": 134381943904032483,
+      "create_time": 1793720790.4032483,
+      "executable_sha256": "3331e1ffe19874215472217c5e94f5a0c6d8e18c4ac7111d3937aa0ad5e9b4a5",
+      "creation_local": "2026-11-03T23:46:30.403248+08:00",
+      "source_files": [
+        {
+          "path": "D:\\WSRTD_N1_ACTIVE_CHART_RADAR_R1\\live_chart_preview_r1\\server.js",
+          "sha256": "245eaa1f9bedef8f4296a3b201a5bb5a9d95a3d589b1758758769cd1b379f848"
+        }
+      ]
+    },
+    {
+      "pid": 92688,
+      "ppid": 62440,
+      "name": "Broker.exe",
+      "exe": "c:\\program files\\amibroker\\broker.exe",
+      "cmdline": [
+        "C:\\Program Files\\AmiBroker\\Broker.exe"
+      ],
+      "creation_filetime": 134382166690052304,
+      "create_time": 1793743069.0052304,
+      "executable_sha256": "30a6b5f3f027d6c2df50612c9e6a61ee1f23db135c35cb9d0f5c02b5d68a3b81",
+      "creation_local": "2026-11-04T05:57:49.005230+08:00",
+      "source_files": []
+    },
+    {
+      "pid": 67952,
+      "ppid": 24812,
+      "name": "python.exe",
+      "exe": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\python.exe",
+      "cmdline": [
+        "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        "-B",
+        "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R2\\capture_chain.py"
+      ],
+      "creation_filetime": 134382235032396710,
+      "create_time": 1793749903.239671,
+      "executable_sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0",
+      "creation_local": "2026-11-04T07:51:43.239671+08:00",
+      "source_files": [
+        {
+          "path": "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R2\\capture_chain.py",
+          "sha256": "c544e082f6a40caeea89a39c495912a39e2349112fc5ae8c167d593287d557f6"
+        }
+      ]
+    }
+  ],
+  "endpoints": [
+    "TCP    127.0.0.1:10101        0.0.0.0:0              LISTENING       116276",
+    "TCP    127.0.0.1:10101        127.0.0.1:62030        ESTABLISHED     116276",
+    "TCP    127.0.0.1:18101        0.0.0.0:0              LISTENING       119852",
+    "TCP    127.0.0.1:62030        127.0.0.1:10101        ESTABLISHED     113576"
+  ],
+  "current_producer": "INACTIVE",
+  "source_chain": "QUALIFIED_CONFIGURED_PATH_NOT_LIVE",
+  "production_connections_opened": 0,
+  "corroborating_status": {
+    "utc": "2026-11-04T00:18:18.770404+00:00",
+    "supervisor_pid": 26188,
+    "supervisor_created": 1793141992.0710225,
+    "job_contained": true,
+    "source_root": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca",
+    "relay_pid": 126792,
+    "relay_running": true,
+    "sender_pid": null,
+    "sender_running": false,
+    "native_receivers": [],
+    "symbols": 500,
+    "port": 18101
+  }
+}

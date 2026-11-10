@@ -1,0 +1,124 @@
+{
+  "status": "PASS_SCOPED_EXTERNAL_TRANSPORT_REVIEW_WITH_BLOCKED_CAPTURE",
+  "overall": "BLOCKED_WRITER_CUSTODY_AND_NATIVE_HOST",
+  "reviewer": "/root/forming_r2_review",
+  "utc": "2026-11-10T01:14:11.669142+00:00",
+  "exact_hashes": {
+    "src\\admission.py": "dcddf337bc7e19e575ba1ba7d546dacb1c8705edd5768ed8971e3d5ec79125db",
+    "src\\capture.py": "1c6482a4d9286902c1678da4eba1bc201a68fe28140969685f308c4cca074cc0",
+    "src\\controller.py": "b5c009e190ba1f2e9f32b1842a1ac98d3ef104139142fcc03a5fee49b11ca2b9",
+    "src\\custody.py": "90322040eeb32d4f0e28dadb9017f112abf5f58caa95637006848eaa1afa8588",
+    "src\\endpoint_policy.py": "f2a8d3d73d221c871b40d08de08a13c42af9c65045f949d8a65ef3366a67bd37",
+    "src\\external.py": "6f17a5d6362eef9d4554b88738b98752f0e6a04a37497af2c23546d80c8d8aa2",
+    "src\\external_resolver.py": "780bc12baedf897792975a3d74b0bb1bfb9e2699658713965e2dbea337f4912c",
+    "src\\fixture_pipe.py": "355e9fd476f313507ace734116c4b8cd73e2be6767392936714c7dec6dc3d464",
+    "src\\handoff.py": "ed40e8ee6cea8c2aee20cd5301a1738dd86230226f5339d4874eb2fdbb1f15bb",
+    "src\\network.py": "a3834fca16dd2328a113d8aa0f8b0acad5e0dd5cbe2ff4fde214dd3ea8535918",
+    "src\\peer.py": "568480d8bd2b3b58974b10a5f63a69af143264965cdeeb12bb8a0bdfc4b7425a",
+    "src\\pilot_endpoint.py": "940a800313cf6b94cb7d6189f134da7646430fe8838c3d14a8dc9c626e9ce770",
+    "src\\relay.py": "36653651ba3f7d4a8f3e7dab4ac4094bf31fd5e0d0b5a50bb0f078292ec95c38",
+    "src\\relay_client.py": "849abe8d1dbe3bae00eebac6ebdcc579f57a6bfb68cc63af888ad9d0a9c79b4d",
+    "src\\resolver.py": "81a88d85478d1e7811895546ee418cbb7b9bd2a4b25266803eca61d578149a45",
+    "src\\storage.py": "2431c84f74d05d6c45cf876073db8c426bbe6a9e7a96ffbf0202d3f273ad3728",
+    "dependencies\\r3\\durable.py": "cc2fcb1750ebf310789ebb2149f444fd49bb8391b3d98d115c8446e7ba6faefa",
+    "dependencies\\r3\\pipeline.py": "53dd2237e0e7d4a09af8fd7817cd313be312ba507ca3d8af1a2bce44b2f7a3ae",
+    "dependencies\\r3\\transport.py": "0b366be25c403bc5b71f7e452fc3cff852d46d133d4cfa42d36d033b92fe3190",
+    "tests\\external_fixture.py": "cbe8fdf81de4be5786bcdb181c6480f2e44d661ae75ab4298299f2994fdb6307",
+    "tests\\find_tls.py": "aa4f80d357734e1469b95d884c05194550cf1b2c59904676d3fb2efb489a28c0",
+    "tests\\servers.py": "856e88649b51c5137cf0668bbd37a179aa95432917ad368ada9f2cca92bd7190",
+    "tests\\split_helper.py": "3d53b659a80b35c8aa09d4c30c67296080422aa9c8c9ee73604e3f96f370281d",
+    "tests\\test_capture_guards.py": "9cef3b3aab803fb4003557f47509fc3c77003f5fe24ae257a47ffbd4b659ad51",
+    "tests\\test_controller.py": "fb2ed2a4844a6d85877b8f3a9dff8d0af4c8bcde209e743263273017673d8747",
+    "tests\\test_endpoint.py": "2f49a09813d9eca93d59812e5027dba571624694891d819822c386334a88a96f",
+    "tests\\test_external.py": "a86819e2675a7bf8877af65dd0c52636bcbc3bbec3385afc6a2cda16b170a630",
+    "tests\\test_external_faults.py": "c5783012cb70894b27e0a0f5a959303ac55133da24551fda0328fcc3555f04e1",
+    "tests\\test_lifecycle.py": "9df54f2f4ee6c101b95c6f3010dfe519f6a9f5319628039704b40bab6b8a4af1",
+    "tests\\test_native_e2e.py": "1ae10019fc01e15e4c4e56b36060567604f3e5aa1df1639ad76d12e7244f0ffd",
+    "tests\\test_network.py": "91930770266ad5e42e540c3b3bbcdf5999c8d4d59465ce9f3f9053d83b02a1e3",
+    "tests\\test_peer.py": "2e4f9dc9d595fd233ad1def0e4e09535c93e1cc5b4a1ab8a12077c7ac9278177",
+    "tests\\test_pilot.py": "f64254a7f14a876c9133cf0711ff509b194be29aaac4b9d375092de2c7dcca04",
+    "tests\\test_relay.py": "41540a71757abe04368cccd989cd68be3abf7f7c92216043e5c3dba3842c75fc",
+    "tests\\test_timeout.py": "1eec76ba5b76d61e53aa3ed1ba1057fb938e61c80b54fd75ea57f785ed18519b",
+    "tests\\test_tls_custody.py": "864f6c9dbefbe30e437def8c2f66b9cff5476bfb385d2668ac18ce94281d4891"
+  },
+  "independently_rerun_author_tests": {
+    "local_external_admission": 15,
+    "tls_ws_dns_faults": 10,
+    "capture_guards": "executed; rename exclusion FAIL retained"
+  },
+  "independent_capture_gate": {
+    "passed": true,
+    "scope": "Writer gate after manifest validation, before output creation/network construction",
+    "manifest_validation_mocked": true,
+    "external_requests": 0,
+    "production_changes": 0,
+    "source_hashes": {
+      "src\\admission.py": "dcddf337bc7e19e575ba1ba7d546dacb1c8705edd5768ed8971e3d5ec79125db",
+      "src\\capture.py": "1c6482a4d9286902c1678da4eba1bc201a68fe28140969685f308c4cca074cc0",
+      "src\\controller.py": "b5c009e190ba1f2e9f32b1842a1ac98d3ef104139142fcc03a5fee49b11ca2b9",
+      "src\\custody.py": "90322040eeb32d4f0e28dadb9017f112abf5f58caa95637006848eaa1afa8588",
+      "src\\endpoint_policy.py": "f2a8d3d73d221c871b40d08de08a13c42af9c65045f949d8a65ef3366a67bd37",
+      "src\\external.py": "6f17a5d6362eef9d4554b88738b98752f0e6a04a37497af2c23546d80c8d8aa2",
+      "src\\external_resolver.py": "780bc12baedf897792975a3d74b0bb1bfb9e2699658713965e2dbea337f4912c",
+      "src\\fixture_pipe.py": "355e9fd476f313507ace734116c4b8cd73e2be6767392936714c7dec6dc3d464",
+      "src\\handoff.py": "ed40e8ee6cea8c2aee20cd5301a1738dd86230226f5339d4874eb2fdbb1f15bb",
+      "src\\network.py": "a3834fca16dd2328a113d8aa0f8b0acad5e0dd5cbe2ff4fde214dd3ea8535918",
+      "src\\peer.py": "568480d8bd2b3b58974b10a5f63a69af143264965cdeeb12bb8a0bdfc4b7425a",
+      "src\\pilot_endpoint.py": "940a800313cf6b94cb7d6189f134da7646430fe8838c3d14a8dc9c626e9ce770",
+      "src\\relay.py": "36653651ba3f7d4a8f3e7dab4ac4094bf31fd5e0d0b5a50bb0f078292ec95c38",
+      "src\\relay_client.py": "849abe8d1dbe3bae00eebac6ebdcc579f57a6bfb68cc63af888ad9d0a9c79b4d",
+      "src\\resolver.py": "81a88d85478d1e7811895546ee418cbb7b9bd2a4b25266803eca61d578149a45",
+      "src\\storage.py": "2431c84f74d05d6c45cf876073db8c426bbe6a9e7a96ffbf0202d3f273ad3728"
+    }
+  },
+  "writer_evidence": {
+    "passed": false,
+    "checks": [
+      "SSL_CERT_FILE",
+      "SSL_CERT_DIR",
+      "FAIL: parent rename succeeded while handles held",
+      "held identity and invalid approval rejection"
+    ],
+    "writer_custody": "BLOCKED",
+    "live_capture_disabled": true,
+    "external_requests": 0
+  },
+  "closed_findings": [
+    "SSL_CERT_FILE and SSL_CERT_DIR refused before transport initialization",
+    "Exact source inventory includes imported dependencies/r3 validators",
+    "Strict duplicate-key parsing for manifest and held-process approval input",
+    "Held prepare-and-wait identity permits later exact same-process manifest approval",
+    "Late resolver result after admission expiry refuses socket dispatch"
+  ],
+  "unresolved_findings": [
+    {
+      "id": "R8-WRITER-01",
+      "severity": "P1",
+      "status": "BLOCKED_CONTAINED",
+      "evidence": "Directory rename succeeded despite held handles in actual guard test; capture entrypoint now refuses before output creation/network",
+      "required": "Qualify output directory and file handle custody, reparse-safe traversal and writer exclusivity before removing explicit gate"
+    },
+    {
+      "id": "R8-LIVE-01",
+      "status": "BLOCKED",
+      "evidence": "No approved UTC manifest/IP set/current role authority or genuine source receipt exists"
+    },
+    {
+      "id": "R8-HOST-01",
+      "status": "BLOCKED",
+      "evidence": "No installed source change or actual AmiBroker quotation acceptance; unchanged R7 DLL remains fixture-only"
+    }
+  ],
+  "limitations": [
+    "ExternalWS is an implemented capability, not an authorization authority; operator-approved hash must come from separate explicit decision",
+    "Local TLS tests do not establish actual Binance route/certificate/candle provenance",
+    "Receiver 1-second quiet timeout aborts conservatively; no reconnect",
+    "DNS child reaping is not hard-real-time OS DNS cancellation proof",
+    "Windows process/peer observations are point-in-time; no hostile same-process mutation boundary",
+    "Full-prefix historical admission and 500+ production coverage remain unqualified"
+  ],
+  "external_requests": 0,
+  "protected_connections": 0,
+  "production_mutations": 0,
+  "native_rebuild": false
+}

@@ -1,0 +1,12 @@
+{
+  "passed": false,
+  "checks": [
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "FAIL: parent rename succeeded while handles held",
+    "held identity and invalid approval rejection"
+  ],
+  "writer_custody": "BLOCKED",
+  "live_capture_disabled": true,
+  "external_requests": 0
+}

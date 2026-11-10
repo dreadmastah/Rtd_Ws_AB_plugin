@@ -1,0 +1,11 @@
+{
+ "status": "BLOCKED_PENDING_TARGETED_CORRECTIONS",
+ "findings": [
+  {"id":"R6-01","file":"src/network.py","issue":"HTTP thread-local deadline persists into later WebSocket operations; no reset on exit or fresh WS deadline.","severity":"P1"},
+  {"id":"R6-02","file":"src/relay_client.py","issue":"Constructor failure lacks partial resource cleanup; readiness readline has no bound; close may skip ownership cleanup after wait failure.","severity":"P1"},
+  {"id":"R6-03","file":"src/relay.py","issue":"Frame read timeout resets per fragment rather than bounding entire frame; slow drip can extend operation arbitrarily within maximum frame size.","severity":"P1"}
+ ],
+ "limits":["DNS resolver is blocking; deadline checked after resolution only.","Measured timeout samples do not prove bound on lock acquisition/fsync/scheduling.","External endpoint authority remains blocked; protocol hash shape is not verified protocol evidence.","Separate relay role secret authenticates key possession, not Windows TCP peer process identity."],
+ "production_changes":0,
+ "external_requests":0
+}

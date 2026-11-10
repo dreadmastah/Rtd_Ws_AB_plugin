@@ -1,0 +1,9 @@
+{
+  "source": "Retained observations from execution tool output; not a recovered original receipt",
+  "prior_failed_readback": {"BTCUSDT":{"bars":1,"close":101,"volume":1},"ETHUSDT":{"bars":2,"close":102,"volume":3}},
+  "root_cause_status": "PARTIAL: sequential fixture permits first symbol freshness expiry; original per-event timing unavailable, so exact historical cause unproven",
+  "additional_failures": ["EOFError truncated relay frame", "ConnectionAbortedError 10053 after two subscriptions against one-subscription fixture server", "TimeoutError operation admission deadline during durable HEALTH reservation"],
+  "corrections": ["Interleave two symbols on one socket; consume both subscription frames in fixture server", "Keep five-second freshness unchanged", "Use WAL with synchronous FULL for new disposable admission ledgers", "Per-operation deadline reset"],
+  "final_readback_evidence": "R6_NATIVE_DATA_PLUGIN_INTEGRATION.json",
+  "no_claim_prior_failure_proven_resolved": true
+}

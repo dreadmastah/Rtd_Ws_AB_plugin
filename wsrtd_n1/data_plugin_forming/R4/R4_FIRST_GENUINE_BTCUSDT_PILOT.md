@@ -1,0 +1,11 @@
+# First genuine pilot: BLOCKED, not executable
+
+Proposed symbol BTCUSDT only. No automaticETH or500expansion. Suggested policy to review: zeroREST, oneWSconnectionattempt, oneBTCUSDT@kline_1msubscription, zero reconnect, at most120seconds. These are proposed bounds, not an approvedUTCwindow or shared-IPreservation. UTCstart/end UNBOUND. A qualified current symbolmetadata snapshot and actualUMidentity are necessary for zeroRESTadmission; absentmetadata stops.
+
+Producer implementation: src/admission.py + src/sender.py hashes in manifest; Pythoninterpreter hash inventoried. Actual networkbackend/sender executable: UNBOUND (fixture backend only). Receiver: unchangedR3 Pipeline dependency plus declared-session checks; genuinecustody/OSreceiverattestation UNQUALIFIED. DataDLL: unchangedR3 f0b09413fa555ea85781b8745fc6c1108e6edf7f6189fa00bfdc35e098d77647; fixture-only, not genuine-source-ready.
+
+Disposablepilotdatabase would be newly provisioned under R4output; exactphysicalidentity/writer/session must be bound beforeauthorization. No originalhistorycopy/migration. CurrentBroker staysrunning; no supported loading/lifecycle authority has been granted. R3DLLcannot be turned into productioncandidate merely by setting an environmentvariable. Nativeweekly/mixedsettings and genuinequote binding require an independently approved hosttest.
+
+Existing18101 cannot be used by connectingBroker under this policy: currentreceiverpredicate can start500sender+RESTrehydration. An external helper does not satisfy predicate. Required route is a separately reviewed versionedproducer/controller adapter with realIO hardcaps and legacyreceiver compatibility, with explicit handoff approval. Do not reconnect or replace it now.
+
+Future actualevidence must bindTLS/endpoint,rawE/t/T/x/UMidentity,receipt/session/universe,exactOHLCV,commitreceipt,GetQuotesEx timestamp/value and nativechartupdate. LocalMAC/digest andsynthetictests are not sourceproof. Abort on limit/time/session/sourcegap/invalidfinal/storagefailure/hostmismatch/protectedfeedchange. Close only authorized testowned transport/coordinator gracefully; retaincommitteddata andreceipts; nofallbacklegacyrestart andnoautomaticreconnect.

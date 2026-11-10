@@ -1,0 +1,8 @@
+{
+  "status": "PASS_OFFLINE_REJECTION_ONLY",
+  "tests": "independent/receiver_results.json",
+  "genuine_custody": "BLOCKED",
+  "MAC_alone_is_source_proof": false,
+  "local_receipt_is_exchange_finality": false,
+  "full_prefix_admission": false
+}

@@ -1,0 +1,29 @@
+{
+  "status": "BLOCKED",
+  "current_producer": "INACTIVE",
+  "evidence": {
+    "utc": "2026-11-04T00:18:18.770404+00:00",
+    "supervisor_pid": 26188,
+    "supervisor_created": 1793141992.0710225,
+    "job_contained": true,
+    "source_root": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca",
+    "relay_pid": 126792,
+    "relay_running": true,
+    "sender_pid": null,
+    "sender_running": false,
+    "native_receivers": [],
+    "symbols": 500,
+    "port": 18101
+  },
+  "supervisor_creation_identity_matched": true,
+  "limitation": "Point-in-time supervisor status corroborated by process census, not proof of all possible upstream activity.",
+  "reason": "Supervisor requires a Broker.exe connection to18101; none reported. Existing sender log previously rejected pinned invalid symbols.",
+  "future_external_adapter_issue": "Non-Broker receiver alone does not satisfy native_receivers(); connecting a qualified Broker triggers sender and REST rehydration. Requires separately reviewed controller/output changes and activation approval.",
+  "historical_log_symbols_not_current_eligibility": [
+    "EPICUSDT",
+    "MITOUSDT",
+    "PTBUSDT",
+    "VELODROMEUSDT"
+  ],
+  "restoration_authorized": false
+}

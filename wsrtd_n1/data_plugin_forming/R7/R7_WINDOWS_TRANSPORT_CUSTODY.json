@@ -1,0 +1,31 @@
+{
+  "status": "PASS_ISOLATED",
+  "checks": [
+    "reverse tuple resolves distinct relay process",
+    "wrong PID/creation/hash refused",
+    "wrong PID/creation/hash refused",
+    "wrong PID/creation/hash refused",
+    "closed peer refused"
+  ],
+  "relay": {
+    "pid": 150744,
+    "creation": 134387455438379154,
+    "path": "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0"
+  },
+  "controller_receiver_writer": {
+    "pid": 148404,
+    "creation": 134387455431553303,
+    "path": "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0"
+  },
+  "session": "07341d0d4f73c603c5f91d83d2c90b27",
+  "universe": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "method": "Windows AF_INET exact reverse ESTABLISHED tuple and held process creation/path/hash handle",
+  "limitations": [
+    "point-in-time tuple observations are not atomic lifetime proof",
+    "same process owns sender and receiver roles in fixture",
+    "no genuine production authority"
+  ],
+  "production_connections": 0
+}

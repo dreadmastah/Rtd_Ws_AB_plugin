@@ -1,0 +1,15 @@
+{
+  "schema_version": 3,
+  "envelope": [
+    "schema_version",
+    "universe_version",
+    "source_event",
+    "candle"
+  ],
+  "inner_candle_fields": "src/transport.py FIELDS",
+  "raw_event": "preserved verbatim JSON fields; linked by reconstruction againstcandle",
+  "MAC": "HMACSHA256 of canonical wrapper; fixturesecret is not Binance custody",
+  "durable_receipt": "receipts table retains fullwrapper JSON+SHA256 atomically with newfinal",
+  "duplicate_policy": "first committed event receipt retained; equalOHLCV replay idempotent",
+  "maturity": "SYNTHETIC_FIXTURE_ONLY; genuine custody verifier unavailable"
+}

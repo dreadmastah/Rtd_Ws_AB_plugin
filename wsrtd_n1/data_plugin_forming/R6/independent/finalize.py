@@ -1,0 +1,12 @@
+from pathlib import Path
+import json,hashlib,datetime
+R=Path(__file__).resolve().parents[1]
+def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+c=json.loads((R/'independent/correction_results.json').read_text());assert c['passed']
+for p,h in c['hashes'].items():assert sha(R/p)==h,p
+e=json.loads((R/'R6_END_TO_END_V3_PIPELINE.json').read_text());assert e['passed']
+stale=json.loads((R/'evidence/NATIVE_STALE.json').read_text())
+assert all(x['bars']==1 for x in stale['rows'])
+files=list((R/'src').glob('*.py'))+list((R/'native').glob('*'))+list((R/'artifacts').glob('*.dll'))+list((R/'tests').glob('*.py'))
+report=dict(status='PASS_SCOPED_ISOLATED_R6_CORRECTIONS_RELAY_AND_NATIVE_REVIEW',overall='BLOCKED_GENUINE_PILOT_AND_NATIVE_HOST',reviewer='/root/forming_r2_review',utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),hashes={str(p.relative_to(R)):sha(p) for p in files if p.is_file()},independent_correction_tests=c,independently_rerun_author_tests={'relay_negative':11,'local_endpoint':12,'native_e2e':True},native_e2e=e,disconnected_native=stale,closed_findings=['R6-01 operation decorator resets per-call deadline on success and exception; HTTP then later WS tested','R6-02 bounded readiness queue and constructor partial cleanup; actual failed connect child cleanup tested','R6-03 aggregate frame deadline; actual TCP slow drip tested'],review_scope=['Real test-owned loopback sockets and separate relay subprocess','HMAC V3 metadata and sequence/session/universe validation at relay and receiver','Disposable durable finalization and compiled R6 quotation callback; stale forming removed while finalized history retained','Admission WAL with synchronous FULL; no durability relaxation observed'],remaining_blockers=['External endpoint identities and protocol evidence not qualified; policy admits localhost only','DNS getaddrinfo is blocking and cannot be interrupted by deadline check','OS scheduling, mutex wait and SQLite fsync are not hard-real-time bounded; measured 1.5-second regression results do not guarantee all contention','Relay shared-secret role authentication is not Windows TCP-peer process ownership proof','Genuine producer custody and permitted activation absent','Full-prefix historical admission remains unproven','Actual AmiBroker host/installation/source-switch/native chart acceptance not executed'],r5_timeout_failure_preserved=True,production_changes=0,external_requests=0,protected_connections=0)
+(R/'R6_INDEPENDENT_FINAL_REVIEW.json').write_text(json.dumps(report,indent=2));print(report['status'])

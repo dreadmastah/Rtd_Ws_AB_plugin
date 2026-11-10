@@ -1,0 +1,79 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "success",
+      "pass_case": true,
+      "connections": 1,
+      "error": null
+    },
+    {
+      "case": "scheme",
+      "pass_case": true,
+      "connections": 0,
+      "error": "exact endpoint"
+    },
+    {
+      "case": "host",
+      "pass_case": true,
+      "connections": 0,
+      "error": "exact endpoint"
+    },
+    {
+      "case": "port",
+      "pass_case": true,
+      "connections": 0,
+      "error": "exact endpoint"
+    },
+    {
+      "case": "path",
+      "pass_case": true,
+      "connections": 0,
+      "error": "exact endpoint"
+    },
+    {
+      "case": "credentials",
+      "pass_case": true,
+      "connections": 0,
+      "error": "exact endpoint"
+    },
+    {
+      "case": "fragment",
+      "pass_case": true,
+      "connections": 0,
+      "error": "exact endpoint"
+    },
+    {
+      "case": "query",
+      "pass_case": true,
+      "connections": 0,
+      "error": "exact endpoint"
+    },
+    {
+      "case": "external",
+      "pass_case": true,
+      "connections": 0,
+      "error": "external activation prohibited in R6"
+    },
+    {
+      "case": "proxy",
+      "pass_case": true,
+      "connections": 1,
+      "error": null
+    },
+    {
+      "case": "dns_rebind",
+      "pass_case": true,
+      "connections": 0,
+      "error": "DNS pin/rebinding"
+    },
+    {
+      "case": "redirect",
+      "pass_case": true,
+      "connections": 1,
+      "error": "HTTP status/redirect refused"
+    }
+  ],
+  "external_requests": 0,
+  "production_endpoint_authority": false
+}

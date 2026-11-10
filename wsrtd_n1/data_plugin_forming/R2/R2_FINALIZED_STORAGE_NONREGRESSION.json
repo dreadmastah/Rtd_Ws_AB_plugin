@@ -1,0 +1,13 @@
+{
+  "preserved_baseline_hashes": {
+    "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R1\\REPORT.md": true,
+    "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R1\\FINAL_DISPOSITION.json": true,
+    "D:\\WSRTD_OWNED_CPP_N1_20261028_R1\\candidate\\native\\owned_plugin.cpp": true,
+    "D:\\WSRTD_OWNED_CPP_N1_20261028_R1\\candidate\\native\\owned_reader.cpp": true,
+    "C:\\Program Files\\AmiBroker\\Plugins\\WSRTD_Owned_N1_DATABASE_BOUND.dll": true
+  },
+  "all_match": true,
+  "fixture_sqlite_unchanged_tests": "evidence/AUTHOR_TESTS.json",
+  "production_history_writes": 0,
+  "not_a_full_historical_integrity_audit": true
+}

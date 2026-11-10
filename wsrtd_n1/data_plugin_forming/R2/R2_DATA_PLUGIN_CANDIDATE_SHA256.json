@@ -1,0 +1,25 @@
+{
+  "path": "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R2\\artifacts\\WSRTD_Data_Forming_R2.dll",
+  "sha256": "8ac9987e6588b3c8f5c1ce7b35481e931a58b6145672b8fa09ed570ad547ec01",
+  "commands": [
+    [
+      "C:\\Program Files\\CMake\\bin\\cmake.exe",
+      "-S",
+      "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R2\\native",
+      "-B",
+      "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R2\\build",
+      "-G",
+      "Visual Studio 18 2026",
+      "-A",
+      "x64"
+    ],
+    [
+      "C:\\Program Files\\CMake\\bin\\cmake.exe",
+      "--build",
+      "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R2\\build",
+      "--config",
+      "Release"
+    ]
+  ],
+  "installed": false
+}

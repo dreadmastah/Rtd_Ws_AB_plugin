@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "tests": 12,
+  "failures": [],
+  "source_hashes": {
+    "src/admission.py": "ee40db4bf60a2bc7fc327a650f7817ddf43175538f3419f4c575bcbbf29b6bf1",
+    "src/network.py": "6befa16e3bf778d957fdaed73174bc42e138ce1111254af9f6e7c0b0c7085449"
+  },
+  "actual_loopback": true,
+  "external_requests": 0,
+  "production_changes": 0
+}

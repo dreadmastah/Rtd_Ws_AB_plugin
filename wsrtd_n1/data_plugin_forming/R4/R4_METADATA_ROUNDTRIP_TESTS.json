@@ -1,0 +1,9 @@
+{
+  "author_evidence": "evidence/AUTHOR_TESTS.json",
+  "author_checks": 12,
+  "passed": true,
+  "source_event_kind": "synthetic Binance-shaped fixtures",
+  "actual_network": false,
+  "actual_amibroker": false,
+  "scope": "counteradmission/session/restart and two-symbolforming/final/duplicate/durable receipt handoff; not genuine network"
+}

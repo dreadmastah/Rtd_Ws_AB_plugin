@@ -1,0 +1,15 @@
+{
+  "status": "PASS_ISOLATED",
+  "source": "SYNTHETIC_FIXTURE",
+  "evidence": "R5_END_TO_END_RECEIVER_RESULTS.json",
+  "outcomes": [
+    "DURABLE_FINALIZED:COMMITTED",
+    "ACCEPTED",
+    "ACCEPTED",
+    "DURABLE_FINALIZED:COMMITTED",
+    "ACCEPTED",
+    "ACCEPTED"
+  ],
+  "separate_relay_process_tested": false,
+  "production_source_admission": false
+}

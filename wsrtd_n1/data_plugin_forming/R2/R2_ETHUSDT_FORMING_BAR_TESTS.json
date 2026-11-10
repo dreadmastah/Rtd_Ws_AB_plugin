@@ -1,0 +1,82 @@
+{
+  "synthetic": true,
+  "tests": [
+    {
+      "test": "ETHUSDT_missing",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_first",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_duplicate",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_OHLCV_replace",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_out_of_order",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_old_session",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_auth",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_version",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_final_before_close",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_new_minute",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_missing_final_not_promoted",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_late_final",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_final_no_duplicate",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_final_immutable",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_disconnect",
+      "pass": true
+    },
+    {
+      "test": "ETHUSDT_disconnected_reject",
+      "pass": true
+    }
+  ],
+  "status": {
+    "connected": false,
+    "symbol_states": {
+      "ETHUSDT": "STALE"
+    },
+    "invalid_events": {
+      "last": "disconnected session"
+    },
+    "missing_final_buckets": [],
+    "full_prefix_complete": false,
+    "provenance": "SYNTHETIC_FIXTURE",
+    "native_history_readback_proven": false
+  }
+}

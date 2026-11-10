@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "tests": 2,
+  "failures": [],
+  "hashes": {
+    "src\\admission.py": "dcddf337bc7e19e575ba1ba7d546dacb1c8705edd5768ed8971e3d5ec79125db",
+    "src\\controller.py": "b5c009e190ba1f2e9f32b1842a1ac98d3ef104139142fcc03a5fee49b11ca2b9",
+    "src\\custody.py": "90322040eeb32d4f0e28dadb9017f112abf5f58caa95637006848eaa1afa8588",
+    "src\\endpoint_policy.py": "f2a8d3d73d221c871b40d08de08a13c42af9c65045f949d8a65ef3366a67bd37",
+    "src\\fixture_pipe.py": "355e9fd476f313507ace734116c4b8cd73e2be6767392936714c7dec6dc3d464",
+    "src\\handoff.py": "ed40e8ee6cea8c2aee20cd5301a1738dd86230226f5339d4874eb2fdbb1f15bb",
+    "src\\network.py": "e96833357215daa769b16993c203448351d1f91d8defe19ec641b8dbdd6fa0e4",
+    "src\\peer.py": "568480d8bd2b3b58974b10a5f63a69af143264965cdeeb12bb8a0bdfc4b7425a",
+    "src\\pilot_endpoint.py": "940a800313cf6b94cb7d6189f134da7646430fe8838c3d14a8dc9c626e9ce770",
+    "src\\relay.py": "36653651ba3f7d4a8f3e7dab4ac4094bf31fd5e0d0b5a50bb0f078292ec95c38",
+    "src\\relay_client.py": "849abe8d1dbe3bae00eebac6ebdcc579f57a6bfb68cc63af888ad9d0a9c79b4d",
+    "src\\resolver.py": "81a88d85478d1e7811895546ee418cbb7b9bd2a4b25266803eca61d578149a45",
+    "dependencies\\r3\\durable.py": "cc2fcb1750ebf310789ebb2149f444fd49bb8391b3d98d115c8446e7ba6faefa",
+    "dependencies\\r3\\pipeline.py": "53dd2237e0e7d4a09af8fd7817cd313be312ba507ca3d8af1a2bce44b2f7a3ae",
+    "dependencies\\r3\\transport.py": "0b366be25c403bc5b71f7e452fc3cff852d46d133d4cfa42d36d033b92fe3190"
+  },
+  "external_requests": 0,
+  "production_changes": 0
+}

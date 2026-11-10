@@ -1,0 +1,121 @@
+{
+  "observed_utc": "2026-11-04T05:33:26.874812+00:00",
+  "processes": [
+    {
+      "pid": 47776,
+      "parent": 2004,
+      "creation_filetime": 134376155900115096,
+      "executable": "c:\\users\\dadhie\\.codex\\worktrees\\pr3-binance-validation\\wsrtd\\.venv\\scripts\\pythonw.exe",
+      "executable_sha256": "a65d1a6d6902770b068e31d526854c4c7a09f5cfecca9c212b11c9339d25e1a2",
+      "arguments": [
+        "C:\\Users\\dadhie\\.codex\\worktrees\\pr3-binance-validation\\WSRTD\\.venv\\Scripts\\pythonw.exe",
+        "-u",
+        "-B",
+        "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010\\supervise_test_feed.py",
+        "--root",
+        "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca",
+        "--runtime",
+        "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010"
+      ]
+    },
+    {
+      "pid": 26188,
+      "parent": 47776,
+      "creation_filetime": 134376155920710225,
+      "executable": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\pythonw.exe",
+      "executable_sha256": "2198767147bdf67a45da63ad9a35900b4ca8e628fedca13873ae50cf5805c810",
+      "arguments": [
+        "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+        "-u",
+        "-B",
+        "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010\\supervise_test_feed.py",
+        "--root",
+        "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca",
+        "--runtime",
+        "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010"
+      ]
+    },
+    {
+      "pid": 126792,
+      "parent": 26188,
+      "creation_filetime": 134376155988861503,
+      "executable": "c:\\users\\dadhie\\.codex\\worktrees\\pr3-binance-validation\\wsrtd\\.venv\\scripts\\pythonw.exe",
+      "executable_sha256": "a65d1a6d6902770b068e31d526854c4c7a09f5cfecca9c212b11c9339d25e1a2",
+      "arguments": [
+        "C:\\Users\\dadhie\\.codex\\worktrees\\pr3-binance-validation\\WSRTD\\.venv\\Scripts\\pythonw.exe",
+        "-u",
+        "-B",
+        "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+        "18101",
+        "--protocol",
+        "path"
+      ]
+    },
+    {
+      "pid": 119852,
+      "parent": 126792,
+      "creation_filetime": 134376155988978509,
+      "executable": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\pythonw.exe",
+      "executable_sha256": "2198767147bdf67a45da63ad9a35900b4ca8e628fedca13873ae50cf5805c810",
+      "arguments": [
+        "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+        "-u",
+        "-B",
+        "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py",
+        "18101",
+        "--protocol",
+        "path"
+      ]
+    },
+    {
+      "pid": 114976,
+      "parent": 25524,
+      "creation_filetime": 134376156654945864,
+      "executable": "d:\\wsrtd_binance_usdm_stack\\autotrader\\cleanroomr2\\stack\\.venv\\scripts\\python.exe",
+      "executable_sha256": "d55736b9f3d6b4ca7985b82db8ce11edfa09994cf93ce31c6b506543b74f32eb",
+      "arguments": [
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\.venv\\Scripts\\python.exe",
+        "-u",
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\stack_launcher.py",
+        "--dbname",
+        "Data",
+        "--relay-port",
+        "10101"
+      ]
+    },
+    {
+      "pid": 62440,
+      "parent": 114976,
+      "creation_filetime": 134376156655257993,
+      "executable": "c:\\users\\dadhie\\appdata\\local\\programs\\python\\python312\\python.exe",
+      "executable_sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0",
+      "arguments": [
+        "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        "-u",
+        "D:\\wsrtd_binance_usdm_stack\\autotrader\\CleanRoomR2\\stack\\stack_launcher.py",
+        "--dbname",
+        "Data",
+        "--relay-port",
+        "10101"
+      ]
+    },
+    {
+      "pid": 92688,
+      "parent": 62440,
+      "creation_filetime": 134382166690052304,
+      "executable": "c:\\program files\\amibroker\\broker.exe",
+      "executable_sha256": "30a6b5f3f027d6c2df50612c9e6a61ee1f23db135c35cb9d0f5c02b5d68a3b81",
+      "arguments": [
+        "C:\\Program Files\\AmiBroker\\Broker.exe"
+      ]
+    }
+  ],
+  "listeners10101": [
+    116276
+  ],
+  "listeners18101": [
+    119852
+  ],
+  "controls_executed": 0,
+  "connections_opened": 0
+}

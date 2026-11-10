@@ -1,0 +1,10 @@
+{
+  "status": "PASS_OFFLINE_TESTED_CASES",
+  "evidence": [
+    "independent/receiver_results.json",
+    "independent/native_results.json"
+  ],
+  "durable_final_write": "NOT_IMPLEMENTED",
+  "native_array_final_pending_and_SQLite_dedup": "TESTED",
+  "historical_prefix": "NOT_ESTABLISHED"
+}

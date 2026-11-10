@@ -1,0 +1,26 @@
+{
+  "activation_contract": "QUALIFIED_SOURCE_ONLY",
+  "configured_symbols": 500,
+  "nominal_market_ws": 5,
+  "nominal_public_ws": 5,
+  "subscriptions_with_quotes": 1500,
+  "initial_exchange_info_requests": 1,
+  "preload_per_symbol": {
+    "minute_rows": 1500,
+    "daily_rows": 300,
+    "max_page": 499,
+    "nominal_kline_pages": 5
+  },
+  "nominal_preload_kline_requests": 2500,
+  "unbounded_paths": [
+    "six_attempt_request_retries",
+    "preload_retry_loop",
+    "commands",
+    "reconnect",
+    "gap_repair"
+  ],
+  "aggregate_production_budget": "BLOCKED",
+  "candidate_budget": "src/pipeline.py Budget, offlineonly; zeroREST denies every reserve",
+  "fullprefix_limit": "legacy repair truncates to configured1500m/300d orhistory_days; not complete since listing",
+  "request_weight_authority": "requires contemporaneous official endpoint weight verification and shared-IP allocation; no reservation made"
+}

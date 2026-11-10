@@ -1,0 +1,9 @@
+# R6 independent relay
+
+The tested path is actual loopback WebSocket -> admitted backend -> TCP sender -> separate Python relay process -> TCP receiver -> R3 forming/durable pipeline -> named pipe -> compiled R6 DLL. It does not use the direct Handoff path to qualify relay integration.
+
+Both relay ingress and receiver validate HMAC, canonical JSON, schema, source/session/universe generation, sequence, receipt, raw-source linkage, USD-M symbol, finality, UTC minute and OHLCV. The relay commits receipt/sequence/hash before forwarding and waits for the receiver acknowledgment. The receiver commits finalized history before acknowledgment. Corrupt, duplicate, truncated, oversized, stale, replayed and mismatched frames close the session. Restart uses a new generation and new ledger; old generation replay is rejected. This is not automatic crash-resume or exactly-once recovery.
+
+Each frame has a 3-second aggregate read deadline. Startup readiness is bounded; partial failure cleanup only controls the exact test-owned Popen child and sockets. Normal cleanup closes sockets and waits; an unresponsive test child may be terminated by its owned process handle. No production process is controlled. Delivery failure marks the receiver disconnected. Idle relay-death propagation still needs an independent lifecycle monitor; native five-second freshness remains a separate safeguard.
+
+Source provenance stays SYNTHETIC_FIXTURE. Key possession is not genuine Binance custody or OS TCP peer ownership. No source-prefix certificate exists. Prior native failures and their partial diagnosis are retained in evidence/NATIVE_FAILURE_HISTORY.json. The revised interleaved fixture passes fresh and explicitly disconnected readback without changing freshness thresholds. Same-forming-minute-to-finalized transition at a real minute boundary remains an additional targeted integration gap; the present native fixture uses a previous finalized minute and current forming updates.

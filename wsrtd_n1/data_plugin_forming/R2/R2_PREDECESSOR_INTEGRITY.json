@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "sha256": {
+    "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R1\\REPORT.md": "e1b0eaadaf5d3016a7f3b7d6a1f8e1c18be16128938b57fdbfc5cc2c7431e691",
+    "D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R1\\FINAL_DISPOSITION.json": "b36e152b1cc553241ae1cbbbd3d4c72891cb1be04c4a57bd7869d46024d79f74",
+    "D:\\WSRTD_OWNED_CPP_N1_20261028_R1\\candidate\\native\\owned_plugin.cpp": "73f7981797cb9cb60700579f1756b4182db8b3bf6de0677be7e864d15b5c58af",
+    "D:\\WSRTD_OWNED_CPP_N1_20261028_R1\\candidate\\native\\owned_reader.cpp": "78b89de0e92424922b6d6ce0166d6d06af417749fa5fbb0eaa2e7260f60189d6",
+    "C:\\Program Files\\AmiBroker\\Plugins\\WSRTD_Owned_N1_DATABASE_BOUND.dll": "ae7f6bc4e9ec61c3103b48d8ee43769173b44ed1619aa61ffbcc15b513af4179"
+  }
+}

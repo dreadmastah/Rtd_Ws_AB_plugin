@@ -1,0 +1,10 @@
+{
+  "tests": 16,
+  "failures": [],
+  "errors": [],
+  "passed": true,
+  "source_sha256": "786f052b7b330ce7d68d90991952e27ce56c7c876cc8dde6aa3d8824b86b02d3",
+  "network_requests": 0,
+  "production_mutations": 0,
+  "actual_amibroker": false
+}

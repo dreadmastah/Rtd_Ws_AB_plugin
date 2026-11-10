@@ -1,0 +1,48 @@
+{
+  "passed": true,
+  "live_fixture": {
+    "rows": [
+      {
+        "symbol": "BTCUSDT",
+        "bars": 2,
+        "close": 102,
+        "volume": 3
+      },
+      {
+        "symbol": "ETHUSDT",
+        "bars": 2,
+        "close": 102,
+        "volume": 3
+      }
+    ],
+    "symbols_returned": 2,
+    "notifications": 3,
+    "callback_mean_us": 3.8,
+    "callback_max_us": 6.8,
+    "native_peak_working_set_bytes": 5414912
+  },
+  "disconnected_fixture": {
+    "rows": [
+      {
+        "symbol": "BTCUSDT",
+        "bars": 1,
+        "close": 101,
+        "volume": 1
+      },
+      {
+        "symbol": "ETHUSDT",
+        "bars": 1,
+        "close": 101,
+        "volume": 1
+      }
+    ],
+    "symbols_returned": 2,
+    "notifications": 3,
+    "callback_mean_us": 3.1,
+    "callback_max_us": 5.5,
+    "native_peak_working_set_bytes": 5406720
+  },
+  "forming_removed_on_disconnect": true,
+  "durable_history_preserved": true,
+  "actual_host": false
+}

@@ -1,0 +1,13 @@
+{
+  "references": {
+    "D:\\WSRTD_N1_POST_R3_FULL_PREFIX_BOOTSTRAP_20261102_R2\\IMPLEMENTATION_REPORT.md": "c2007e42aec78941d7484795fb178a9473884bb522651d4f90c097fedd75df96",
+    "D:\\WSRTD_N1_POST_R3_FULL_PREFIX_BOOTSTRAP_20261102_R2\\FINAL_DISPOSITION.json": "458b31571e010ed34709a5eb1275b5e5c5567a1094aa0b96ae362a355e9491ab",
+    "D:\\WSRTD_N1_POST_R3_FULL_PREFIX_BOOTSTRAP_20261102_R2\\src\\handoff.py": "8d3bd2b6ec168671afc13246a322b4777b139b146b4f03a4772bab80639591c4",
+    "D:\\WSRTD_N1_POST_R3_FULL_PREFIX_BOOTSTRAP_20261102_R2\\src\\coverage.py": "32fa5f19a367cbbc33dc013adb42b82a24ce7b01f3dd08c0d930a52ce3be9dfa"
+  },
+  "archive_admission": "still denied by governing require_r3_admission",
+  "newcoverage": "exactlisting-ceiling/minuterecurrence, localledger linkage only",
+  "structural_complete_not_provenance": true,
+  "full_prefix_qualified": false,
+  "production_changes": 0
+}

@@ -1,0 +1,62 @@
+{
+  "reviewer": "independent agent /root/forming_r2_review; implementation author /root",
+  "completed_utc": "2026-11-04T00:17:25.134366+00:00",
+  "status": "PASS_SCOPED_OFFLINE_FIXTURE_IMPLEMENTATION_REVIEW",
+  "release_or_live_approval": false,
+  "scope": "Exact isolated synthetic receiver, disposable SQLite merge, x64 data DLL, native callback and private-window refresh; not genuine feed or actual AmiBroker acceptance",
+  "independent_tests": {
+    "receiver_passed": 16,
+    "native_passed": 30,
+    "native_type": "actual compiled DLL callbacks; own process and private same-thread window",
+    "actual_amibroker": false
+  },
+  "reviewed_hashes": {
+    "native/plugin.cpp": "4723cc6f328f2e416f72fb6c221c077a877eaefdc2affd8ccfc1ffbc1380b640",
+    "native/CMakeLists.txt": "c10d7724bab020fb5dff75118c3f3ef2b5773f65e0a0a5c59c3285eb57900e65",
+    "transport.py": "786f052b7b330ce7d68d90991952e27ce56c7c876cc8dde6aa3d8824b86b02d3",
+    "fixture_pipe.py": "5e154394995fe68ed530814f83757566b62ecb9161ae1d6e06fc5b48fe5157c9",
+    "artifacts/WSRTD_Data_Forming_R2.dll": "8ac9987e6588b3c8f5c1ce7b35481e931a58b6145672b8fa09ed570ad547ec01",
+    "tests/native_probe.cpp": "e612576401721479bf62e8ec27653078270ad8c2190956042414bb7478676c8e",
+    "independent/test_receiver.py": "53f88dd864b292826990a17552bd8f9977e5b6b94465037d81e1353a57285013",
+    "independent/test_native.py": "f3d5fbc0e8b3f728dbcbf3a92756cb5bd784d4a587428020e3022fe6f70090e6",
+    "independent/native_results.json": "bb44b8aab4c2acade5a1ed66c84a4c80629b1161a5993b41c5865d320a42ac85",
+    "independent/receiver_results.json": "6f12954ef5f2779b7174afe9e0e0ba2f11727b5d50f1d101c502af8d07253273",
+    "dependencies/adk/Plugin.h": "d86069adf9a2720153b9e09c5a9605890e9e6618382a0636565a76d8425ee6a6",
+    "R2_18101_PROCESS_AND_SOURCE_CHAIN.json": "bd293b9fdabda7de73340c1f21d66436448dd2a9a2fea2531d60724df360c0b9",
+    "R2_RESOURCE_MEASUREMENTS.json": "97c70fab7899f81a72677ae6f6cfea54f2cedf55c8679a8a02661f555b7eb471"
+  },
+  "closed_findings": [
+    "Late-final per-bucket processing replaces predecessor per-symbol timestamp suppression.",
+    "Disconnect and stale transition now invalidate the host cache via supported WM_USER_STREAMING_UPDATE.",
+    "Old serial and changed same-serial snapshot replay are rejected.",
+    "Decimal-equivalent history compares numerically; historical snapshot regression rejected.",
+    "Malformed deep JSON fails closed; finalized-pending backlog backpressures instead of evicting history.",
+    "Native callback map access uses guard and lifecycle epoch; lifecycle operations use recursive nonblocking gate.",
+    "Worker pipe handles have RAII cleanup across exceptions; worker exceptions cannot escape thread entry."
+  ],
+  "source_chain_assessment": {
+    "metadata_loss": "Confirmed sender.record serializes n,d,t,o,h,l,c,v and drops x/E; self.seen is not forwarded provenance.",
+    "current_producer": "UNVERIFIED; zero relay connections alone does not prove upstream inactivity.",
+    "running_sender_version_bound": false,
+    "protocol_correction_deployed": false
+  },
+  "mandatory_remaining_gates": [
+    "Fixture-only candidate rejects genuine provenance. Independently qualified real producer custody/admission is not implemented.",
+    "Full-prefix certificate is not implemented: IsBackfillComplete always false; source status is red, prefix false. No production admission exists.",
+    "Only disposable OUTPUT_ROOT databases are supported. Protected historical database loading and production migration are not approved.",
+    "65536 total snapshot rows, 1024 symbols and four pending live buckets per symbol are explicit bounds; full-history lifetime capacity unqualified.",
+    "Scale measurements use short synthetic snapshots, not sustained genuine 500+ traffic. Foundational13 identity and600 eligible-symbol universe not established.",
+    "Source precision retained as decimal strings; snapshot and ADK quotation conversion is floating-point and actual AmiBroker rounding/readback remains untested.",
+    "Actual AmiBroker7.20 native load, callback ordering, refresh/chart behavior, persistent history and safe host unload remain NOT_EXECUTED.",
+    "No genuine18101 connection, producer restoration, sender change, DLL installation or host lifecycle action is authorized by this review.",
+    "Finite lifecycle concurrency tests are not exhaustive race or memory fault qualification. Live upgrade needs its own final-source tests and review."
+  ],
+  "nonmutation": {
+    "production_process_controls": 0,
+    "protected_relay_connections": 0,
+    "binance_connections": 0,
+    "installed_dll_changes": 0,
+    "historical_database_writes": 0
+  },
+  "overall": "BLOCKED_GENUINE_PRODUCER_CUSTODY_FULL_PREFIX_ADMISSION_AND_REAL_HOST_ACCEPTANCE"
+}

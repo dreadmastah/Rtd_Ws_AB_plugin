@@ -1,0 +1,22 @@
+{
+  "status": "BLOCKED_WRITER_CUSTODY",
+  "producer": "OS process attestation and exact code-set checks implemented; future approval identity UNBOUND",
+  "controller_sender_receiver": "Phase A uses same held process; no protected relay",
+  "relay": "R7 peer checks preserved but not required for standalone Phase A raw receipt",
+  "data_plugin": "R7 fixture-only DLL preserved; not part of Phase A",
+  "writer_test": {
+    "passed": false,
+    "checks": [
+      "SSL_CERT_FILE",
+      "SSL_CERT_DIR",
+      "FAIL: parent rename succeeded while handles held",
+      "held identity and invalid approval rejection"
+    ],
+    "writer_custody": "BLOCKED",
+    "live_capture_disabled": true,
+    "external_requests": 0
+  },
+  "physical_output": "parent rename-exclusion failed; new child-directory and reparse races unqualified",
+  "production_authority": false,
+  "live_cli_disabled": true
+}

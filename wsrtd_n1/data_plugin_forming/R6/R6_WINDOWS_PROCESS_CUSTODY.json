@@ -1,0 +1,71 @@
+{
+  "status": "PASS_ISOLATED_PROCESS_OBSERVATION_ONLY",
+  "relay": {
+    "pid": 13180,
+    "creation": 134383366110171653,
+    "path": "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0"
+  },
+  "relay_port": 61041,
+  "tls_and_process_tests": {
+    "tls_cases": [
+      {
+        "hostname": "localhost",
+        "trusted_fixture_ca": true,
+        "expected_success": true,
+        "passed": true
+      },
+      {
+        "hostname": "wrong.local",
+        "trusted_fixture_ca": false,
+        "expected_success": false,
+        "passed": true
+      },
+      {
+        "hostname": "localhost",
+        "trusted_fixture_ca": false,
+        "expected_success": false,
+        "passed": true
+      }
+    ],
+    "process_identity": {
+      "pid": 7056,
+      "creation": 134383366684671303,
+      "path": "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0"
+    },
+    "wrong_creation_rejected": true,
+    "observed_identity_is_not_authorization": true,
+    "external_connections": 0
+  },
+  "controller_tests": [
+    {
+      "case": "ws",
+      "pass": true
+    },
+    {
+      "case": "ws_bad",
+      "pass": true
+    },
+    {
+      "case": "wrong_producer",
+      "pass": true
+    },
+    {
+      "case": "wrong_receiver",
+      "pass": true
+    },
+    {
+      "case": "wrong_authority",
+      "pass": true
+    }
+  ],
+  "actual_peer_tuple_to_pid": false,
+  "production_authority": false,
+  "limitations": [
+    "Relay child PID creation image attested through Windows handle; script identity separately manifest-bound",
+    "role authentication proves inherited-secret possession, not Windows socket peer PID",
+    "producer and receiver remain in controller process in harness",
+    "Genuine source authority absent"
+  ]
+}

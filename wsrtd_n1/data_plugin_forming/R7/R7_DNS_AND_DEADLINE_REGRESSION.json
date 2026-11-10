@@ -1,0 +1,21 @@
+{
+  "status": "PASS_ISOLATED_WITH_OS_LIMITATION",
+  "cases": [
+    {
+      "delay": 0,
+      "cancelled": false,
+      "elapsed": 0.0940000000409782
+    },
+    {
+      "delay": 2,
+      "cancelled": true,
+      "elapsed": 0.8119999999180436
+    }
+  ],
+  "method": "owned resolver subprocess terminated/reaped on timeout",
+  "limitations": [
+    "No Windows hard real-time termination guarantee",
+    "OS DNS infrastructure may outlive caller cancellation; no external resolution tested",
+    "External address policy and actual TLS route remain unqualified"
+  ]
+}

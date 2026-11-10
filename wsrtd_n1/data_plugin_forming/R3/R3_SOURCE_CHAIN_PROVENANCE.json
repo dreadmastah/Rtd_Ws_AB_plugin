@@ -1,0 +1,11 @@
+{
+  "source_sha256": {
+    "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010\\supervise_test_feed.py": "da149ca45e28cc0e9d58b7272c5160ac32c5b13628bdff39d8ead0bb9d479952",
+    "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Binance\\sender.py": "3c284c0cfae0365b1f10cb43b61c693f6dfe96730cb0dcc8d51da1703d339e66",
+    "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Relay\\Server\\Python\\relay.py": "e5e9583758c78ebae0d4ed50554aa03727f57086d0245ae226d553fb129833ea",
+    "D:\\WSRTD_PR3_Test_20261010\\persistent-feed-20261010\\selected-symbols.txt": "94c8e6fbc3b6126234dac41711be496936b50304bb0985d0e52152fb39b63b36"
+  },
+  "production_changes": 0,
+  "live_output_observed": false,
+  "running_sender": "not started by task"
+}

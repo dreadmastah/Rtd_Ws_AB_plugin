@@ -1,0 +1,8 @@
+{
+  "status": "PASS_OFFLINE_INHERITED_R3_PRIVATE_WINDOW_ONLY",
+  "actual_chart": "NOT_EXECUTED",
+  "genuine_event_native_binding": "BLOCKED",
+  "DLL_sha256": "f0b09413fa555ea85781b8745fc6c1108e6edf7f6189fa00bfdc35e098d77647",
+  "full_prefix_policy": "PRESERVED_FAIL_CLOSED",
+  "no_R3_rebuild": true
+}

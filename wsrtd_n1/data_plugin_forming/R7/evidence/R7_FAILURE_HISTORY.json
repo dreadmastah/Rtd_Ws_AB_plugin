@@ -1,0 +1,13 @@
+{
+  "source": "Execution tool observations retained as narrative, not recovered raw stderr files",
+  "failures": [
+    "Initial repeated final rejected: changed local receipt made final immutable comparison fail",
+    "Boundary-adjacent forming event expired in transit; admission correctly rejected"
+  ],
+  "corrections": [
+    "Exact exchange-field duplicate final permits different local receipt, retains original cached receipt",
+    "Fixture stops forming emission one second before real minute boundary"
+  ],
+  "final_evidence": "R7_SAME_MINUTE_FINALIZATION.json",
+  "predecessor_failures_preserved": true
+}

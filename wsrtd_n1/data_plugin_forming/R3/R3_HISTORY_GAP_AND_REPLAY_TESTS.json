@@ -1,0 +1,14 @@
+{
+  "evidence": [
+    "R3_SQLITE_TRANSACTION_ACCEPTANCE.json",
+    "R3_END_TO_END_EVENT_REPLAY.json"
+  ],
+  "tested": [
+    "missingminute refusesstructuralcomplete",
+    "latefinal closesexactgap",
+    "replayidempotent",
+    "corruptedledger fails",
+    "prefixqualification remainsfalse"
+  ],
+  "archive_handoff_execution": "NOT_IMPLEMENTED"
+}

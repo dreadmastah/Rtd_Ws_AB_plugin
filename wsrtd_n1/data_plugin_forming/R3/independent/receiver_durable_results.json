@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "tests": 20,
+  "failures": [],
+  "hashes": {
+    "src/durable.py": "cc2fcb1750ebf310789ebb2149f444fd49bb8391b3d98d115c8446e7ba6faefa",
+    "src/pipeline.py": "53dd2237e0e7d4a09af8fd7817cd313be312ba507ca3d8af1a2bce44b2f7a3ae",
+    "src/transport.py": "786f052b7b330ce7d68d90991952e27ce56c7c876cc8dde6aa3d8824b86b02d3"
+  },
+  "network_requests": 0,
+  "production_writes": 0
+}

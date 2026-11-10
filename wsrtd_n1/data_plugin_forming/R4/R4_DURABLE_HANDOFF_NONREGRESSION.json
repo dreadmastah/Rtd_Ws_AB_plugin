@@ -1,0 +1,8 @@
+{
+  "dependency_hashes_match": true,
+  "R3_manifest_unchanged": true,
+  "two_symbol_committed_rows": "tested",
+  "duplicate_commit": "idempotent",
+  "full_prefix": "remainsfalse",
+  "production_storage_writes": 0
+}

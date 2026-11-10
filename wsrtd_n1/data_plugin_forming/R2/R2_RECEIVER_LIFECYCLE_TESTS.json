@@ -1,0 +1,17 @@
+{
+  "evidence": [
+    "evidence/AUTHOR_TESTS.json",
+    "independent/native_results.json"
+  ],
+  "tested": [
+    "disconnect removes forming",
+    "history survives disconnect",
+    "unload clears binding",
+    "owner creation mismatch",
+    "owner PID mismatch",
+    "old session",
+    "protected database refusal",
+    "private UI refresh on disconnect"
+  ],
+  "status": "PASS_OFFLINE_TESTED_CASES"
+}

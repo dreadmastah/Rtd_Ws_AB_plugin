@@ -1,0 +1,64 @@
+{
+  "status": "PASS_ISOLATED_EXACT_POLICY_ONLY",
+  "cases": [
+    {
+      "case": "ws://fstream.binance.com/market/ws/btcusdt@kline_1m",
+      "pass_case": true
+    },
+    {
+      "case": "wss://dstream.binance.com/market/ws/btcusdt@kline_1m",
+      "pass_case": true
+    },
+    {
+      "case": "wss://fstream.binance.com/ws/btcusdt@kline_1m",
+      "pass_case": true
+    },
+    {
+      "case": "wss://fstream.binance.com/market/ws/btcusdt@kline_1m/ethusdt@kline_1m",
+      "pass_case": true
+    },
+    {
+      "case": "wss://fstream.binance.com/market/ws/btcusdt@kline_1m?streams=evil",
+      "pass_case": true
+    },
+    {
+      "case": "wss://fstream.binance.com:444/market/ws/btcusdt@kline_1m",
+      "pass_case": true
+    },
+    {
+      "case": "wss://fstream.binance.com/market/ws/btcusdt@kline_1m#x",
+      "pass_case": true
+    },
+    {
+      "case": "wss://fstream.binance.com/market/ws/ethusdt@kline_1m",
+      "pass_case": true
+    },
+    {
+      "case": "success",
+      "pass_case": true,
+      "connections": 1
+    },
+    {
+      "case": "zero_rest",
+      "pass_case": true,
+      "connections": 0
+    },
+    {
+      "case": "extra_subscription",
+      "pass_case": true,
+      "connections": 0
+    },
+    {
+      "case": "reconnect",
+      "pass_case": true,
+      "connections": 0
+    },
+    {
+      "case": "expired",
+      "pass_case": true,
+      "connections": 0
+    }
+  ],
+  "external_dispatch_implemented": false,
+  "live_activation": false
+}

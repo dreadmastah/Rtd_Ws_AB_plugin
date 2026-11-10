@@ -1,0 +1,75 @@
+{
+  "passed": true,
+  "path": "realWSloopback->admittedbackend->TCPsender->independentV3relay->TCPreceiver->disposablecommit->namedpipe->compiledGetQuotesEx",
+  "relay_identity": {
+    "pid": 13180,
+    "creation": 134383366110171653,
+    "path": "C:\\Users\\dadhie\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "sha256": "42ac541168e97dedb9aabd8be335539fc41c682e414b9e8d137b164fb68683b0"
+  },
+  "relay_port": 61041,
+  "receipts": [
+    {
+      "sequence": 1,
+      "receipt": "c05e21d0e85cbd13cb64ea8a71c81e1a",
+      "result": "DURABLE_FINALIZED:COMMITTED"
+    },
+    {
+      "sequence": 2,
+      "receipt": "5f86d5e434d6499e6dbf7ee250db61c6",
+      "result": "DURABLE_FINALIZED:COMMITTED"
+    },
+    {
+      "sequence": 3,
+      "receipt": "fd5fa7ab91003acc96bad23511a8e4c7",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 4,
+      "receipt": "da75b87349074dd2e0c6dd8098eacfba",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 5,
+      "receipt": "2fdeb67a1e343d9793fc7e833d1beace",
+      "result": "ACCEPTED"
+    },
+    {
+      "sequence": 6,
+      "receipt": "eed0705745408955263ea444a990a625",
+      "result": "ACCEPTED"
+    }
+  ],
+  "source_events": [
+    "DURABLE_FINALIZED:COMMITTED",
+    "DURABLE_FINALIZED:COMMITTED",
+    "ACCEPTED",
+    "ACCEPTED",
+    "ACCEPTED",
+    "ACCEPTED"
+  ],
+  "native": {
+    "rows": [
+      {
+        "symbol": "BTCUSDT",
+        "bars": 2,
+        "close": 102,
+        "volume": 3
+      },
+      {
+        "symbol": "ETHUSDT",
+        "bars": 2,
+        "close": 102,
+        "volume": 3
+      }
+    ],
+    "symbols_returned": 2,
+    "notifications": 3,
+    "callback_mean_us": 3.8,
+    "callback_max_us": 6.8,
+    "native_peak_working_set_bytes": 5414912
+  },
+  "source_provenance": "SYNTHETIC_FIXTURE",
+  "genuine_receipt": false,
+  "actual_amibroker": false
+}

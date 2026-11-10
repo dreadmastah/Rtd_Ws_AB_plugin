@@ -1,0 +1,74 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "corrupt",
+      "passed": true,
+      "relay_pid": 74328,
+      "exit_code": 0
+    },
+    {
+      "case": "duplicate",
+      "passed": true,
+      "relay_pid": 84676,
+      "exit_code": 0
+    },
+    {
+      "case": "truncated",
+      "passed": true,
+      "relay_pid": 25864,
+      "exit_code": 0
+    },
+    {
+      "case": "oversize",
+      "passed": true,
+      "relay_pid": 66468,
+      "exit_code": 0
+    },
+    {
+      "case": "stale_session",
+      "passed": true,
+      "relay_pid": 99784,
+      "exit_code": 0
+    },
+    {
+      "case": "stale_generation",
+      "passed": true,
+      "relay_pid": 130156,
+      "exit_code": 0
+    },
+    {
+      "case": "wrong_universe",
+      "passed": true,
+      "relay_pid": 43012,
+      "exit_code": 0
+    },
+    {
+      "case": "metadata_mismatch",
+      "passed": true,
+      "relay_pid": 51024,
+      "exit_code": 0
+    },
+    {
+      "case": "invalid_finality",
+      "passed": true,
+      "relay_pid": 24344,
+      "exit_code": 0
+    },
+    {
+      "case": "connection_loss",
+      "passed": true,
+      "relay_pid": 119968,
+      "exit_code": 0
+    },
+    {
+      "case": "restart_replay",
+      "passed": true,
+      "relay_pid": 5408,
+      "exit_code": 0
+    }
+  ],
+  "independent_process": true,
+  "actual_tcp": true,
+  "external_connections": 0
+}

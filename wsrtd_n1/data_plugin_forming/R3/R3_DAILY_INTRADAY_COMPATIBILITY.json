@@ -1,0 +1,9 @@
+{
+  "daily_complete1440UTC": "PASS_OFFLINE",
+  "daily_gap": "PASS_OFFLINE_REJECT",
+  "DAILY_MASK": "PASS_OFFLINE",
+  "weekly_host_compression": "BLOCKED",
+  "mixed_host_settings": "BLOCKED_UNATTESTED",
+  "Windows_local_not_boundary": true,
+  "evidence": "evidence/native_results.json"
+}

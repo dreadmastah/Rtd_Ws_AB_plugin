@@ -1,0 +1,82 @@
+{
+  "synthetic": true,
+  "tests": [
+    {
+      "test": "BTCUSDT_missing",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_first",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_duplicate",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_OHLCV_replace",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_out_of_order",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_old_session",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_auth",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_version",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_final_before_close",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_new_minute",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_missing_final_not_promoted",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_late_final",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_final_no_duplicate",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_final_immutable",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_disconnect",
+      "pass": true
+    },
+    {
+      "test": "BTCUSDT_disconnected_reject",
+      "pass": true
+    }
+  ],
+  "status": {
+    "connected": false,
+    "symbol_states": {
+      "BTCUSDT": "STALE"
+    },
+    "invalid_events": {
+      "last": "disconnected session"
+    },
+    "missing_final_buckets": [],
+    "full_prefix_complete": false,
+    "provenance": "SYNTHETIC_FIXTURE",
+    "native_history_readback_proven": false
+  }
+}

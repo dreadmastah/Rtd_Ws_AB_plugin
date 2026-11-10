@@ -1,0 +1,7 @@
+{
+  "status": "PASS_OFFLINE_PRIVATE_WINDOW",
+  "evidence": "evidence/native_results.json",
+  "actual_chart_refresh": "NOT_EXECUTED",
+  "notification": "WM_USER+13000 owner-thread synchronous; bounded3retries/revision",
+  "genuine_commit_to_chart_latency": "NOT_MEASURED"
+}

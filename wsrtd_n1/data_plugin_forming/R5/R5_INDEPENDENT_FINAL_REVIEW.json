@@ -1,0 +1,128 @@
+{
+  "review": "R5 independent final source and isolated real-socket review",
+  "reviewer": "/root/forming_r2_review",
+  "utc": "2026-11-04T13:06:30.747992+00:00",
+  "status": "PASS_SCOPED_ISOLATED_REAL_SOCKET_AND_NATIVE_FIXTURE_REVIEW",
+  "overall_genuine_activation": "BLOCKED",
+  "source_and_binary_hashes": {
+    "src\\admission.py": "ee40db4bf60a2bc7fc327a650f7817ddf43175538f3419f4c575bcbbf29b6bf1",
+    "src\\controller.py": "c4d41b3430a2a55bc7c789cdd06f089be55a0da07e7cc46d0cb54a2245e21bee",
+    "src\\custody.py": "e9ee5f5b7f7bdae205d2d2d917d0196f50fd77d7410900b63bc65fd476cfe0c6",
+    "src\\fixture_pipe.py": "113f7156dab536066b571ce47de7da533d3c976145aab34a48ad16877acf9d4b",
+    "src\\handoff.py": "5b5dfc2c4be02478ded7978a24dde3322d7ecf1984dc30e472bd27547ad07d4a",
+    "src\\network.py": "6befa16e3bf778d957fdaed73174bc42e138ce1111254af9f6e7c0b0c7085449",
+    "native\\CMakeLists.txt": "0e90d73942bd5a5fa17666261ecfc04d963f78b0242c19b72ff3bc51f7b1177b",
+    "native\\plugin.cpp": "6430f1eb286de274c1cfbbbcb670f8dd8314c5a2052496b5faf5e429a35a5332",
+    "artifacts\\WSRTD_Data_Forming_R5.dll": "98fdf9d713e9200294ad5c111ed459de96d5b416e30a49726347b7f506b2f84b",
+    "independent\\test_final_edges.py": "17e96e9666974070c5c07f9d4828fd09e83a04d9b8fbab6f8744e770bcad79ad",
+    "independent\\test_socket.py": "f5c9fbfbc9541ad3cb03f6d0ba26db2dcbafc229b038e53a1a5b48fa009a88b7"
+  },
+  "independent_tests": {
+    "passed": false,
+    "tests": 18,
+    "failures": [
+      [
+        "test_timeout_cleanup (__main__.Edges.test_timeout_cleanup)",
+        "Traceback (most recent call last):\n  File \"D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R5\\independent\\test_socket.py\", line 33, in test_timeout_cleanup\n    self.assertLess(time.monotonic()-start,1.5);self.assertFalse(b.sockets);self.assertEqual(s.count,1)\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 1.608999999705702 not less than 1.5\n"
+      ]
+    ],
+    "source_hashes": {
+      "src\\admission.py": "ee40db4bf60a2bc7fc327a650f7817ddf43175538f3419f4c575bcbbf29b6bf1",
+      "src\\controller.py": "c4d41b3430a2a55bc7c789cdd06f089be55a0da07e7cc46d0cb54a2245e21bee",
+      "src\\custody.py": "e9ee5f5b7f7bdae205d2d2d917d0196f50fd77d7410900b63bc65fd476cfe0c6",
+      "src\\fixture_pipe.py": "113f7156dab536066b571ce47de7da533d3c976145aab34a48ad16877acf9d4b",
+      "src\\handoff.py": "5b5dfc2c4be02478ded7978a24dde3322d7ecf1984dc30e472bd27547ad07d4a",
+      "src\\network.py": "6befa16e3bf778d957fdaed73174bc42e138ce1111254af9f6e7c0b0c7085449"
+    },
+    "external_requests": 0,
+    "production_changes": 0
+  },
+  "native_e2e_independently_rerun": true,
+  "native_e2e": {
+    "passed": true,
+    "path": "realWSloopback->admittedbackend->V3handoff->disposablecommit->namedpipe->compiledGetQuotesEx",
+    "source_events": [
+      "DURABLE_FINALIZED:COMMITTED",
+      "ACCEPTED",
+      "ACCEPTED",
+      "DURABLE_FINALIZED:COMMITTED",
+      "ACCEPTED",
+      "ACCEPTED"
+    ],
+    "native": {
+      "rows": [
+        {
+          "symbol": "BTCUSDT",
+          "bars": 2,
+          "close": 102,
+          "volume": 3
+        },
+        {
+          "symbol": "ETHUSDT",
+          "bars": 2,
+          "close": 102,
+          "volume": 3
+        }
+      ],
+      "symbols_returned": 2,
+      "notifications": 3,
+      "callback_mean_us": 3.5,
+      "callback_max_us": 6.1,
+      "native_peak_working_set_bytes": 5419008
+    },
+    "source_provenance": "SYNTHETIC_FIXTURE",
+    "genuine_receipt": false,
+    "actual_amibroker": false
+  },
+  "closed_findings": [
+    "Persistent WebSocket reconnect debit survives Backend/Controller restart",
+    "Nullable socket cleanup and TLS watcher ownership race",
+    "Bounded admitted PING/PONG handling verified over real sockets",
+    "Per-receive pipeline session/universe/symbol binding and subscribed-symbol guard",
+    "ControlledSession binds producer to current socket-owning process and checks custody after receive"
+  ],
+  "scope": [
+    "Literal loopback real HTTP/WS and fixture TLS only; protected ports rejected",
+    "Committed aggregate budget before dispatch; no hidden retries, DNS, redirects or proxy inheritance",
+    "Exact Windows process identity observation and mismatch refusal",
+    "Synthetic finalized/forming event pipeline and compiled GetQuotesEx; not actual AmiBroker"
+  ],
+  "unresolved_gates": [
+    "No external Binance request or genuine source custody qualification",
+    "No actual 18101 integration or protected service change",
+    "No full-prefix certificate: IsBackfillComplete remains FALSE",
+    "No actual AmiBroker chart, refresh, daily UI or 500+ live acceptance",
+    "Receiver death during an in-flight read is bounded by operation deadline; no continuous OS-custody watchdog proof",
+    "Loopback TLS fixtures do not qualify Binance endpoint routing, metadata identity or production shared-IP budget",
+    "No production or deployment authorization",
+    "No separate V3 relay process; synthetic source-to-receiver handoff remains in-process"
+  ],
+  "counts": {
+    "external_requests": 0,
+    "protected_port_connections": 0,
+    "production_mutations": 0,
+    "amibroker_execution": 0
+  },
+  "timing_recheck": {
+    "results": [
+      {
+        "elapsed_seconds": 1.3440000000409782,
+        "sockets_closed": true,
+        "attempts": 1
+      },
+      {
+        "elapsed_seconds": 1.4219999997876585,
+        "sockets_closed": true,
+        "attempts": 1
+      },
+      {
+        "elapsed_seconds": 1.4059999999590218,
+        "sockets_closed": true,
+        "attempts": 1
+      }
+    ],
+    "interpretation": "Operation transport deadline is 1 second; whole-call timing includes durable admission and host scheduling. Earlier 1.609 second outlier preserved; no strict 1.5 second end-to-end guarantee."
+  },
+  "timing_target": "BLOCKED_STRICT_1_5_SECOND_WHOLE_CALL_GUARANTEE: one final-run outlier 1.609s; three targeted reruns 1.344/1.422/1.406s. Functional timeout/no-retry/cleanup passed; admission and OS scheduling overhead included.",
+  "all_independent_runs_passed": false
+}

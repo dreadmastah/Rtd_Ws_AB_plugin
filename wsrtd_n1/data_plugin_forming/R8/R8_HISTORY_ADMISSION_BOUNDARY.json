@@ -1,0 +1,57 @@
+{
+  "status": "BLOCKED",
+  "source": "D:\\WSRTD_N1_POST_R3_FULL_PREFIX_BOOTSTRAP_20261102_R2\\FINAL_DISPOSITION.json",
+  "sha256": "458b31571e010ed34709a5eb1275b5e5c5567a1094aa0b96ae362a355e9491ab",
+  "evidence": {
+    "task_id": "WSRTD_N1_POST_R3_FULL_PREFIX_BOOTSTRAP_R2_OFFLINE_EVIDENCE_CLOSURE",
+    "result": "BLOCKED_POST_R3_FULL_PREFIX_BOOTSTRAP_R2",
+    "offline_gates": {
+      "r1_reproduction": "PASS",
+      "author_regressions_36": "PASS",
+      "independent_groups_7": "PASS",
+      "synthetic_three_month_continuity": "PASS",
+      "synthetic_leap_year_prefix": "PASS",
+      "local_receipt_linkage": "PASS",
+      "untrusted_handoff_rejection": "PASS",
+      "offline_rest_planning": "PASS",
+      "measured_single_symbol_resources": "PASS",
+      "recorded_suffix_final_source": "PASS_53932_ROWS_PREFIX_REJECTED"
+    },
+    "blocked_gates": {
+      "authoritative_provenance": "No independently qualified archive acquisition/listing/cutoff authority",
+      "r3_admission": "Sealed R3 has no qualified archive-origin admission adapter; all admission denied",
+      "actual_full_prefix": "No genuine archive acquisition; existing recorded suffix insufficient",
+      "full_universe_resources": "Only one synthetic year measured; no lifetime/full-universe allocation",
+      "live_readiness": "Not authorized or tested"
+    },
+    "verified_provenance": false,
+    "full_prefix_qualified": false,
+    "live_ready": false,
+    "release_sealed": false,
+    "network_requests": 0,
+    "production_mutations": 0,
+    "native_execution": false,
+    "source_sha256": {
+      "src/archive_parser.py": "d1ee578102c1b2710fb01a04ba25880accfd1a9ec416c150c0b57a6d2f5bb9a7",
+      "src/archive_store.py": "978ade3af733b280e3d6223804c9a4b98dad5deb041f4fd42083106ebbce648c",
+      "src/bootstrap.py": "98da09b3322727c238c232bb0b04adbe1e9be222ab2ac037d2745ccdb007c2b0",
+      "src/coverage.py": "32fa5f19a367cbbc33dc013adb42b82a24ce7b01f3dd08c0d930a52ce3be9dfa",
+      "src/handoff.py": "8d3bd2b6ec168671afc13246a322b4777b139b146b4f03a4772bab80639591c4",
+      "src/resource_admission.py": "434c8ff695502eeac0e17c3cf36ed6bd0de6eaabbe554cac619f41fe81c50537"
+    },
+    "independent_review": "evidence/INDEPENDENT_R2_FINAL_REVIEW.json"
+  },
+  "LIVE_FORMING_READY": "ISOLATED_SYNTHETIC_ONLY",
+  "FINALIZED_STORAGE_READY": "ISOLATED_SYNTHETIC_ONLY",
+  "FULL_PREFIX_COMPLETE": false,
+  "NATIVE_CHART_READY": false,
+  "R8_boundary": "A separately approved disposable Phase A raw receipt test need not establish full-prefix production readiness. Phase B genuine adapter still unqualified.",
+  "production_states": {
+    "GENUINE_LIVE_SOURCE_READY": false,
+    "FORMING_CANDLE_READY": "ISOLATED_ONLY",
+    "FINALIZED_STORAGE_READY": "ISOLATED_ONLY",
+    "FULL_PREFIX_COMPLETE": false,
+    "ACTUAL_NATIVE_HOST_READY": false,
+    "PRODUCTION_500_SYMBOL_READY": false
+  }
+}

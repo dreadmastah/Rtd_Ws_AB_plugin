@@ -1,0 +1,5 @@
+# No production REST authorization
+
+Initialsymbol BTCUSDT only; ETHUSDT separate after pass. Exactperiod listingceil through approvedfinalcutoff must be independently bound, excluding alreadyqualified archived ranges. Planner src/pipeline.py plan gives exact startTime/endTime/limit<=499, max600000minutes percall. Limits inheritedbootstrap600000rows/16sources are not lifetime500symbol proof. Actual requestcount cannot be specified until authoritative gaps are available.
+
+Operator must separately bind metadata and history endpoints, exactpagecount, shared-IP requestweight allocation, connection/retry ceilings, UTCstart/end, persisted checkpointnamespace and resumeauthority. Budget check is aggregate and failclosed but no real network implementation has been authorized. ZeroREST mode in candidate denies allrequests; installedsender has no equivalent guarantee. Rollback preserves committedhistory and quarantines/conflicts rather than deletingdata. Existing10101/18101services must not be reconfigured implicitly.

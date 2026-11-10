@@ -1,0 +1,14 @@
+{
+  "path": "D:\\WSRTD_PR3_Test_20261010\\releases\\a2401ca\\Binance\\sender.py",
+  "sha256": "3c284c0cfae0365b1f10cb43b61c693f6dfe96730cb0dcc8d51da1703d339e66",
+  "routes": [
+    {
+      "line": 534,
+      "text": "    p.add_argument('--public-ws', default='wss://fstream.binance.com/public/stream')"
+    },
+    {
+      "line": 536,
+      "text": "    p.add_argument('--ws', default='wss://fstream.binance.com/market/stream')"
+    }
+  ]
+}

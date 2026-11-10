@@ -1,0 +1,20 @@
+{
+  "passed": false,
+  "tests": 18,
+  "failures": [
+    [
+      "test_timeout_cleanup (__main__.Edges.test_timeout_cleanup)",
+      "Traceback (most recent call last):\n  File \"D:\\WSRTD_N1_DATA_PLUGIN_FORMING_R5\\independent\\test_socket.py\", line 33, in test_timeout_cleanup\n    self.assertLess(time.monotonic()-start,1.5);self.assertFalse(b.sockets);self.assertEqual(s.count,1)\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 1.608999999705702 not less than 1.5\n"
+    ]
+  ],
+  "source_hashes": {
+    "src\\admission.py": "ee40db4bf60a2bc7fc327a650f7817ddf43175538f3419f4c575bcbbf29b6bf1",
+    "src\\controller.py": "c4d41b3430a2a55bc7c789cdd06f089be55a0da07e7cc46d0cb54a2245e21bee",
+    "src\\custody.py": "e9ee5f5b7f7bdae205d2d2d917d0196f50fd77d7410900b63bc65fd476cfe0c6",
+    "src\\fixture_pipe.py": "113f7156dab536066b571ce47de7da533d3c976145aab34a48ad16877acf9d4b",
+    "src\\handoff.py": "5b5dfc2c4be02478ded7978a24dde3322d7ecf1984dc30e472bd27547ad07d4a",
+    "src\\network.py": "6befa16e3bf778d957fdaed73174bc42e138ce1111254af9f6e7c0b0c7085449"
+  },
+  "external_requests": 0,
+  "production_changes": 0
+}
