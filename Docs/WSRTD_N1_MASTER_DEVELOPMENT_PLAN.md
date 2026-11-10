@@ -1,6 +1,6 @@
 # WSRTD N1 — Master Development and Acceptance Plan
 
-**Revision:** R1 (2026-11-10)  
+**Revision:** R2 (2026-11-11; R12 status incorporation)  
 **Document state:** Proposed for review; NOT an implementation, test approval, production release, or operator execution authorization  
 **Repository:** dreadmastah/Rtd_Ws_AB_plugin  
 **Scope:** Independently owned N1 native AmiBroker data-plugin line and its genuine Binance USD-M USDT-perpetual data pipeline  
@@ -19,8 +19,8 @@ The N1 native owned-plugin development line is distinct from the separate legacy
 ## 2. Evidence hierarchy, custody, and status
 
 1. **Independently verified archive:** Branch archive/wsrtd-n1-data-plugin-r1-r8 at commit fdbf6a29190dbe86d98cfbac8082a7403fee1b53. Archive contains 421 files, including 416 inventoried artifacts; all 404 available original R2–R8 manifest entries were verified at archive creation. R1 had no original manifest. Public-archive exclusions are documented in wsrtd_n1/data_plugin_forming/ARCHIVE_INVENTORY.json. The archive is historical and must remain unchanged.
-2. **Local successor evidence not included in that archive:** R9, R10, and R11 were reported with local artifacts and dispositions in their respective D:\WSRTD_N1_DATA_PLUGIN_FORMING_R9, R10, and R11 folders. These are not represented here as committed GitHub source or a remote-integrity verification of those local folders.
-3. **R12:** Proposed successor task for native-session lifecycle and recovery; no R12 execution or PASS is asserted in this plan.
+2. **Local successor evidence not included in that archive:** R9, R10, R11 and R12 were reported with local artifacts/dispositions in their respective D:\WSRTD_N1_DATA_PLUGIN_FORMING_R9, R10, R11 and R12 folders. R12_FINAL_DISPOSITION.json and R12_INDEPENDENT_FINAL_REVIEW.json were supplied to the review conversation; this is not independent on-machine verification of all local R12 artifacts nor a GitHub source/archive publication.
+3. **R13:** Proposed successor task for scoped crash/race and restart writer-fencing closure, with the R12 independent review completed or findings carried forward; no R13 execution or PASS is asserted in this plan.
 4. **Future results:** Incorporate only exact completed receipts, source/dll hashes, independent review verdicts, and applicable operator approvals. Do not rewrite historical dispositions.
 
 **Current governing readiness:** STORAGE_CUSTODY=BLOCKED; PHASE_A_AUTHORIZATION=NOT_GRANTED; GENUINE_BINANCE_RECEIPT=NOT_EXECUTED; ACTUAL_AMIBROKER_CHART_ACCEPTANCE=NOT_EXECUTED; PRODUCTION_READY=false.
@@ -36,25 +36,26 @@ The N1 native owned-plugin development line is distinct from the separate legacy
 | R9 | Original directory-rename defect corrected; competing-process filesystem and HELD tests passed in scoped cases | SQLite main/WAL/SHM lifecycle custody and reparse-race/failure integration blocked |
 | R10 | Actual reparse mutation exercised; 5 ordinary WAL/FULL crash baselines reported passed | No qualified integrated SQLite VFS; final small correction needed independent review |
 | R11 | Distinct native SQLite DLL and Python adapter built; WAL/FULL writes, reads, checkpoint reached | Second custody session failed with root custody winerror=0; root release, reopen, crash recovery, fencing, 24-case matrix and final review incomplete |
-| R12 — proposed | Correct second-session error reporting, registration and root-release lifetimes; verify actual clean reopen, crash recovery and successor fencing | Not executed; independently review exact final source and receipts |
+| R12 | Repeated-session defect corrected; 11 author-reported transaction/readback cases, 12 lifecycle cycles and four crash-recovery cases; active-resource root release returned SQLITE_BUSY=5; R11 integrity and test-bound hashes reported verified | BLOCKED_R12: checkpoint/release crash, pending-open/partial-cleanup races, restart identity/stale-writer authority, full integrated 24-case matrix and symlink qualification incomplete. Independent review REVIEW_PENDING (usage limit). DLL SHA256 006503f7c68471c13cbeebf164352614e46a130cf2a8b5b58030a5e672eea50a |
+| R13 — proposed | Focus on remaining crash/release races, restart authority, stale-writer fencing, integrated VFS qualification and independent review, preserving R12 passing behavior | Not executed; no acceptance or authorization implied |
 
 The original R9 mandatory matrix contains 24 cases. Earlier component PASS results do **not** qualify the fully integrated database/VFS cases. R10's integrated 24-case matrix remained unqualified. Symbolic-link substitution was blocked by WinError 1314; lack of privilege is not a passing test.
 
-## 4. Immediate engineering gate — R12 and storage closure
+## 4. Immediate engineering gate — R13 and storage closure
 
-First resolve the R11 second-session failure through the **actual** native SQLite DLL/Python adapter. Differentiate the native return code and state machine from Windows GetLastError, SQLite primary/extended result codes, and Python exceptions. WinError 0 alone does not identify the root cause.
+R12 corrected the repeated-session failure in the actual native SQLite DLL/Python adapter. Recorded author-executed work covered clean reopen, 12 lifecycle cycles, 11 transaction/readback cases, and four crash-recovery cases (open, uncommitted, committed WAL, after checkpoint). Root release with active resources returned SQLITE_BUSY=5. These are **scoped technical results**, not a complete integrated custody PASS or independent review approval.
 
-Acceptance must demonstrate:
+Next, preserve the exact R12 test-bound source and DLL identities while investigating and qualifying:
 
-- All active native SQLite main DB, WAL and SHM resources are tracked and bound to the custody generation; release is impossible while dependent resources or operations remain active.
-- Correct VFS registration, root acquisition, SQLite connection lifecycle, SHM unmap, handle cleanup and repeatable acquire/release behavior.
-- Successful session 1 commit/checkpoint/close followed by session 2 reopen/read/commit/close against the exact same authorized physical identity.
-- Actual crash/restart recovery, immutable finalized history, writer exclusivity, stale-owner fencing, deterministic fault tests and no redirection outside the approved directory.
-- Continued WAL/FULL durability and concurrent authorized reads; all applicable R9/R10 adversarial tests requalified against the integrated adapter.
-- Independent reviewer approval bound to exact corrected source/DLL hashes. Interrupted review remains REVIEW_PENDING.
-- Permission-limited symbolic-link case remains explicitly blocked unless independently qualified without unapproved machine-security changes.
+- Crash **during** checkpoint and crash **during** root/session release (not merely *after* checkpoint).
+- Deterministically synchronized pending-open versus root-release, and partial-cleanup versus successor-acquire races.
+- Durable restart authority, physical object identity, exclusive writer epoch/ownership, stale process and stale lease rejection, and confirmed successor writes.
+- SQLite main database, WAL and SHM full-lifecycle operation under the physical custody VFS, including cross-process recovery and no escaped writes.
+- The complete inherited 24-case mandatory integrated matrix; do not convert earlier component-only PASS to integrated PASS.
+- Symbolic-link substitution remains BLOCKED_PRIVILEGE under WinError 1314 until safely and independently executed; no machine privilege/security changes are pre-authorized.
+- Obtain independent review of the exact final test-bound source/DLL and results. R12's reviewer stopped due to a usage limit; REVIEW_PENDING must not be represented as approval.
 
-A scoped R12 PASS, if achieved, does **not** grant Phase A. Any outstanding admission, full-prefix, producer/receiver, or 24-case qualification needed for the selected pilot must be closed first. Follow the exact future review and operator authorization process.
+A scoped R13 technical PASS, if achieved, does **not** grant Phase A. Any remaining source/admission, full-prefix, producer/receiver, required test or operator-approval gate must close before any live experiment. The next task should prioritize remaining specific failures rather than rerunning completed R12 cases without source invalidation.
 
 ## 5. Phase A — first genuine Binance source receipt (separate approval)
 
@@ -151,10 +152,10 @@ Plan and independently review:
 
 ## 10. Gate ledger for Codex and reviewers
 
-| Gate | Required outcome | Status on 2026-11-10 |
+| Gate | Required outcome | Status on 2026-11-11 |
 | --- | --- | --- |
 | G0 — Archived lineage | Preserve R1–R8 and exact evidence | ARCHIVED; production proof absent |
-| G1 — Storage/VFS custody | Root/session lifetime, WAL/SHM, reopen, crash, fencing, integrated matrix, review | BLOCKED_R11; R12 proposed |
+| G1 — Storage/VFS custody | Root/session lifetime, WAL/SHM, reopen, crash, fencing, integrated matrix, review | BLOCKED_R12; R13 proposed; independent review pending |
 | G2 — Phase A preauthorization | Exact HELD manifest, custody, endpoint/budget and operator approval | NOT_GRANTED |
 | G3 — Phase A | Genuine BTCUSDT isolated capture and independent receipts | NOT_EXECUTED |
 | G4 — Phase B | Genuine BTCUSDT + ETHUSDT native AmiBroker end-to-end | NOT_EXECUTED |
@@ -167,7 +168,7 @@ Keep **technical completion**, **independent review**, **operator execution auth
 
 For each new milestone, preserve exact TASK_ID, predecessor integrity, Git commit/source/DLL hashes, changed-file inventory, test matrix, independent review, Windows CMD verification, environment bindings and an explicit PASS/PARTIAL/BLOCKED disposition. State every unsupported or permission-limited test explicitly. Do not hide blockers by reducing the denominator or promoting component PASS to integrated PASS.
 
-Maintain this master plan via reviewed documentation pull requests. Do not edit the frozen R1–R8 archive to retrofit newer results. Update the milestone ledger with R12 and later results only when exact evidence is available; note whether the underlying local packages were independently verified or subsequently archived on GitHub.
+Maintain this master plan via reviewed documentation pull requests. Do not edit the frozen R1–R8 archive to retrofit newer results. Update the milestone ledger with R13 and later results only when exact evidence is available; note whether the underlying local packages were independently verified or subsequently archived on GitHub.
 
 ## 12. Source and review pointers
 
@@ -176,6 +177,6 @@ Maintain this master plan via reviewed documentation pull requests. Do not edit 
 - Archived R1–R8 status: wsrtd_n1/data_plugin_forming/STATUS.md on branch archive/wsrtd-n1-data-plugin-r1-r8.
 - Archived R8 Phase A proposal: wsrtd_n1/data_plugin_forming/R8/R8_BTCUSDT_PHASE_A_LIVE_SOURCE_PILOT.md (archive branch).
 - Archived R8 Phase B proposal: wsrtd_n1/data_plugin_forming/R8/R8_BTCUSDT_PHASE_B_NATIVE_HOST_PILOT.md (archive branch).
-- Local reported successor dispositions: D:\WSRTD_N1_DATA_PLUGIN_FORMING_R9\R9_FINAL_DISPOSITION.json; D:\WSRTD_N1_DATA_PLUGIN_FORMING_R10\R10_FINAL_DISPOSITION.json; D:\WSRTD_N1_DATA_PLUGIN_FORMING_R11\R11_FINAL_DISPOSITION.json. These paths are operator-local evidence references, not files automatically present in GitHub.
+- Local reported successor dispositions: D:\WSRTD_N1_DATA_PLUGIN_FORMING_R9\R9_FINAL_DISPOSITION.json; D:\WSRTD_N1_DATA_PLUGIN_FORMING_R10\R10_FINAL_DISPOSITION.json; D:\WSRTD_N1_DATA_PLUGIN_FORMING_R11\R11_FINAL_DISPOSITION.json; D:\WSRTD_N1_DATA_PLUGIN_FORMING_R12\R12_FINAL_DISPOSITION.json; D:\WSRTD_N1_DATA_PLUGIN_FORMING_R12\R12_INDEPENDENT_FINAL_REVIEW.json. These paths are operator-local evidence references, not files automatically present in GitHub.
 
 **Non-negotiable operator decision:** After a successful two-symbol native pilot, attempt to qualify **all** eligible contracts directly; do not insert mandatory 13/100/500-symbol acceptance stages. Safety, capacity, independent review and explicit execution gates still apply.
